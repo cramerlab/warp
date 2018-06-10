@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="utf-8"?>
+<xs:schema xmlns:tns="http://tempuri.org/" elementFormDefault="qualified" targetNamespace="http://tempuri.org/" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:import schemaLocation="http://analytics.multiparticle.com/WarpAnalytics.svc?xsd=xsd2" namespace="http://schemas.datacontract.org/2004/07/System" />
+  <xs:import schemaLocation="http://analytics.multiparticle.com/WarpAnalytics.svc?xsd=xsd1" namespace="http://schemas.microsoft.com/2003/10/Serialization/" />
+  <xs:element name="GetLatestVersion">
+    <xs:complexType>
+      <xs:sequence />
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="GetLatestVersionResponse">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element xmlns:q1="http://schemas.datacontract.org/2004/07/System" minOccurs="0" name="GetLatestVersionResult" nillable="true" type="q1:Version" />
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="LogProcessingMotion">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element xmlns:q2="http://schemas.microsoft.com/2003/10/Serialization/" minOccurs="0" name="secret" type="q2:guid" />
+        <xs:element minOccurs="0" name="dateTime" nillable="true" type="xs:string" />
+        <xs:element minOccurs="0" name="pixelX" type="xs:float" />
+        <xs:element minOccurs="0" name="pixelY" type="xs:float" />
+        <xs:element minOccurs="0" name="pixelAngle" type="xs:float" />
+        <xs:element minOccurs="0" name="binTimes" type="xs:float" />
+        <xs:element minOccurs="0" name="useGain" type="xs:boolean" />
+        <xs:element minOccurs="0" name="width" type="xs:int" />
+        <xs:element minOccurs="0" name="height" type="xs:int" />
+        <xs:element minOccurs="0" name="nframes" type="xs:int" />
+        <xs:element minOccurs="0" name="rangeMin" type="xs:float" />
+        <xs:element minOccurs="0" name="rangeMax" type="xs:float" />
+        <xs:element minOccurs="0" name="bfactor" type="xs:int" />
+        <xs:element minOccurs="0" name="gridWidth" type="xs:int" />
+        <xs:element minOccurs="0" name="gridHeight" type="xs:int" />
+        <xs:element minOccurs="0" name="gridDepth" type="xs:int" />
+        <xs:element minOccurs="0" name="meanFrameShift" type="xs:float" />
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="LogProcessingMotionResponse">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element minOccurs="0" name="LogProcessingMotionResult" nillable="true" type="xs:string" />
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="LogProcessingCTF">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element xmlns:q3="http://schemas.microsoft.com/2003/10/Serialization/" minOccurs="0" name="secret" type="q3:guid" />
+        <xs:element minOccurs="0" name="dateTime" nillable="true" type="xs:string" />
+        <xs:element minOccurs="0" name="pixelX" type="xs:float" />
+        <xs:element minOccurs="0" name="pixelY" type="xs:float" />
+        <xs:element minOccurs="0" name="pixelAngle" type="xs:float" />
+        <xs:element minOccurs="0" name="binTimes" type="xs:float" />
+        <xs:element minOccurs="0" name="useGain" type="xs:boolean" />
+        <xs:element minOccurs="0" name="width" type="xs:int" />
+        <xs:element minOccurs="0" name="height" type="xs:int" />
+        <xs:element minOccurs="0" name="nframes" type="xs:int" />
+        <xs:element minOccurs="0" name="window" type="xs:int" />
+        <xs:element minOccurs="0" name="rangeMin" type="xs:float" />
+        <xs:element minOccurs="0" name="rangeMax" type="xs:float" />
+        <xs:element minOccurs="0" name="voltage" type="xs:int" />
+        <xs:element minOccurs="0" name="cs" type="xs:float" />
+        <xs:element minOccurs="0" name="cc" type="xs:float" />
+        <xs:element minOccurs="0" name="illumAngle" type="xs:float" />
+        <xs:element minOccurs="0" name="energySpread" type="xs:float" />
+        <xs:element minOccurs="0" name="thickness" type="xs:float" />
+        <xs:element minOccurs="0" name="amplitude" type="xs:float" />
+        <xs:element minOccurs="0" name="doPhase" type="xs:boolean" />
+        <xs:element minOccurs="0" name="doIce" type="xs:boolean" />
+        <xs:element minOccurs="0" name="useMovieSum" type="xs:boolean" />
+        <xs:element minOccurs="0" name="zmin" type="xs:float" />
+        <xs:element minOccurs="0" name="zmax" type="xs:float" />
+        <xs:element minOccurs="0" name="gridWidth" type="xs:int" />
+        <xs:element minOccurs="0" name="gridHeight" type="xs:int" />
+        <xs:element minOccurs="0" name="gridDepth" type="xs:int" />
+        <xs:element minOccurs="0" name="defocus" type="xs:float" />
+        <xs:element minOccurs="0" name="astigmatism" type="xs:float" />
+        <xs:element minOccurs="0" name="astigmatismAngle" type="xs:float" />
+        <xs:element minOccurs="0" name="phase" type="xs:float" />
+        <xs:element minOccurs="0" name="resolution" type="xs:float" />
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="LogProcessingCTFResponse">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element minOccurs="0" name="LogProcessingCTFResult" nillable="true" type="xs:string" />
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="LogProcessingBoxNet">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element xmlns:q4="http://schemas.microsoft.com/2003/10/Serialization/" minOccurs="0" name="secret" type="q4:guid" />
+        <xs:element minOccurs="0" name="dateTime" nillable="true" type="xs:string" />
+        <xs:element minOccurs="0" name="version" type="xs:int" />
+        <xs:element minOccurs="0" name="diameter" type="xs:int" />
+        <xs:element minOccurs="0" name="minimumScore" type="xs:float" />
+        <xs:element minOccurs="0" name="minimumDistance" type="xs:float" />
+        <xs:element minOccurs="0" name="doExport" type="xs:boolean" />
+        <xs:element minOccurs="0" name="exportBoxSize" type="xs:int" />
+        <xs:element minOccurs="0" name="exportInvert" type="xs:boolean" />
+        <xs:element minOccurs="0" name="exportNormalize" type="xs:boolean" />
+        <xs:element minOccurs="0" name="doMasking" type="xs:boolean" />
+        <xs:element minOccurs="0" name="nparticles" type="xs:int" />
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="LogProcessingBoxNetResponse">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element minOccurs="0" name="LogProcessingBoxNetResult" nillable="true" type="xs:string" />
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="LogEnvironment">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element xmlns:q5="http://schemas.microsoft.com/2003/10/Serialization/" minOccurs="0" name="secret" type="q5:guid" />
+        <xs:element minOccurs="0" name="dateTime" nillable="true" type="xs:string" />
+        <xs:element minOccurs="0" name="version" nillable="true" type="xs:string" />
+        <xs:element minOccurs="0" name="cpuCores" type="xs:int" />
+        <xs:element minOccurs="0" name="cpuClock" type="xs:int" />
+        <xs:element minOccurs="0" name="cpuMemory" type="xs:int" />
+        <xs:element minOccurs="0" name="gpuCores" type="xs:int" />
+        <xs:element minOccurs="0" name="gpuMemory" type="xs:int" />
+        <xs:element minOccurs="0" name="gpuName" nillable="true" type="xs:string" />
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="LogEnvironmentResponse">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element minOccurs="0" name="LogEnvironmentResult" nillable="true" type="xs:string" />
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>

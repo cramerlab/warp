@@ -1,0 +1,69 @@
+﻿<UserControl x:Class="Warp.Controls.DialogTomoParticleExport"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:m="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro"
+             xmlns:s="clr-namespace:Sparta;assembly=WarpControls"
+             xmlns:local="clr-namespace:Warp.Controls"
+             mc:Ignorable="d">
+    <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
+        <TextBlock Text="Export sub-tomograms" FontSize="24" Margin="0,20" />
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="30" />
+                <RowDefinition Height="30" />
+                <RowDefinition Height="30" />
+                <RowDefinition Height="30" />
+                <RowDefinition Height="15" />
+                <RowDefinition Height="30" />
+                <RowDefinition Height="30" />
+                <RowDefinition Height="15" />
+                <RowDefinition Height="30" />
+                <RowDefinition Height="15" />
+                <RowDefinition Height="30" />
+                <RowDefinition Height="30" />
+                <RowDefinition Height="30" />
+                <RowDefinition Height="15" />
+                <RowDefinition Height="30" />
+                <RowDefinition Height="15" />
+                <RowDefinition Height="30" />
+                <RowDefinition Height="30" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <CheckBox Name="CheckOneInputPerItem" IsChecked="{Binding Tasks.InputOnePerItem}" Content="One input file per tilt series" FontSize="18" />
+            <s:ValueSlider Name="SliderImportAngPix"  Grid.Row="1" Value="{Binding Tasks.InputPixelSize, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="Coordinates use {0} Å/px" MinValue="0.01" MaxValue="1000" StepSize="0.0001" FontSize="18" />
+            <CheckBox Name="CheckNormalizedCoords" Grid.Row="2" IsChecked="{Binding Tasks.TomoSubReconstructNormalizedCoords}" Content="Coordinates are normalized" FontSize="18" />
+            <s:ValueSlider Name="TextPixelSizeExport"  Grid.Row="3" Value="{Binding Tasks.TomoSubReconstructPixel, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="Output will be scaled to {0} Å/px" MinValue="0.01" MaxValue="1000" StepSize="0.0001" FontSize="18" />
+
+            <s:ValueSlider Name="SliderBoxSize" Grid.Row="5" Value="{Binding Tasks.TomoSubReconstructBox, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="Box size is {0} px" MinValue="2" MaxValue="10000" StepSize="2" FontSize="18" />
+            <s:ValueSlider Name="SliderParticleDiameter" Grid.Row="6" Value="{Binding Tasks.TomoSubReconstructDiameter, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="Particle diameter is {0} Å" MinValue="2" MaxValue="10000" StepSize="1" FontSize="18" />
+
+            <CheckBox Name="CheckPrerotate" Grid.Row="8" IsChecked="{Binding Tasks.TomoSubReconstructPrerotated}" Content="Pre-rotate particles" FontSize="18" />
+
+            <CheckBox Name="CheckInvert" Grid.Row="10" IsChecked="{Binding Tasks.InputInvert}" Content="Invert contrast" FontSize="18" />
+            <CheckBox Name="CheckNormalize" Grid.Row="11" IsChecked="{Binding Tasks.InputNormalize}" Content="Normalize input images" FontSize="18" />
+            <CheckBox Name="CheckPreflip" Grid.Row="12" IsChecked="{Binding Tasks.OutputNormalize}" Content="Normalize output volumes" FontSize="18" />
+
+            <CheckBox Name="CheckRelative" Grid.Row="14" IsChecked="{Binding Tasks.UseRelativePaths}" Content="Make paths relative to STAR" FontSize="18" />
+
+            <CheckBox Name="CheckFilter" Grid.Row="16" IsChecked="{Binding Tasks.IncludeFilteredOut}" Content="Include items outside of filter ranges" FontSize="18" />
+            <CheckBox Name="CheckManual" Grid.Row="17" IsChecked="{Binding Tasks.IncludeUnselected}" Content="Include manually excluded items" FontSize="18" />
+
+            <StackPanel Grid.Row="18" Orientation="Vertical">
+                <local:NyanBar x:Name="ProgressWrite" VerticalAlignment="Top" HorizontalAlignment="Stretch" Margin="0,12,0,8" Visibility="Collapsed" />
+
+                <StackPanel Name="PanelButtons" Orientation="Horizontal" HorizontalAlignment="Right" Height="50">
+                    <Button Name="ButtonWrite" Content="EXPORT" FontSize="20" FontWeight="Medium" Foreground="CornflowerBlue" VerticalAlignment="Bottom" Style="{StaticResource ChromelessButtonStyle}" Click="ButtonWrite_OnClick" />
+                    <Button Name="ButtonCancel" Content="CANCEL" FontSize="20" FontWeight="Medium" Foreground="CornflowerBlue" VerticalAlignment="Bottom" Margin="24,0,0,0" Style="{StaticResource ChromelessButtonStyle}" Click="ButtonCancel_OnClick" />
+                </StackPanel>
+
+                <StackPanel Name="PanelRemaining" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Bottom" Visibility="Collapsed">
+                    <TextBlock Name="TextRemaining" Text="--:--:--" Foreground="Black" FontSize="24" VerticalAlignment="Center" />
+                    <Button Name="ButtonAbort" Content="✖" FontSize="18" FontWeight="Medium" Foreground="Red" Margin="6,0,0,0" VerticalAlignment="Center" Style="{StaticResource ChromelessButtonStyle}" Click="ButtonAbort_OnClick" />
+                </StackPanel>
+            </StackPanel>
+        </Grid>
+        <StackPanel Height="30"/>
+    </StackPanel>
+</UserControl>

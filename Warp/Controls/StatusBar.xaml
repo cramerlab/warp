@@ -1,0 +1,88 @@
+﻿<UserControl x:Class="Warp.Controls.StatusBar"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:m="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro"
+             xmlns:local="clr-namespace:Warp.Controls"
+             mc:Ignorable="d" 
+             d:DesignHeight="300" d:DesignWidth="300">
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <local:InverseBooleanConverter x:Key="inverseBooleanConverter" />
+        </ResourceDictionary>
+    </UserControl.Resources>
+    <Grid Background="Transparent" PreviewMouseWheel="MainGrid_OnPreviewMouseWheel" MouseLeftButtonUp="MainGrid_OnMouseLeftButtonUp">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="20" />
+            <RowDefinition Height="12" />
+            <RowDefinition Height="6" />
+            <RowDefinition />
+        </Grid.RowDefinitions>
+        <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <m:MetroProgressBar Name="ProgressDiscovery" IsIndeterminate="True" Margin="0,0,10,0" Visibility="Hidden" />
+            <TextBlock Grid.Column="1" Name="TextNumberProcessed" HorizontalAlignment="Right" Margin="0,0,0,3" />
+        </Grid>
+        <Popup Name="PopupThumbnail" Placement="Top" AllowsTransparency="True">
+            <StackPanel Orientation="Horizontal" Margin="12">
+                <StackPanel.Effect>
+                    <DropShadowEffect BlurRadius="12" ShadowDepth="0" Opacity="1" Color="Black" />
+                </StackPanel.Effect>
+                
+                <Image Name="ImageThumbnail" Margin="0,0,10,0" />
+                
+                <StackPanel Orientation="Vertical">
+                    <TextBlock Name="IndicatorCTF" Text="CTF" FontSize="18" FontWeight="Bold" />
+                    <TextBlock Name="IndicatorMotion" Text="Motion" FontSize="18" FontWeight="Bold" />
+                    <TextBlock Name="IndicatorPicking" Text="Picking" FontSize="18" FontWeight="Bold" />
+                    <TextBlock Name="IndicatorExport" Text="Export" FontSize="18" FontWeight="Bold" />
+                </StackPanel>
+            </StackPanel>
+        </Popup>
+        <Canvas Grid.Row="1" Name="PanelSegments" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" SnapsToDevicePixels="False" MouseMove="PanelSegments_OnMouseMove" MouseLeave="PanelSegments_OnMouseLeave" />
+        <Canvas Grid.Row="1" Name="PanelSegmentHighlight" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" SnapsToDevicePixels="True" IsHitTestVisible="False" />
+        <Path Grid.Row="2" Name="PathPosition" HorizontalAlignment="Left" VerticalAlignment="Top" Width="8" Height="4" Stretch="Fill" Fill="{DynamicResource BlackBrush}" Data="F1 M 27.1669,36.3317L 29.7664,33.3319L 24.5674,33.3319L 27.1669,36.3317 Z "/>
+        <Path Grid.Row="2" Name="PathHighlightPosition" HorizontalAlignment="Left" VerticalAlignment="Top" Width="8" Height="4" Stretch="Fill" IsHitTestVisible="False" Visibility="Hidden" Fill="{DynamicResource BlackBrush}" Data="F1 M 27.1669,36.3317L 29.7664,33.3319L 24.5674,33.3319L 27.1669,36.3317 Z "/>
+        <CheckBox Grid.Row="3" 
+                  Name="CheckCurrentName" 
+                  IsChecked="{Binding ActiveItem.UnselectManual, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource inverseBooleanConverter}, Mode=TwoWay}" 
+                  IsThreeState="True"
+                  ToolTip="{Binding ActiveItem.Path, RelativeSource={RelativeSource AncestorType=UserControl}}" 
+                  HorizontalAlignment="Left" 
+                  VerticalAlignment="Top"
+                  Click="CheckCurrentName_OnClick">
+            <CheckBox.Effect>
+                <BlurEffect x:Name="BlurCurrentName" RenderingBias="Quality" KernelType="Gaussian" Radius="0" />
+            </CheckBox.Effect>
+            <TextBlock Name="TextCurrentName">
+                <TextBlock.TextDecorations>
+                    <TextDecoration Location="Underline" PenOffset="4">
+                        <TextDecoration.Pen>
+                            <Pen x:Name="PenCurrentName" Thickness="6" />
+                        </TextDecoration.Pen>
+                    </TextDecoration>
+                </TextBlock.TextDecorations>
+            </TextBlock>
+        </CheckBox>
+        <CheckBox Grid.Row="3" 
+                  Name="CheckHighlightCurrentName" 
+                  IsThreeState="True"
+                  HorizontalAlignment="Left" 
+                  VerticalAlignment="Top"
+                  Visibility="Hidden">
+            <TextBlock Name="TextHighlightCurrentName">
+                <TextBlock.TextDecorations>
+                    <TextDecoration Location="Underline" PenOffset="4">
+                        <TextDecoration.Pen>
+                            <Pen x:Name="PenHighlightCurrentName" Thickness="6" />
+                        </TextDecoration.Pen>
+                    </TextDecoration>
+                </TextBlock.TextDecorations>
+            </TextBlock>
+        </CheckBox>
+    </Grid>
+</UserControl>

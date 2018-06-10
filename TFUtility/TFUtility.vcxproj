@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>15.0</VCProjectVersion>
+    <ProjectGuid>{E6CCC2DE-6843-483F-BC4C-631FD448DBBD}</ProjectGuid>
+    <RootNamespace>TFUtility</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0.16299.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v141</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v141</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <OutDir>$(SolutionDir)bin\</OutDir>
+    <IncludePath>$(TENSORFLOW_LIBS)\external\eigen_archive;$(TENSORFLOW_LIBS)\..;$(TENSORFLOW_LIBS)\..\third_party\eigen3;$(TENSORFLOW_LIBS)\protobuf\src\protobuf\src;$(TENSORFLOW_LIBS)\external\nsync\public;$(TENSORFLOW_LIBS);$(TENSORFLOW_LIBS)\external\zlib_archive;$(TENSORFLOW_LIBS)\external\gif_archive\giflib-5.1.4;$(TENSORFLOW_LIBS)\external\png_archive;$(TENSORFLOW_LIBS)\external\jpeg_archive;$(TENSORFLOW_LIBS)\external\lmdb;$(TENSORFLOW_LIBS)\gemmlowp\src\gemmlowp;$(TENSORFLOW_LIBS)\jsoncpp\src\jsoncpp;$(TENSORFLOW_LIBS)\external\farmhash_archive;$(TENSORFLOW_LIBS)\external\farmhash_archive\util;$(TENSORFLOW_LIBS)\external\highwayhash;$(TENSORFLOW_LIBS)\cub\src\cub;$(TENSORFLOW_LIBS)\re2\install\include;$(TENSORFLOW_LIBS)\external\sqlite;$(TENSORFLOW_LIBS)\grpc\src\grpc\include;$(CUDA_PATH)\include;$(TENSORFLOW_LIBS)\snappy\src\snappy;$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
+    <TargetName>libtensorflow</TargetName>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <OutDir>$(SolutionDir)Release\</OutDir>
+    <IncludePath>$(TENSORFLOW_LIBS)\external\eigen_archive;$(TENSORFLOW_LIBS)\..;$(TENSORFLOW_LIBS)\..\third_party\eigen3;$(TENSORFLOW_LIBS)\protobuf\src\protobuf\src;$(TENSORFLOW_LIBS)\external\nsync\public;$(TENSORFLOW_LIBS);$(TENSORFLOW_LIBS)\external\zlib_archive;$(TENSORFLOW_LIBS)\external\gif_archive\giflib-5.1.4;$(TENSORFLOW_LIBS)\external\png_archive;$(TENSORFLOW_LIBS)\external\jpeg_archive;$(TENSORFLOW_LIBS)\external\lmdb;$(TENSORFLOW_LIBS)\gemmlowp\src\gemmlowp;$(TENSORFLOW_LIBS)\jsoncpp\src\jsoncpp;$(TENSORFLOW_LIBS)\external\farmhash_archive;$(TENSORFLOW_LIBS)\external\farmhash_archive\util;$(TENSORFLOW_LIBS)\external\highwayhash;$(TENSORFLOW_LIBS)\cub\src\cub;$(TENSORFLOW_LIBS)\re2\install\include;$(TENSORFLOW_LIBS)\external\sqlite;$(TENSORFLOW_LIBS)\grpc\src\grpc\include;$(CUDA_PATH)\include;$(TENSORFLOW_LIBS)\snappy\src\snappy;$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
+    <TargetName>libtensorflow</TargetName>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <SDLCheck>true</SDLCheck>
+      <ConformanceMode>true</ConformanceMode>
+      <PreprocessorDefinitions>COMPILER_MSVC;NOMINMAX;PLATFORM_WINDOWS;_SCL_SECURE_NO_WARNINGS;_WINDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+    </ClCompile>
+    <Link>
+      <AdditionalDependencies>$(TENSORFLOW_LIBS)\tf_c.dir\Release\tf_c.lib;$(TENSORFLOW_LIBS)\tf_cc.dir\Release\tf_cc.lib;$(TENSORFLOW_LIBS)\tf_cc_ops.dir\Release\tf_cc_ops.lib;$(TENSORFLOW_LIBS)\tf_cc_framework.dir\Release\tf_cc_framework.lib;$(TENSORFLOW_LIBS)\tf_core_cpu.dir\Release\tf_core_cpu.lib;$(TENSORFLOW_LIBS)\tf_core_direct_session.dir\Release\tf_core_direct_session.lib;$(TENSORFLOW_LIBS)\tf_core_framework.dir\Release\tf_core_framework.lib;$(TENSORFLOW_LIBS)\tf_core_kernels.dir\Release\tf_core_kernels.lib;$(TENSORFLOW_LIBS)\tf_core_lib.dir\Release\tf_core_lib.lib;$(TENSORFLOW_LIBS)\tf_core_ops.dir\Release\tf_core_ops.lib;$(TENSORFLOW_LIBS)\tf_cc_while_loop.dir\Release\tf_cc_while_loop.lib;$(TENSORFLOW_LIBS)\tf_stream_executor.dir\Release\tf_stream_executor.lib;$(TENSORFLOW_LIBS)\Release\tf_protos_cc.lib;$(TENSORFLOW_LIBS)\Release\tf_core_gpu_kernels.lib;$(TENSORFLOW_LIBS)\zlib\install\lib\zlibstatic.lib;$(TENSORFLOW_LIBS)\gif\install\lib\giflib.lib;$(TENSORFLOW_LIBS)\png\install\lib\libpng12_static.lib;$(TENSORFLOW_LIBS)\jpeg\install\lib\libjpeg.lib;$(TENSORFLOW_LIBS)\lmdb\install\lib\lmdb.lib;$(TENSORFLOW_LIBS)\jsoncpp\src\jsoncpp\src\lib_json\Release\jsoncpp.lib;$(TENSORFLOW_LIBS)\farmhash\install\lib\farmhash.lib;$(TENSORFLOW_LIBS)\fft2d\\src\lib\fft2d.lib;$(TENSORFLOW_LIBS)\highwayhash\install\lib\highwayhash.lib;$(TENSORFLOW_LIBS)\nsync\install\lib\nsync.lib;$(TENSORFLOW_LIBS)\protobuf\src\protobuf\Release\libprotobuf.lib;$(TENSORFLOW_LIBS)\re2\src\re2\Release\re2.lib;$(TENSORFLOW_LIBS)\sqlite\install\lib\sqlite.lib;$(TENSORFLOW_LIBS)\snappy\src\snappy\Release\snappy.lib;$(CUDA_PATH)\lib\x64\cudart_static.lib;$(CUDA_PATH)\lib\x64\cuda.lib;$(CUDA_PATH)\lib\x64\cublas.lib;$(CUDA_PATH)\lib\x64\cublas_device.lib;$(CUDA_PATH)\lib\x64\cufft.lib;$(CUDA_PATH)\lib\x64\curand.lib;$(CUDA_PATH)\extras\CUPTI\libx64\cupti.lib;$(CUDA_PATH)\lib\x64\cusolver.lib;$(CUDA_PATH)\lib\x64\cudnn.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalOptions>/machine:x64
+/ignore:4049 /ignore:4197 /ignore:4217 /ignore:4221
+/WHOLEARCHIVE:tf_cc.lib
+/WHOLEARCHIVE:tf_cc_framework.lib
+/WHOLEARCHIVE:tf_cc_ops.lib
+/WHOLEARCHIVE:tf_core_cpu.lib
+/WHOLEARCHIVE:tf_core_direct_session.lib
+/WHOLEARCHIVE:tf_core_framework.lib
+/WHOLEARCHIVE:tf_core_kernels.lib
+/WHOLEARCHIVE:tf_core_lib.lib
+/WHOLEARCHIVE:tf_core_ops.lib  
+/WHOLEARCHIVE:tf_stream_executor.lib
+/WHOLEARCHIVE:libjpeg.lib %(AdditionalOptions)</AdditionalOptions>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Full</Optimization>
+      <SDLCheck>true</SDLCheck>
+      <ConformanceMode>true</ConformanceMode>
+      <PreprocessorDefinitions>COMPILER_MSVC;NOMINMAX;PLATFORM_WINDOWS;_SCL_SECURE_NO_WARNINGS;_WINDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+    </ClCompile>
+    <Link>
+      <AdditionalDependencies>$(TENSORFLOW_LIBS)\tf_c.dir\Release\tf_c.lib;$(TENSORFLOW_LIBS)\tf_cc.dir\Release\tf_cc.lib;$(TENSORFLOW_LIBS)\tf_cc_ops.dir\Release\tf_cc_ops.lib;$(TENSORFLOW_LIBS)\tf_cc_framework.dir\Release\tf_cc_framework.lib;$(TENSORFLOW_LIBS)\tf_core_cpu.dir\Release\tf_core_cpu.lib;$(TENSORFLOW_LIBS)\tf_core_direct_session.dir\Release\tf_core_direct_session.lib;$(TENSORFLOW_LIBS)\tf_core_framework.dir\Release\tf_core_framework.lib;$(TENSORFLOW_LIBS)\tf_core_kernels.dir\Release\tf_core_kernels.lib;$(TENSORFLOW_LIBS)\tf_core_lib.dir\Release\tf_core_lib.lib;$(TENSORFLOW_LIBS)\tf_core_ops.dir\Release\tf_core_ops.lib;$(TENSORFLOW_LIBS)\tf_cc_while_loop.dir\Release\tf_cc_while_loop.lib;$(TENSORFLOW_LIBS)\tf_stream_executor.dir\Release\tf_stream_executor.lib;$(TENSORFLOW_LIBS)\Release\tf_protos_cc.lib;$(TENSORFLOW_LIBS)\Release\tf_core_gpu_kernels.lib;$(TENSORFLOW_LIBS)\zlib\install\lib\zlibstatic.lib;$(TENSORFLOW_LIBS)\gif\install\lib\giflib.lib;$(TENSORFLOW_LIBS)\png\install\lib\libpng12_static.lib;$(TENSORFLOW_LIBS)\jpeg\install\lib\libjpeg.lib;$(TENSORFLOW_LIBS)\lmdb\install\lib\lmdb.lib;$(TENSORFLOW_LIBS)\jsoncpp\src\jsoncpp\src\lib_json\Release\jsoncpp.lib;$(TENSORFLOW_LIBS)\farmhash\install\lib\farmhash.lib;$(TENSORFLOW_LIBS)\fft2d\\src\lib\fft2d.lib;$(TENSORFLOW_LIBS)\highwayhash\install\lib\highwayhash.lib;$(TENSORFLOW_LIBS)\nsync\install\lib\nsync.lib;$(TENSORFLOW_LIBS)\protobuf\src\protobuf\Release\libprotobuf.lib;$(TENSORFLOW_LIBS)\re2\src\re2\Release\re2.lib;$(TENSORFLOW_LIBS)\sqlite\install\lib\sqlite.lib;$(TENSORFLOW_LIBS)\snappy\src\snappy\Release\snappy.lib;$(CUDA_PATH)\lib\x64\cudart_static.lib;$(CUDA_PATH)\lib\x64\cuda.lib;$(CUDA_PATH)\lib\x64\cublas.lib;$(CUDA_PATH)\lib\x64\cublas_device.lib;$(CUDA_PATH)\lib\x64\cufft.lib;$(CUDA_PATH)\lib\x64\curand.lib;$(CUDA_PATH)\extras\CUPTI\libx64\cupti.lib;$(CUDA_PATH)\lib\x64\cusolver.lib;$(CUDA_PATH)\lib\x64\cudnn.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalOptions>/machine:x64
+/ignore:4049 /ignore:4197 /ignore:4217 /ignore:4221
+/WHOLEARCHIVE:tf_cc.lib
+/WHOLEARCHIVE:tf_cc_framework.lib
+/WHOLEARCHIVE:tf_cc_ops.lib
+/WHOLEARCHIVE:tf_core_cpu.lib
+/WHOLEARCHIVE:tf_core_direct_session.lib
+/WHOLEARCHIVE:tf_core_framework.lib
+/WHOLEARCHIVE:tf_core_kernels.lib
+/WHOLEARCHIVE:tf_core_lib.lib
+/WHOLEARCHIVE:tf_core_ops.lib  
+/WHOLEARCHIVE:tf_stream_executor.lib
+/WHOLEARCHIVE:libjpeg.lib %(AdditionalOptions)</AdditionalOptions>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="graph.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Functions.h" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

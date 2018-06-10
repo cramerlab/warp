@@ -1,0 +1,45 @@
+﻿<UserControl x:Class="Warp.Controls.Sociology.SpeciesView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:local="clr-namespace:Warp.Controls.Sociology"
+             xmlns:sparta="clr-namespace:Sparta;assembly=WarpControls"
+             xmlns:warp="clr-namespace:Warp;assembly=WarpControls"
+             mc:Ignorable="d" 
+             d:DesignHeight="300" d:DesignWidth="300">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="256" />
+            <ColumnDefinition Width="256" />
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition />
+            <RowDefinition />
+            <RowDefinition />
+        </Grid.RowDefinitions>
+        <TextBlock Text="80S" FontSize="20" HorizontalAlignment="Center" />
+        <warp:VolumeRenderer Name="RendererMock1" Grid.Column="0" Grid.Row="1" Grid.RowSpan="2" Width="256" Height="256"/>
+        <StackPanel Grid.Column="1" Grid.Row="1" Orientation="Vertical">
+            <Button VerticalAlignment="Center" Style="{StaticResource HyperlinkLikeButton}">
+                <TextBlock FontSize="20">8.1 Å</TextBlock>
+            </Button>
+            <Button VerticalAlignment="Center" Style="{StaticResource HyperlinkLikeButton}">
+                <TextBlock FontSize="20">9449 particles</TextBlock>
+            </Button>
+            <sparta:ValueSlider Value="280" UpdateTrigger="PropertyChanged" FontSize="20" TextFormat="{}{0} Å radius" MinValue="2" MaxValue="16384" StepSize="2" />
+            <Button VerticalAlignment="Center" HorizontalAlignment="Left" Foreground="CornflowerBlue" Style="{StaticResource ChromelessButtonStyle}">
+                <TextBlock FontSize="20">CHANGE MASK</TextBlock>
+            </Button>
+            <Button VerticalAlignment="Center" HorizontalAlignment="Left" Foreground="CornflowerBlue" Style="{StaticResource ChromelessButtonStyle}">
+                <TextBlock FontSize="20">EXPORT PARTICLES</TextBlock>
+            </Button>
+            <Button VerticalAlignment="Center" HorizontalAlignment="Left" Foreground="CornflowerBlue" Style="{StaticResource ChromelessButtonStyle}">
+                <TextBlock FontSize="20">OPEN DIRECTORY</TextBlock>
+            </Button>
+        </StackPanel>
+        <Button Grid.Column="1" Grid.Row="2" VerticalAlignment="Center" Style="{StaticResource HyperlinkLikeButton}">
+            <TextBlock FontSize="20">➜ 2 sub-classes</TextBlock>
+        </Button>
+    </Grid>
+</UserControl>

@@ -1,0 +1,66 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <CudaCompile Include="Comparison.cu" />
+    <CudaCompile Include="CTF.cu" />
+    <CudaCompile Include="CubicGPU.cu" />
+    <CudaCompile Include="Deconv.cu" />
+    <CudaCompile Include="ParticleCTF.cu" />
+    <CudaCompile Include="ParticleMultiBody.cu" />
+    <CudaCompile Include="ParticleNMA.cu" />
+    <CudaCompile Include="ParticleShift.cu" />
+    <CudaCompile Include="ParticleSoftBody.cu" />
+    <CudaCompile Include="Polishing.cu" />
+    <CudaCompile Include="Raycast.cu" />
+    <CudaCompile Include="Shift.cu" />
+    <CudaCompile Include="TomoRefine.cu" />
+    <CudaCompile Include="Tools.cu" />
+    <CudaCompile Include="Backprojection.cu" />
+    <CudaCompile Include="BoxNet2.cu" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Angles.cpp" />
+    <ClCompile Include="Bessel.cpp" />
+    <ClCompile Include="Correlation.cpp" />
+    <ClCompile Include="Cubic.cpp" />
+    <ClCompile Include="Device.cpp" />
+    <ClCompile Include="Memory.cpp" />
+    <ClCompile Include="Post.cu" />
+    <ClCompile Include="Projector.cpp" />
+    <ClCompile Include="SparseEigen.cpp" />
+    <ClCompile Include="Symmetry.cpp" />
+    <ClCompile Include="WeightOptimization.cpp" />
+    <ClCompile Include="einspline.cpp" />
+    <ClCompile Include="einspline\bspline_create.cpp">
+      <Filter>einspline</Filter>
+    </ClCompile>
+    <ClCompile Include="FFT.cpp" />
+    <ClCompile Include="FSC.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Functions.h" />
+    <ClInclude Include="einspline\bspline.h">
+      <Filter>einspline</Filter>
+    </ClInclude>
+    <ClInclude Include="einspline\bspline_base.h">
+      <Filter>einspline</Filter>
+    </ClInclude>
+    <ClInclude Include="einspline\bspline_create.h">
+      <Filter>einspline</Filter>
+    </ClInclude>
+    <ClInclude Include="einspline\bspline_eval_std_s.h">
+      <Filter>einspline</Filter>
+    </ClInclude>
+    <ClInclude Include="einspline\bspline_structs.h">
+      <Filter>einspline</Filter>
+    </ClInclude>
+    <ClInclude Include="einspline\config.h">
+      <Filter>einspline</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="einspline">
+      <UniqueIdentifier>{dbd6ae0e-2b0a-4945-bbd7-8473bd484f5d}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

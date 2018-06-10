@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wsdl:definitions xmlns:wsap="http://schemas.xmlsoap.org/ws/2004/08/addressing/policy" xmlns:wsa10="http://www.w3.org/2005/08/addressing" xmlns:tns="http://tempuri.org/" xmlns:msc="http://schemas.microsoft.com/ws/2005/12/wsdl/contract" xmlns:soapenc="http://schemas.xmlsoap.org/soap/encoding/" xmlns:wsx="http://schemas.xmlsoap.org/ws/2004/09/mex" xmlns:wsp="http://schemas.xmlsoap.org/ws/2004/09/policy" xmlns:wsam="http://www.w3.org/2007/05/addressing/metadata" xmlns:wsa="http://schemas.xmlsoap.org/ws/2004/08/addressing" xmlns:wsaw="http://www.w3.org/2006/05/addressing/wsdl" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:soap12="http://schemas.xmlsoap.org/wsdl/soap12/" xmlns:wsu="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd" xmlns:xsd="http://www.w3.org/2001/XMLSchema" name="WarpAnalytics" targetNamespace="http://tempuri.org/" xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/">
+  <wsdl:types>
+    <xsd:schema targetNamespace="http://tempuri.org/Imports">
+      <xsd:import schemaLocation="http://analytics.multiparticle.com/WarpAnalytics.svc?xsd=xsd0" namespace="http://tempuri.org/" />
+      <xsd:import schemaLocation="http://analytics.multiparticle.com/WarpAnalytics.svc?xsd=xsd1" namespace="http://schemas.microsoft.com/2003/10/Serialization/" />
+      <xsd:import schemaLocation="http://analytics.multiparticle.com/WarpAnalytics.svc?xsd=xsd2" namespace="http://schemas.datacontract.org/2004/07/System" />
+    </xsd:schema>
+  </wsdl:types>
+  <wsdl:message name="IWarpAnalytics_GetLatestVersion_InputMessage">
+    <wsdl:part name="parameters" element="tns:GetLatestVersion" />
+  </wsdl:message>
+  <wsdl:message name="IWarpAnalytics_GetLatestVersion_OutputMessage">
+    <wsdl:part name="parameters" element="tns:GetLatestVersionResponse" />
+  </wsdl:message>
+  <wsdl:message name="IWarpAnalytics_LogProcessingMotion_InputMessage">
+    <wsdl:part name="parameters" element="tns:LogProcessingMotion" />
+  </wsdl:message>
+  <wsdl:message name="IWarpAnalytics_LogProcessingMotion_OutputMessage">
+    <wsdl:part name="parameters" element="tns:LogProcessingMotionResponse" />
+  </wsdl:message>
+  <wsdl:message name="IWarpAnalytics_LogProcessingCTF_InputMessage">
+    <wsdl:part name="parameters" element="tns:LogProcessingCTF" />
+  </wsdl:message>
+  <wsdl:message name="IWarpAnalytics_LogProcessingCTF_OutputMessage">
+    <wsdl:part name="parameters" element="tns:LogProcessingCTFResponse" />
+  </wsdl:message>
+  <wsdl:message name="IWarpAnalytics_LogProcessingBoxNet_InputMessage">
+    <wsdl:part name="parameters" element="tns:LogProcessingBoxNet" />
+  </wsdl:message>
+  <wsdl:message name="IWarpAnalytics_LogProcessingBoxNet_OutputMessage">
+    <wsdl:part name="parameters" element="tns:LogProcessingBoxNetResponse" />
+  </wsdl:message>
+  <wsdl:message name="IWarpAnalytics_LogEnvironment_InputMessage">
+    <wsdl:part name="parameters" element="tns:LogEnvironment" />
+  </wsdl:message>
+  <wsdl:message name="IWarpAnalytics_LogEnvironment_OutputMessage">
+    <wsdl:part name="parameters" element="tns:LogEnvironmentResponse" />
+  </wsdl:message>
+  <wsdl:portType name="IWarpAnalytics">
+    <wsdl:operation name="GetLatestVersion">
+      <wsdl:input wsaw:Action="http://tempuri.org/IWarpAnalytics/GetLatestVersion" message="tns:IWarpAnalytics_GetLatestVersion_InputMessage" />
+      <wsdl:output wsaw:Action="http://tempuri.org/IWarpAnalytics/GetLatestVersionResponse" message="tns:IWarpAnalytics_GetLatestVersion_OutputMessage" />
+    </wsdl:operation>
+    <wsdl:operation name="LogProcessingMotion">
+      <wsdl:input wsaw:Action="http://tempuri.org/IWarpAnalytics/LogProcessingMotion" message="tns:IWarpAnalytics_LogProcessingMotion_InputMessage" />
+      <wsdl:output wsaw:Action="http://tempuri.org/IWarpAnalytics/LogProcessingMotionResponse" message="tns:IWarpAnalytics_LogProcessingMotion_OutputMessage" />
+    </wsdl:operation>
+    <wsdl:operation name="LogProcessingCTF">
+      <wsdl:input wsaw:Action="http://tempuri.org/IWarpAnalytics/LogProcessingCTF" message="tns:IWarpAnalytics_LogProcessingCTF_InputMessage" />
+      <wsdl:output wsaw:Action="http://tempuri.org/IWarpAnalytics/LogProcessingCTFResponse" message="tns:IWarpAnalytics_LogProcessingCTF_OutputMessage" />
+    </wsdl:operation>
+    <wsdl:operation name="LogProcessingBoxNet">
+      <wsdl:input wsaw:Action="http://tempuri.org/IWarpAnalytics/LogProcessingBoxNet" message="tns:IWarpAnalytics_LogProcessingBoxNet_InputMessage" />
+      <wsdl:output wsaw:Action="http://tempuri.org/IWarpAnalytics/LogProcessingBoxNetResponse" message="tns:IWarpAnalytics_LogProcessingBoxNet_OutputMessage" />
+    </wsdl:operation>
+    <wsdl:operation name="LogEnvironment">
+      <wsdl:input wsaw:Action="http://tempuri.org/IWarpAnalytics/LogEnvironment" message="tns:IWarpAnalytics_LogEnvironment_InputMessage" />
+      <wsdl:output wsaw:Action="http://tempuri.org/IWarpAnalytics/LogEnvironmentResponse" message="tns:IWarpAnalytics_LogEnvironment_OutputMessage" />
+    </wsdl:operation>
+  </wsdl:portType>
+  <wsdl:binding name="BasicHttpBinding_IWarpAnalytics" type="tns:IWarpAnalytics">
+    <soap:binding transport="http://schemas.xmlsoap.org/soap/http" />
+    <wsdl:operation name="GetLatestVersion">
+      <soap:operation soapAction="http://tempuri.org/IWarpAnalytics/GetLatestVersion" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="LogProcessingMotion">
+      <soap:operation soapAction="http://tempuri.org/IWarpAnalytics/LogProcessingMotion" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="LogProcessingCTF">
+      <soap:operation soapAction="http://tempuri.org/IWarpAnalytics/LogProcessingCTF" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="LogProcessingBoxNet">
+      <soap:operation soapAction="http://tempuri.org/IWarpAnalytics/LogProcessingBoxNet" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="LogEnvironment">
+      <soap:operation soapAction="http://tempuri.org/IWarpAnalytics/LogEnvironment" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+  </wsdl:binding>
+  <wsdl:service name="WarpAnalytics">
+    <wsdl:port name="BasicHttpBinding_IWarpAnalytics" binding="tns:BasicHttpBinding_IWarpAnalytics">
+      <soap:address location="http://analytics.multiparticle.com/WarpAnalytics.svc" />
+    </wsdl:port>
+  </wsdl:service>
+</wsdl:definitions>
