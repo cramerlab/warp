@@ -1,5 +1,3 @@
-# Please don't tweet just yet!
-
 # Using Warp
 
 If you just want to use Warp, all tutorials and binaries can be found at http://www.warpem.com. Continue reading this README only if you're interested in compiling Warp from source.
