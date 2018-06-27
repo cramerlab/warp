@@ -302,6 +302,7 @@ extern "C" __declspec(dllexport) void __stdcall CopyDeviceHalfToHost(half* d_sou
 extern "C" __declspec(dllexport) void __stdcall CopyDeviceToDevice(float* d_source, float* d_dest, long elements);
 extern "C" __declspec(dllexport) void __stdcall CopyDeviceHalfToDeviceHalf(half* d_source, half* d_dest, long elements);
 extern "C" __declspec(dllexport) void __stdcall CopyHostToDevice(float* h_source, float* d_dest, long elements);
+extern "C" __declspec(dllexport) void __stdcall CopyHostToHost(float* h_source, float* h_dest, long elements);
 extern "C" __declspec(dllexport) void __stdcall CopyHostPinnedToDevice(float* hp_source, float* d_dest, long elements);
 extern "C" __declspec(dllexport) void __stdcall CopyHostToDeviceHalf(float* h_source, half* d_dest, long elements);
 
@@ -696,7 +697,7 @@ extern "C" __declspec(dllexport) void ProjectBackward(float2* d_volumeft, float*
 
 extern "C" __declspec(dllexport) void ProjectBackwardShifted(float2* d_volumeft, float* d_volumeweights, int3 dimsvolume, float2* d_projft, float* d_projweights, int2 dimsproj, int rmax, float3* h_angles, float3* h_shifts, float* h_globalweights, float supersample, uint batch);
 
-extern "C" __declspec(dllexport) void Bandpass(float* d_input, float* d_output, int3 dims, float nyquistlow, float nyquisthigh, uint batch);
+extern "C" __declspec(dllexport) void Bandpass(float* d_input, float* d_output, int3 dims, float nyquistlow, float nyquisthigh, float nyquistsoftedge, uint batch);
 
 extern "C" __declspec(dllexport) void Rotate2D(float* d_input, float* d_output, int2 dims, float* h_angles, int oversample, uint batch);
 
@@ -804,6 +805,8 @@ extern "C" __declspec(dllexport) int PeekLastCUDAError();
 
 extern "C" __declspec(dllexport) void DistortImages(float* d_input, int2 dimsinput, float* d_output, int2 dimsoutput, float2* h_offsets, float* h_rotations, float3* h_scales, float noisestddev, int seed, uint batch);
 extern "C" __declspec(dllexport) void WarpImage(float* d_input, float* d_output, int2 dims, float* h_warpx, float* h_warpy, int2 dimswarp);
+
+extern "C" __declspec(dllexport) void Rotate3DExtractAt(uint64_t t_volume, int3 dimsvolume, float* d_proj, int3 dimsproj, float3* h_angles, float3* h_positions, uint batch);
 
 
 // WeightOptimization.cpp:

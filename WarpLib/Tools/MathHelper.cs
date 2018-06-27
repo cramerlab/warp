@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
@@ -122,18 +123,30 @@ namespace Warp.Tools
 
         public static void NormalizeInPlace(float[] data)
         {
-            double Sum = 0f, Sum2 = 0f;
-            foreach (var i in data)
+            unsafe
             {
-                Sum += i;
-                Sum2 += i * i;
-            }
+                fixed (float* DataPtr = data)
+                {
+                    float* DataP = DataPtr;
+                    double Sum = 0f, Sum2 = 0f;
+                    for (int i = 0; i < data.Length; i++)
+                    {
+                        double Val = *DataP++;
+                        Sum += Val;
+                        Sum2 += Val * Val;
+                    }
 
-            float Std = (float)Math.Sqrt(data.Length * Sum2 - Sum * Sum) / data.Length;
-            float Avg = (float)Sum / data.Length;
-            
-            for (int i = 0; i < data.Length; i++)
-                data[i] = (data[i] - Avg) / Std;
+                    float Std = (float)Math.Sqrt(data.Length * Sum2 - Sum * Sum) / data.Length;
+                    float Avg = (float)Sum / data.Length;
+
+                    DataP = DataPtr;
+                    for (int i = 0; i < data.Length; i++)
+                    {
+                        *DataP = (*DataP - Avg) / Std;
+                        DataP++;
+                    }
+                }
+            }
         }
 
         public static void NormalizeL2InPlace(float[] data)
@@ -149,7 +162,21 @@ namespace Warp.Tools
 
         public static float CrossCorrelate(float[] data1, float[] data2)
         {
-            return Mult(data1, data2).Sum() / data1.Length;
+            float Sum = 0;
+            unsafe
+            {
+                fixed (float* Data1Ptr = data1)
+                fixed (float* Data2Ptr = data2)
+                {
+                    float* Data1P = Data1Ptr;
+                    float* Data2P = Data2Ptr;
+
+                    for (int i = 0; i < data1.Length; i++)
+                        Sum += *Data1P++ * *Data2P++;
+                }
+            }
+
+            return Sum / data1.Length;
         }
 
         public static float CrossCorrelateNormalized(float[] data1, float[] data2)
@@ -767,6 +794,17 @@ namespace Warp.Tools
                 byte[] HashBytes = hasher.ComputeHash(data);
 
                 return Convert.ToBase64String(HashBytes).Replace("=", "").Replace("/", "-").Replace("+", "_");
+            }
+        }
+
+        public static string GetSHA1(string path, long maxBytes)
+        {
+            using (BinaryReader reader = new BinaryReader(File.OpenRead(path)))
+            {
+                maxBytes = Math.Min(maxBytes, reader.BaseStream.Length);
+                byte[] Bytes = reader.ReadBytes((int)maxBytes);
+
+                return GetSHA1(Bytes);
             }
         }
 

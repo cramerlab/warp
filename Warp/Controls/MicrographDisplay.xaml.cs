@@ -301,6 +301,7 @@ namespace Warp.Controls
                     Movie E = (Movie)e.OldValue;
 
                     E.ProcessingChanged -= Movie_ProcessingChanged;
+                    E.AverageChanged -= Movie_AverageChanged;
 
                     if (File.Exists(E.AveragePath))
                         RenderToThumbnail(E.ThumbnailsPath, 384);
@@ -318,6 +319,7 @@ namespace Warp.Controls
                     Movie E = (Movie)e.NewValue;
 
                     E.ProcessingChanged += Movie_ProcessingChanged;
+                    E.AverageChanged += Movie_AverageChanged;
                 }
                 else if (e.NewValue.GetType() == typeof(TiltSeries))
                 {
@@ -475,6 +477,13 @@ namespace Warp.Controls
                 UpdateTrackGrid();
                 UpdateTrackMouse(null);
             });
+        }
+
+        private void Movie_AverageChanged(object sender, EventArgs e)
+        {
+            MicrographOwner = null;
+            MicrographFT?.Dispose();
+            DispatchUpdateImage();
         }
 
         #endregion

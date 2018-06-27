@@ -320,9 +320,9 @@ __declspec(dllexport) void ProjectBackwardShifted(float2* d_volumeft, float* d_v
     d_rlnBackprojectShifted(d_volumeft, d_volumeweights, dimsvolume, d_projft, d_projweights, toInt3(dimsproj), rmax, (tfloat3*)h_angles, (tfloat3*)h_shifts, h_globalweights, supersample, batch);
 }
 
-__declspec(dllexport) void Bandpass(float* d_input, float* d_output, int3 dims, float nyquistlow, float nyquisthigh, uint batch)
+__declspec(dllexport) void Bandpass(float* d_input, float* d_output, int3 dims, float nyquistlow, float nyquisthigh, float nyquistsoftedge, uint batch)
 {
-    d_BandpassNonCubic(d_input, d_output, dims, nyquistlow, nyquisthigh, batch);
+    d_BandpassNonCubic(d_input, d_output, dims, nyquistlow, nyquisthigh, nyquistsoftedge, batch);
 }
 
 __declspec(dllexport) void Rotate2D(float* d_input, float* d_output, int2 dims, float* h_angles, int oversample, uint batch)
@@ -669,4 +669,9 @@ __declspec(dllexport) void DistortImages(float* d_input, int2 dimsinput, float* 
 __declspec(dllexport) void WarpImage(float* d_input, float* d_output, int2 dims, float* h_warpx, float* h_warpy, int2 dimswarp)
 {
     d_WarpImage(d_input, d_output, dims, h_warpx, h_warpy, dimswarp);
+}
+
+__declspec(dllexport) void Rotate3DExtractAt(uint64_t t_volume, int3 dimsvolume, float* d_proj, int3 dimsproj, float3* h_angles, float3* h_positions, uint batch)
+{
+    d_Rotate3DExtractAt((cudaTex)t_volume, dimsvolume, (tfloat*)d_proj, dimsproj, (tfloat3*)h_angles, (tfloat3*)h_positions, T_INTERP_CUBIC, batch);
 }

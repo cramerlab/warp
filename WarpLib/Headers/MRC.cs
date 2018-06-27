@@ -24,7 +24,7 @@ namespace Warp.Headers
         public MRCDataType Mode = MRCDataType.Float;
         public int3 StartSubImage = new int3(0, 0, 0);
         public int3 Griddimensions = new int3(1, 1, 1);
-        public float3 Angles;
+        public float3 Angles = new float3(90, 90, 90);
         public int3 MapOrder = new int3(1, 2, 3);
 
         public float MinValue;

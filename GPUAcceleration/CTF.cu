@@ -37,6 +37,11 @@ __declspec(dllexport) void CreateSpectra(float* d_frame,
 	tfloat* d_tempaverages;
 	cudaMalloc((void**)&d_tempaverages, nframes * ElementsFFT2(dimsregionscaled) * sizeof(tfloat));
 
+    tfloat* d_extracted;
+    cudaMalloc((void**)&d_extracted, norigins * Elements2(dimsregion) * sizeof(tfloat));
+    tcomplex* d_extractedft;
+    cudaMalloc((void**)&d_extractedft, norigins * ElementsFFT2(dimsregion) * sizeof(tcomplex));
+
 	bool ctfspace = ctfgrid.x * ctfgrid.y > 1;
 	bool ctftime = ctfgrid.z > 1;
 	int nspectra = (ctfspace || ctftime) ? (ctfspace ? norigins : 1) * (ctftime ? ctfgrid.z : 1) : 1;
@@ -49,52 +54,87 @@ __declspec(dllexport) void CreateSpectra(float* d_frame,
 	cufftHandle ownplanforw = planforw > 0 ? planforw : d_FFTR2CGetPlan(2, toInt3(dimsregion), norigins);
 	cufftHandle ownplanback = planback > 0 ? planback : d_IFFTC2RGetPlan(2, toInt3(dimsregionscaled), norigins);
 
-	for (int z = 0; z < nframes; z++)
-	{
-		int framegroup = z / pertimegroup;
-		if (framegroup >= ctfgrid.z)
-			break;
+    if (ctftime || !ctfspace)
+    {
+        for (int z = 0; z < nframes; z++)
+        {
+            int framegroup = z / pertimegroup;
+            if (framegroup >= ctfgrid.z)
+                break;
 
-		// Write spectra to temp and reduce them to a temporary average spectrum
-		d_CTFPeriodogram(d_frame + Elements2(dimsframe) * z, dimsframe, d_origins, norigins, dimsregion, dimsregion, d_tempspectra, false, ownplanforw);
-		//d_WriteMRC(d_tempspectra, toInt3(dimsregion.x / 2 + 1, dimsregion.y, norigins), "d_tempscpectra.mrc");
+            // Write spectra to temp and reduce them to a temporary average spectrum
+            d_CTFPeriodogram(d_frame + Elements2(dimsframe) * z, dimsframe, d_origins, norigins, dimsregion, dimsregion, d_tempspectra, false, ownplanforw, d_extracted, d_extractedft);
+            //d_WriteMRC(d_tempspectra, toInt3(dimsregion.x / 2 + 1, dimsregion.y, norigins), "d_tempscpectra.mrc");
 
-		d_RemapHalfFFT2FullFFT(d_tempspectra, d_tempspectra, toInt3(dimsregion), norigins);
-		//d_WriteMRC(d_tempspectra, toInt3(dimsregion.x, dimsregion.y, norigins), "d_tempscpectra.mrc");
+            d_RemapHalfFFT2FullFFT(d_tempspectra, d_tempspectra, toInt3(dimsregion), norigins);
+            //d_WriteMRC(d_tempspectra, toInt3(dimsregion.x, dimsregion.y, norigins), "d_tempscpectra.mrc");
 
-		d_Scale(d_tempspectra, d_tempspectrascaled, toInt3(dimsregion), toInt3(dimsregionscaled), T_INTERP_FOURIER, &ownplanforw, &ownplanback, norigins);
+            d_Scale(d_tempspectra, d_tempspectrascaled, toInt3(dimsregion), toInt3(dimsregionscaled), T_INTERP_FOURIER, &ownplanforw, &ownplanback, norigins);
 
-		d_RemapFullFFT2HalfFFT(d_tempspectrascaled, d_tempspectrascaled, toInt3(dimsregionscaled), norigins);
-		//d_WriteMRC(d_tempspectrascaled, toInt3(dimsregionscaled.x / 2 + 1, dimsregionscaled.y, norigins), "d_tempscpectrascaled.mrc");
+            d_RemapFullFFT2HalfFFT(d_tempspectrascaled, d_tempspectrascaled, toInt3(dimsregionscaled), norigins);
+            //d_WriteMRC(d_tempspectrascaled, toInt3(dimsregionscaled.x / 2 + 1, dimsregionscaled.y, norigins), "d_tempscpectrascaled.mrc");
 
-		d_ReduceMean(d_tempspectrascaled, d_tempaverages + ElementsFFT2(dimsregionscaled) * z, ElementsFFT2(dimsregionscaled), norigins);
+            d_ReduceMean(d_tempspectrascaled, d_tempaverages + ElementsFFT2(dimsregionscaled) * z, ElementsFFT2(dimsregionscaled), norigins);
 
-		// Spatially resolved, add to output which has norigins spectra
-		if (ctfspace)
-		{
-			d_AddVector(d_outputall + ElementsFFT2(dimsregionscaled) * norigins * framegroup, d_tempspectrascaled, d_outputall + ElementsFFT2(dimsregionscaled) * norigins * framegroup, ElementsFFT2(dimsregionscaled) * norigins);
-		}
-		else if (ctftime)
-		{
-			d_AddVector(d_outputall + ElementsFFT2(dimsregionscaled) * framegroup, d_tempaverages + ElementsFFT2(dimsregionscaled) * z, d_outputall + ElementsFFT2(dimsregionscaled) * framegroup, ElementsFFT2(dimsregionscaled));
-		}
-	}
+            // Spatially resolved, add to output which has norigins spectra
+            if (ctfspace)
+            {
+                d_AddVector(d_outputall + ElementsFFT2(dimsregionscaled) * norigins * framegroup, d_tempspectrascaled, d_outputall + ElementsFFT2(dimsregionscaled) * norigins * framegroup, ElementsFFT2(dimsregionscaled) * norigins);
+            }
+            else if (ctftime)
+            {
+                d_AddVector(d_outputall + ElementsFFT2(dimsregionscaled) * framegroup, d_tempaverages + ElementsFFT2(dimsregionscaled) * z, d_outputall + ElementsFFT2(dimsregionscaled) * framegroup, ElementsFFT2(dimsregionscaled));
+            }
+        }
+
+        if (pertimegroup > 1)
+            d_DivideByScalar(d_outputall, d_outputall, ElementsFFT2(dimsregionscaled) * nspectra, (tfloat)pertimegroup);
+
+        // Just average over all individual spectra in d_outputall
+        d_ReduceMean(d_tempaverages, d_outputmean, ElementsFFT2(dimsregionscaled), nframes);
+    }
+    else if (ctfspace)
+    {
+        tfloat* d_tempspectraaccumulated;
+        cudaMalloc((void**)&d_tempspectraaccumulated, norigins * ElementsFFT2(dimsregion) * sizeof(tfloat));
+        d_ValueFill(d_tempspectraaccumulated, ElementsFFT2(dimsregion) * norigins, (tfloat)0);
+
+        for (int z = 0; z < nframes; z++)
+        {
+            // Write spectra to temp and reduce them to a temporary average spectrum
+            d_CTFPeriodogram(d_frame + Elements2(dimsframe) * z, dimsframe, d_origins, norigins, dimsregion, dimsregion, d_tempspectra, false, ownplanforw, d_extracted, d_extractedft);
+            //d_WriteMRC(d_tempspectra, toInt3(dimsregion.x / 2 + 1, dimsregion.y, norigins), "d_tempscpectra.mrc");
+
+            // Spatially resolved, add to output which has norigins spectra
+            d_AddVector(d_tempspectraaccumulated, d_tempspectra, d_tempspectraaccumulated, ElementsFFT2(dimsregion) * norigins);
+        }
+
+        d_RemapHalfFFT2FullFFT(d_tempspectraaccumulated, d_tempspectra, toInt3(dimsregion), norigins);
+        //d_WriteMRC(d_tempspectra, toInt3(dimsregion.x, dimsregion.y, norigins), "d_tempscpectra.mrc");
+
+        d_Scale(d_tempspectra, d_tempspectrascaled, toInt3(dimsregion), toInt3(dimsregionscaled), T_INTERP_FOURIER, &ownplanforw, &ownplanback, norigins);
+
+        d_RemapFullFFT2HalfFFT(d_tempspectrascaled, d_outputall, toInt3(dimsregionscaled), norigins);
+        //d_WriteMRC(d_tempspectrascaled, toInt3(dimsregionscaled.x / 2 + 1, dimsregionscaled.y, norigins), "d_tempscpectrascaled.mrc");
+
+        d_ReduceMean(d_outputall, d_outputmean, ElementsFFT2(dimsregionscaled), norigins);
+
+        cudaFree(d_tempspectraaccumulated);
+    }
+    else
+        throw;
 
 	if (planback <= 0)
 		cufftDestroy(ownplanback);
 	if (planforw <= 0)
 		cufftDestroy(ownplanforw);
 	
-	if (pertimegroup > 1)
-		d_DivideByScalar(d_outputall, d_outputall, ElementsFFT2(dimsregionscaled) * nspectra, (tfloat)pertimegroup);
-
-	// Just average over all individual spectra in d_outputall
-	d_ReduceMean(d_tempaverages, d_outputmean, ElementsFFT2(dimsregionscaled), nframes);
-	
 	// 0D case, only one average spectrum in outputall
 	if (nspectra == 1)
 		cudaMemcpy(d_outputall, d_outputmean, ElementsFFT2(dimsregionscaled) * sizeof(float), cudaMemcpyDeviceToDevice);
 
+    cudaFree(d_extractedft);
+    cudaFree(d_extracted);
 	cudaFree(d_origins);
 	cudaFree(d_tempspectrascaled);
 	cudaFree(d_tempspectra);

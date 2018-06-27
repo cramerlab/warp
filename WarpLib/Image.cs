@@ -78,6 +78,22 @@ namespace Warp
             }
         }
 
+        private bool IsHostPinnedDirty = false;
+        private IntPtr _HostPinnedData = IntPtr.Zero;
+
+        private IntPtr HostPinnedData
+        {
+            get
+            {
+                if (_HostPinnedData == IntPtr.Zero)
+                {
+                    _HostPinnedData = GPU.MallocHostPinned(ElementsReal);
+                }
+
+                return _HostPinnedData;
+            }
+        }
+
         public Image(float[][] data, int3 dims, bool isft = false, bool iscomplex = false, bool ishalf = false)
         {
             Dims = dims;
@@ -173,23 +189,32 @@ namespace Warp
             IsHostDirty = true;
         }
 
-        public Image(IntPtr deviceData, int3 dims, bool isft = false, bool iscomplex = false, bool ishalf = false)
+        public Image(IntPtr deviceData, int3 dims, bool isft = false, bool iscomplex = false, bool ishalf = false, bool fromPinned = false)
         {
             Dims = dims;
             IsFT = isft;
             IsComplex = iscomplex;
             IsHalf = ishalf;
 
-            _DeviceData = !IsHalf ? GPU.MallocDevice(ElementsReal) : GPU.MallocDeviceHalf(ElementsReal);
-            GPU.OnMemoryChanged();
-            if (deviceData != IntPtr.Zero)
+            if (!fromPinned)
             {
-                if (!IsHalf)
-                    GPU.CopyDeviceToDevice(deviceData, _DeviceData, ElementsReal);
-                else
-                    GPU.CopyDeviceHalfToDeviceHalf(deviceData, _DeviceData, ElementsReal);
+                _DeviceData = !IsHalf ? GPU.MallocDevice(ElementsReal) : GPU.MallocDeviceHalf(ElementsReal);
+                GPU.OnMemoryChanged();
+                if (deviceData != IntPtr.Zero)
+                {
+                    if (!IsHalf)
+                        GPU.CopyDeviceToDevice(deviceData, _DeviceData, ElementsReal);
+                    else
+                        GPU.CopyDeviceHalfToDeviceHalf(deviceData, _DeviceData, ElementsReal);
+                }
+
+                IsDeviceDirty = true;
             }
-            IsDeviceDirty = true;
+            else
+            {
+                _HostPinnedData = GPU.MallocHostPinned(ElementsReal);
+                IsHostPinnedDirty = true;
+            }
         }
 
         ~Image()
@@ -197,29 +222,29 @@ namespace Warp
             Dispose();
         }
 
-        public static Image FromFile(string path, int2 headerlessSliceDims, int headerlessOffset, Type headerlessType, int layer = -1)
+        public static Image FromFile(string path, int2 headerlessSliceDims, int headerlessOffset, Type headerlessType, int layer = -1, Stream stream = null)
         {
             MapHeader Header = MapHeader.ReadFromFile(path, headerlessSliceDims, headerlessOffset, headerlessType);
-            float[][] Data = IOHelper.ReadMapFloat(path, headerlessSliceDims, headerlessOffset, headerlessType, layer);
+            float[][] Data = IOHelper.ReadMapFloat(path, headerlessSliceDims, headerlessOffset, headerlessType, layer, stream);
             if (layer >= 0)
                 Header.Dimensions.Z = 1;
 
             return new Image(Data, Header.Dimensions) { PixelSize = Header.PixelSize.X };
         }
 
-        public static Image FromFile(string path, int layer = -1)
+        public static Image FromFile(string path, int layer = -1, Stream stream = null)
         {
-            return FromFile(path, new int2(1, 1), 0, typeof(float), layer);
+            return FromFile(path, new int2(1, 1), 0, typeof(float), layer, stream);
         }
 
-        public static Image FromFilePatient(int attempts, int mswait, string path, int2 headerlessSliceDims, int headerlessOffset, Type headerlessType, int layer = -1)
+        public static Image FromFilePatient(int attempts, int mswait, string path, int2 headerlessSliceDims, int headerlessOffset, Type headerlessType, int layer = -1, Stream stream = null)
         {
             Image Result = null;
             for (int a = 0; a < attempts; a++)
             {
                 try
                 {
-                    Result = FromFile(path, headerlessSliceDims, headerlessOffset, headerlessType, layer);
+                    Result = FromFile(path, headerlessSliceDims, headerlessOffset, headerlessType, layer, stream);
                     break;
                 }
                 catch
@@ -234,9 +259,9 @@ namespace Warp
             return Result;
         }
 
-        public static Image FromFilePatient(int attempts, int mswait, string path, int layer = -1)
+        public static Image FromFilePatient(int attempts, int mswait, string path, int layer = -1, Stream stream = null)
         {
-            return FromFilePatient(attempts, mswait, path, new int2(1, 1), 0, typeof(float), layer);
+            return FromFilePatient(attempts, mswait, path, new int2(1, 1), 0, typeof(float), layer, stream);
         }
 
         public IntPtr GetDevice(Intent intent)
@@ -253,11 +278,18 @@ namespace Warp
 
                     IsHostDirty = false;
                 }
+                else if ((intent & Intent.Read) > 0 && IsHostPinnedDirty)
+                {
+                    GPU.CopyDeviceToHostPinned(HostPinnedData, DeviceData, ElementsReal);
+
+                    IsHostPinnedDirty = false;
+                }
 
                 if ((intent & Intent.Write) > 0)
                 {
                     IsDeviceDirty = true;
                     IsHostDirty = false;
+                    IsHostPinnedDirty = false;
                 }
 
                 return DeviceData;
@@ -298,15 +330,60 @@ namespace Warp
 
                     IsDeviceDirty = false;
                 }
+                else if ((intent & Intent.Read) > 0 && IsHostPinnedDirty)
+                {
+                    for (int z = 0; z < Dims.Z; z++)
+                        GPU.CopyHostToHost(new IntPtr((long)HostPinnedData + ElementsSliceReal * z * sizeof(float)), HostData[z], ElementsSliceReal);
+
+                    IsHostPinnedDirty = false;
+                }
 
                 if ((intent & Intent.Write) > 0)
                 {
                     IsHostDirty = true;
                     IsDeviceDirty = false;
+                    IsHostPinnedDirty = false;
                 }
 
                 return HostData;
             }
+        }
+
+        public IntPtr GetHostPinned(Intent intent)
+        {
+            lock (Sync)
+            {
+                if ((intent & Intent.Read) > 0 && IsHostDirty)
+                {
+                    for (int z = 0; z < Dims.Z; z++)
+                        GPU.CopyHostToHost(HostData[z], new IntPtr((long)HostPinnedData + ElementsSliceReal * z * sizeof(float)), ElementsSliceReal);
+
+                    IsHostDirty = false;
+                }
+                else if ((intent & Intent.Read) > 0 && IsDeviceDirty)
+                {
+                    GPU.CopyDeviceToHostPinned(DeviceData, HostPinnedData, ElementsReal);
+
+                    IsDeviceDirty = false;
+                }
+
+                if ((intent & Intent.Write) > 0)
+                {
+                    IsHostDirty = false;
+                    IsDeviceDirty = false;
+                    IsHostPinnedDirty = true;
+                }
+
+                return HostPinnedData;
+            }
+        }
+
+        public IntPtr GetHostPinnedSlice(int slice, Intent intent)
+        {
+            IntPtr Start = GetHostPinned(intent);
+            Start = new IntPtr((long)Start + slice * ElementsSliceReal * sizeof(float));
+
+            return Start;
         }
 
         public float2[][] GetHostComplexCopy()
@@ -588,6 +665,13 @@ namespace Warp
                     GPU.OnMemoryChanged();
                     _DeviceData = IntPtr.Zero;
                     IsDeviceDirty = false;
+                }
+
+                if (_HostPinnedData != IntPtr.Zero)
+                {
+                    GPU.FreeHostPinned(_HostPinnedData);
+                    _HostPinnedData = IntPtr.Zero;
+                    IsHostPinnedDirty = false;
                 }
 
                 _HostData = null;
@@ -1551,6 +1635,81 @@ namespace Warp
             return Convolved;
         }
 
+        public Image AsFlippedX()
+        {
+            if (IsComplex || IsFT || IsHalf)
+                throw new Exception("Format not supported.");
+
+            Image Flipped = new Image(Dims);
+
+            float[][] Data = GetHost(Intent.Read);
+            float[][] FlippedData = Flipped.GetHost(Intent.Write);
+
+            for (int z = 0; z < Dims.Z; z++)
+            {
+                for (int y = 0; y < Dims.Y; y++)
+                {
+                    for (int x = 0; x < Dims.X; x++)
+                    {
+                        int xx = Dims.X - 1 - x;
+
+                        FlippedData[z][y * Dims.X + x] = Data[z][y * Dims.X + xx];
+                    }
+                }
+            }
+
+            return Flipped;
+        }
+
+        public Image AsFlippedY()
+        {
+            if (IsComplex || IsFT || IsHalf)
+                throw new Exception("Format not supported.");
+
+            Image Flipped = new Image(Dims);
+
+            float[][] Data = GetHost(Intent.Read);
+            float[][] FlippedData = Flipped.GetHost(Intent.Write);
+
+            for (int z = 0; z < Dims.Z; z++)
+            {
+                for (int y = 0; y < Dims.Y; y++)
+                {
+                    int yy = Dims.Y - 1 - y;
+                    for (int x = 0; x < Dims.X; x++)
+                    {
+                        FlippedData[z][y * Dims.X + x] = Data[z][yy * Dims.X + x];
+                    }
+                }
+            }
+
+            return Flipped;
+        }
+
+        public Image AsTransposed()
+        {
+            if (IsComplex || IsFT || IsHalf)
+                throw new Exception("Format not supported.");
+
+            Image Transposed = new Image(new int3(Dims.Y, Dims.X, Dims.Z));
+
+            float[][] Data = GetHost(Intent.Read);
+            float[][] TransposedData = Transposed.GetHost(Intent.Write);
+
+            for (int z = 0; z < Dims.Z; z++)
+            {
+                for (int y = 0; y < Dims.Y; y++)
+                {
+                    for (int x = 0; x < Dims.X; x++)
+                    {
+                        TransposedData[z][x * Dims.Y + y] = Data[z][y * Dims.X + x];
+                    }
+                }
+            }
+
+            return Transposed;
+        }
+
         public void RemapToFT(bool isvolume = false)
         {
             if (!IsFT && IsComplex)
@@ -1988,12 +2147,12 @@ namespace Warp
             }
         }
 
-        public void Bandpass(float nyquistLow, float nyquistHigh, bool isVolume)
+        public void Bandpass(float nyquistLow, float nyquistHigh, bool isVolume, float nyquistsoftedge = 0)
         {
             if (IsComplex || IsHalf || IsFT)
                 throw new Exception("Bandpass only works on single precision, real data");
 
-            GPU.Bandpass(GetDevice(Intent.Read), GetDevice(Intent.Write), isVolume ? Dims : Dims.Slice(), nyquistLow, nyquistHigh, isVolume ? 1 : (uint)Dims.Z);
+            GPU.Bandpass(GetDevice(Intent.Read), GetDevice(Intent.Write), isVolume ? Dims : Dims.Slice(), nyquistLow, nyquistHigh, nyquistsoftedge, isVolume ? 1 : (uint)Dims.Z);
         }
 
         public int3[] GetLocalPeaks(int localExtent, float threshold)
@@ -2059,6 +2218,11 @@ namespace Warp
             }
 
             return true;
+        }
+
+        public override string ToString()
+        {
+            return Dims.ToString() + ", " + PixelSize + " A/px";
         }
     }
     

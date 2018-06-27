@@ -38,6 +38,8 @@ namespace Warp.Controls
 
         public string NewName;
 
+        private string NewExamplesPath;
+
         public BoxNetTrain(string modelName, Options options)
         {
             InitializeComponent();
@@ -500,8 +502,8 @@ namespace Warp.Controls
                                               SeriesTrainAccuracy.Values = new ChartValues<ObservablePoint>(TrainAccuracyPoints);
                                               SeriesBackgroundAccuracy.Values = new ChartValues<ObservablePoint>(BackgroundAccuracyPoints);
 
-                                              SeriesTrainBaseline.Values = new ChartValues<ObservablePoint>(TrainBaselinePoints);
-                                              SeriesBackgroundBaseline.Values = new ChartValues<ObservablePoint>(BackgroundBaselinePoints);
+                                              //SeriesTrainBaseline.Values = new ChartValues<ObservablePoint>(TrainBaselinePoints);
+                                              //SeriesBackgroundBaseline.Values = new ChartValues<ObservablePoint>(BackgroundBaselinePoints);
 
                                               TextProgress.Text = SpanRemaining.ToString((int)SpanRemaining.TotalHours > 0 ? @"hh\:mm\:ss" : @"mm\:ss");
                                           });
@@ -577,7 +579,7 @@ namespace Warp.Controls
                 Dispatcher.Invoke(() => TextProgress.Text = "Preparing new examples...");
 
                 Directory.CreateDirectory(Movies[0].DirectoryName + "boxnet2training/");
-                string NewExamplesPath = Movies[0].DirectoryName + "boxnet2training/" + PotentialNewName + ".tif";
+                NewExamplesPath = Movies[0].DirectoryName + "boxnet2training/" + PotentialNewName + ".tif";
 
                 try
                 {
@@ -689,9 +691,10 @@ namespace Warp.Controls
                 int Border = (BoxNet2.BoxDimensionsTrain.X - BoxNet2.BoxDimensionsValidTrain.X) / 2;
                 int BatchSize = NetworkTrain.BatchSize;
                 int PlotEveryN = 10;
+                int SmoothN = 30;
 
                 List<ObservablePoint>[] AccuracyPoints = Helper.ArrayOfFunction(i => new List<ObservablePoint>(), 4);
-                Queue<float>[] LastAccuracies = { new Queue<float>(PlotEveryN), new Queue<float>(PlotEveryN) };
+                Queue<float>[] LastAccuracies = { new Queue<float>(SmoothN), new Queue<float>(SmoothN) };
                 List<float>[] LastBaselines = { new List<float>(), new List<float>() };
 
                 GPU.SetDevice(0);
@@ -730,10 +733,10 @@ namespace Warp.Controls
                 Random[] RG = Helper.ArrayOfFunction(i => new Random(i), NetworkTrain.MaxThreads);
                 RandomNormal[] RGN = Helper.ArrayOfFunction(i => new RandomNormal(i), NetworkTrain.MaxThreads);
 
-                float[][] h_AugmentedData = Helper.ArrayOfFunction(i => new float[DimsAugmented.Elements()], NetworkTrain.MaxThreads);
-                float[][] h_AugmentedLabels = Helper.ArrayOfFunction(i => new float[DimsAugmented.Elements()], NetworkTrain.MaxThreads);
-                float[][] h_AugmentedWeights = Helper.ArrayOfFunction(i => new float[DimsAugmented.Elements()], NetworkTrain.MaxThreads);
-                float[][] LabelsOneHot = Helper.ArrayOfFunction(i => new float[DimsAugmented.Elements() * 3], NetworkTrain.MaxThreads);
+                //float[][] h_AugmentedData = Helper.ArrayOfFunction(i => new float[DimsAugmented.Elements()], NetworkTrain.MaxThreads);
+                //float[][] h_AugmentedLabels = Helper.ArrayOfFunction(i => new float[DimsAugmented.Elements()], NetworkTrain.MaxThreads);
+                //float[][] h_AugmentedWeights = Helper.ArrayOfFunction(i => new float[DimsAugmented.Elements()], NetworkTrain.MaxThreads);
+                //float[][] LabelsOneHot = Helper.ArrayOfFunction(i => new float[DimsAugmented.Elements() * 3], NetworkTrain.MaxThreads);
 
                 int NIterations = NNewExamples * 200 * AllMicrographs.Length;
 
@@ -746,7 +749,7 @@ namespace Warp.Controls
                               {
                                   int icorpus;
                                   lock (Watch)
-                                    icorpus = NDone % AllMicrographs.Length;
+                                    icorpus = NDone % AllPaths.Length;
 
                                   float2[] PositionsGround;
 
@@ -771,7 +774,7 @@ namespace Warp.Controls
                                       GPU.CopyHostToDevice(DataLabels, d_OriLabels[threadID], Dims.Elements());
                                       GPU.CopyHostToDevice(DataUncertains, d_OriUncertains[threadID], Dims.Elements());
 
-                                      GPU.ValueFill(d_OriUncertains[threadID], Dims.Elements(), 1f);
+                                      //GPU.ValueFill(d_OriUncertains[threadID], Dims.Elements(), 1f);
 
                                       GPU.BoxNet2Augment(d_OriData[threadID],
                                                          d_OriLabels[threadID],
@@ -795,110 +798,103 @@ namespace Warp.Controls
                                                          DimsAugmented.Elements(),
                                                          (uint)BatchSize);
 
-                                      GPU.CopyDeviceToHost(d_AugmentedData[threadID], h_AugmentedData[threadID], h_AugmentedData[threadID].Length);
-                                      GPU.CopyDeviceToHost(d_AugmentedWeights[threadID], h_AugmentedWeights[threadID], h_AugmentedWeights[threadID].Length);
+                                      //GPU.CopyDeviceToHost(d_AugmentedData[threadID], h_AugmentedData[threadID], h_AugmentedData[threadID].Length);
+                                      //GPU.CopyDeviceToHost(d_AugmentedWeights[threadID], h_AugmentedWeights[threadID], h_AugmentedWeights[threadID].Length);
 
-                                      GPU.CopyDeviceToHost(d_AugmentedLabels[threadID], LabelsOneHot[threadID], LabelsOneHot[threadID].Length);
+                                      //GPU.CopyDeviceToHost(d_AugmentedLabels[threadID], LabelsOneHot[threadID], LabelsOneHot[threadID].Length);
 
-                                      for (int i = 0; i < h_AugmentedLabels[threadID].Length; i++)
-                                          h_AugmentedLabels[threadID][i] = LabelsOneHot[threadID][i * 3 + 2] == 1 ? 2f : (LabelsOneHot[threadID][i * 3 + 1] == 1 ? 1f : 0f);
+                                      //for (int i = 0; i < h_AugmentedLabels[threadID].Length; i++)
+                                      //    h_AugmentedLabels[threadID][i] = LabelsOneHot[threadID][i * 3 + 2] == 1 ? 2f : (LabelsOneHot[threadID][i * 3 + 1] == 1 ? 1f : 0f);
 
-                                      PositionsGround = GetCentroids(h_AugmentedLabels[threadID].Select(v => (long)v).ToArray(), DimsAugmented, Border);
-
-                                      //if (PositionsGround.Length == 0)
-                                      //{
-                                      //    Image AugmentedDataDebug = new Image(d_AugmentedData[threadID], new int3(DimsAugmented));
-                                      //    AugmentedDataDebug.WriteMRC("d_augmenteddata.mrc", true);
-                                      //    Image AugmentedLabelsDebug = new Image(h_AugmentedLabels[threadID], new int3(DimsAugmented));
-                                      //    AugmentedLabelsDebug.WriteMRC("d_augmentedlabels.mrc", true);
-                                      //    throw new Exception();
-                                      //}
+                                      //PositionsGround = GetCentroids(h_AugmentedLabels[threadID].Select(v => (long)v).ToArray(), DimsAugmented, Border);
                                   }
 
-                                  float LearningRate = 0.00005f;
+                                  float LearningRate = 0.00002f;
 
                                   long[][] ResultLabels = new long[2][];
                                   float[][] ResultProbabilities = new float[2][];
 
+                                  float Loss = 0;
+
                                   lock (NetworkTrain)
-                                      NetworkTrain.Train(d_AugmentedData[threadID],
-                                                         d_AugmentedLabels[threadID],
-                                                         d_AugmentedWeights[threadID],
-                                                         LearningRate,
-                                                         threadID,
-                                                         out ResultLabels[0],
-                                                         out ResultProbabilities[0]);
-                                  lock (NetworkOld)
-                                      NetworkOld.Predict(d_AugmentedData[threadID],
-                                                         threadID,
-                                                         out ResultLabels[1],
-                                                         out ResultProbabilities[1]);
+                                      Loss = NetworkTrain.Train(d_AugmentedData[threadID],
+                                                                d_AugmentedLabels[threadID],
+                                                                d_AugmentedWeights[threadID],
+                                                                LearningRate,
+                                                                threadID,
+                                                                out ResultLabels[0],
+                                                                out ResultProbabilities[0]);
+                                  //lock (NetworkOld)
+                                  //    NetworkOld.Predict(d_AugmentedData[threadID],
+                                  //                       threadID,
+                                  //                       out ResultLabels[1],
+                                  //                       out ResultProbabilities[1]);
 
-                                  float[] AccuracyParticles = new float[2];
+                                  //float[] AccuracyParticles = new float[2];
 
-                                  for (int i = 0; i < 2; i++)
-                                  {
-                                      for (int j = 0; j < ResultLabels[i].Length; j++)
-                                      {
-                                          long Label = ResultLabels[i][j];
-                                          float Prob = ResultProbabilities[i][j * 3 + Label];
-                                          if (Label == 1 && Prob < 0.4f)
-                                              ResultLabels[i][j] = 0;
-                                          else if (Label == 2 && Prob < 0.1f)
-                                              ResultLabels[i][j] = 0;
-                                      }
+                                  //for (int i = 0; i < 2; i++)
+                                  //{
+                                  //    for (int j = 0; j < ResultLabels[i].Length; j++)
+                                  //    {
+                                  //        long Label = ResultLabels[i][j];
+                                  //        float Prob = ResultProbabilities[i][j * 3 + Label];
+                                  //        if (Label == 1 && Prob < 0.4f)
+                                  //            ResultLabels[i][j] = 0;
+                                  //        else if (Label == 2 && Prob < 0.1f)
+                                  //            ResultLabels[i][j] = 0;
+                                  //    }
 
-                                      float2[] PositionsPicked = GetCentroids(ResultLabels[i], DimsAugmented, Border);
+                                  //    float2[] PositionsPicked = GetCentroids(ResultLabels[i], DimsAugmented, Border);
 
-                                      int FP = 0, FN = 0;
+                                  //    int FP = 0, FN = 0;
 
-                                      foreach (var posGround in PositionsGround)
-                                      {
-                                          bool Found = false;
-                                          foreach (var posPicked in PositionsPicked)
-                                          {
-                                              if ((posGround - posPicked).Length() < 5)
-                                              {
-                                                  Found = true;
-                                                  break;
-                                              }
-                                          }
-                                          if (!Found)
-                                              FN++;
-                                      }
-                                      foreach (var posPicked in PositionsPicked)
-                                      {
-                                          bool Found = false;
-                                          foreach (var posGround in PositionsGround)
-                                          {
-                                              if ((posGround - posPicked).Length() < 5)
-                                              {
-                                                  Found = true;
-                                                  break;
-                                              }
-                                          }
-                                          if (!Found)
-                                              FP++;
-                                      }
+                                  //    foreach (var posGround in PositionsGround)
+                                  //    {
+                                  //        bool Found = false;
+                                  //        foreach (var posPicked in PositionsPicked)
+                                  //        {
+                                  //            if ((posGround - posPicked).Length() < 5)
+                                  //            {
+                                  //                Found = true;
+                                  //                break;
+                                  //            }
+                                  //        }
+                                  //        if (!Found)
+                                  //            FN++;
+                                  //    }
+                                  //    foreach (var posPicked in PositionsPicked)
+                                  //    {
+                                  //        bool Found = false;
+                                  //        foreach (var posGround in PositionsGround)
+                                  //        {
+                                  //            if ((posGround - posPicked).Length() < 5)
+                                  //            {
+                                  //                Found = true;
+                                  //                break;
+                                  //            }
+                                  //        }
+                                  //        if (!Found)
+                                  //            FP++;
+                                  //    }
                                       
-                                      AccuracyParticles[i] = (float)(PositionsPicked.Length - FP) / (PositionsGround.Length + 0 + FN);
+                                  //    AccuracyParticles[i] = (float)(PositionsPicked.Length - FP) / (PositionsGround.Length + 0 + FN);
 
-                                      //if (float.IsNaN(AccuracyParticles[i]))
-                                      //    throw new Exception();
-                                  }
+                                  //    //if (float.IsNaN(AccuracyParticles[i]))
+                                  //    //    throw new Exception();
+                                  //}
 
                                   lock (Watch)
                                   {
                                       NDone++;
 
-                                      if (!float.IsNaN(AccuracyParticles[0]))
+                                      //if (!float.IsNaN(AccuracyParticles[0]))
                                       {
-                                          LastAccuracies[icorpus].Enqueue(AccuracyParticles[0]);
-                                          if (LastAccuracies[icorpus].Count > PlotEveryN)
+                                          LastAccuracies[icorpus].Enqueue(Loss);
+                                          if (LastAccuracies[icorpus].Count > SmoothN)
                                               LastAccuracies[icorpus].Dequeue();
                                       }
-                                      if (!float.IsNaN(AccuracyParticles[1]))
-                                          LastBaselines[icorpus].Add(AccuracyParticles[1]);
+                                      //if (!float.IsNaN(AccuracyParticles[1]))
+                                      //    LastBaselines[icorpus].Add(AccuracyParticles[1]);
 
                                       if (NDone % PlotEveryN == 0)
                                       {
@@ -907,11 +903,11 @@ namespace Warp.Controls
                                               AccuracyPoints[iicorpus * 2 + 0].Add(new ObservablePoint((float)NDone / NIterations * 100,
                                                                                                       MathHelper.Mean(LastAccuracies[iicorpus].Where(v => !float.IsNaN(v)))));
 
-                                              AccuracyPoints[iicorpus * 2 + 1].Clear();
-                                              AccuracyPoints[iicorpus * 2 + 1].Add(new ObservablePoint(0,
-                                                                                                      MathHelper.Mean(LastBaselines[iicorpus].Where(v => !float.IsNaN(v)))));
-                                              AccuracyPoints[iicorpus * 2 + 1].Add(new ObservablePoint((float)NDone / NIterations * 100,
-                                                                                                      MathHelper.Mean(LastBaselines[iicorpus].Where(v => !float.IsNaN(v)))));
+                                              //AccuracyPoints[iicorpus * 2 + 1].Clear();
+                                              //AccuracyPoints[iicorpus * 2 + 1].Add(new ObservablePoint(0,
+                                              //                                                        MathHelper.Mean(LastBaselines[iicorpus].Where(v => !float.IsNaN(v)))));
+                                              //AccuracyPoints[iicorpus * 2 + 1].Add(new ObservablePoint((float)NDone / NIterations * 100,
+                                              //                                                        MathHelper.Mean(LastBaselines[iicorpus].Where(v => !float.IsNaN(v)))));
                                           }
 
                                           long Elapsed = Watch.ElapsedMilliseconds;
@@ -922,12 +918,12 @@ namespace Warp.Controls
                                           Dispatcher.InvokeAsync(() =>
                                           {
                                               SeriesTrainAccuracy.Values = new ChartValues<ObservablePoint>(AccuracyPoints[0]);
-                                              SeriesTrainBaseline.Values = new ChartValues<ObservablePoint>(AccuracyPoints[1]);
+                                              //SeriesTrainBaseline.Values = new ChartValues<ObservablePoint>(AccuracyPoints[1]);
 
                                               if (UseCorpus)
                                               {
                                                   SeriesBackgroundAccuracy.Values = new ChartValues<ObservablePoint>(AccuracyPoints[2]);
-                                                  SeriesBackgroundBaseline.Values = new ChartValues<ObservablePoint>(AccuracyPoints[3]);
+                                                  //SeriesBackgroundBaseline.Values = new ChartValues<ObservablePoint>(AccuracyPoints[3]);
                                               }
 
                                               TextProgress.Text = SpanRemaining.ToString((int)SpanRemaining.TotalHours > 0 ? @"hh\:mm\:ss" : @"mm\:ss");
@@ -981,7 +977,35 @@ namespace Warp.Controls
             {
                 ButtonCancelTraining.Content = "CLOSE";
                 ButtonCancelTraining.Click -= ButtonCancelTraining_OnClick;
-                ButtonCancelTraining.Click += (a, b) => Close?.Invoke();
+                ButtonCancelTraining.Click += async (a, b) =>
+                {
+                    Close?.Invoke();
+
+                    if (MainWindow.Analytics.ShowBoxNetReminder)
+                    {
+                        var DialogResult = await ((MainWindow)Application.Current.MainWindow).ShowMessageAsync("Sharing is caring 🙂",
+                                                                                                               "BoxNet performs well because of the wealth of training data it\n" +
+                                                                                                               "can use. However, it could do even better with the data you just\n" +
+                                                                                                               "used for re-training! Would you like to open a website to guide\n" +
+                                                                                                               "you through contributing your data to the central repository?\n\n" +
+                                                                                                               $"Your training data have been saved to \n{NewExamplesPath.Replace('/', '\\')}.\n\n",
+                                                                                                               MessageDialogStyle.AffirmativeAndNegative,
+                                                                                                               new MetroDialogSettings()
+                                                                                                               {
+                                                                                                                   AffirmativeButtonText = "Yes",
+                                                                                                                   NegativeButtonText = "No",
+                                                                                                                   DialogMessageFontSize = 18,
+                                                                                                                   DialogTitleFontSize = 28
+                                                                                                               });
+                        if (DialogResult == MessageDialogResult.Affirmative)
+                        {
+                            string argument = "/select, \"" + NewExamplesPath.Replace('/', '\\') + "\"";
+                            Process.Start("explorer.exe", argument);
+
+                            Process.Start("http://www.warpem.com/warp/?page_id=72");
+                        }
+                    }
+                };
             }
         }
 

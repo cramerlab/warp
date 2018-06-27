@@ -79,6 +79,11 @@ __declspec(dllexport) void __stdcall CopyHostToDevice(float* h_source, float* d_
 	cudaMemcpy(d_dest, h_source, elements * sizeof(float), cudaMemcpyHostToDevice);
 }
 
+__declspec(dllexport) void __stdcall CopyHostToHost(float* h_source, float* h_dest, long elements)
+{
+    cudaMemcpy(h_dest, h_source, elements * sizeof(float), cudaMemcpyHostToHost);
+}
+
 __declspec(dllexport) void __stdcall CopyHostPinnedToDevice(float* hp_source, float* d_dest, long elements)
 {
     cudaMemcpy(d_dest, hp_source, elements * sizeof(float), cudaMemcpyHostToDevice);

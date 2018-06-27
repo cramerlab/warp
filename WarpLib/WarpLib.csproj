@@ -80,6 +80,8 @@
     <Compile Include="Cubic1D.cs" />
     <Compile Include="Cubic1DShort.cs" />
     <Compile Include="CubicGrid.cs" />
+    <Compile Include="GPUQueue.cs" />
+    <Compile Include="Headers\DM4.cs" />
     <Compile Include="Movie.cs" />
     <Compile Include="Sociology\DataSource.cs" />
     <Compile Include="Sociology\Particle.cs" />
@@ -92,6 +94,7 @@
     <Compile Include="TensorFlowSharp\Tensorflow.cs" />
     <Compile Include="TensorFlowSharp\Variable.cs" />
     <Compile Include="TiltSeries.cs" />
+    <Compile Include="Tools\BenchmarkTimer.cs" />
     <Compile Include="Tools\Symmetry.cs" />
     <Compile Include="Tools\TFHelper.cs" />
     <Compile Include="WarpBase.cs" />

@@ -43,13 +43,14 @@ namespace Warp
     public partial class MainWindow : MahApps.Metro.Controls.MetroWindow
     {
         private const string DefaultAnalyticsName = "analytics.settings";
-        public Analytics Analytics = new Analytics();
+        public static Analytics Analytics = new Analytics();
 
         #region MAIN WINDOW
 
         private CheckBox[] CheckboxesGPUStats;
         private int[] BaselinesGPUStats;
         private DispatcherTimer TimerGPUStats;
+        private DispatcherTimer TimerCheckUpdates;
 
         public MainWindow()
         {
@@ -62,7 +63,14 @@ namespace Warp
             }
             catch (Exception exc)
             {
-                MessageBox.Show("No CUDA devices found, shutting down.\n\n" + exc);
+                MessageBox.Show("No CUDA devices found, or couldn't load GPUAcceleration.dll due to missing dependencies, shutting down.\n\n" +
+                                "First things to check:\n" +
+                                "-At least one GPU with Maxwell (GeForce 9xx, Quadro Mxxxx, Tesla Mxx) or later architecture available?\n" +
+                                "-Latest GPU driver installed?\n" +
+                                "-VC++ 2017 redistributable installed?\n" +
+                                "-Any bundled libraries missing? (reinstall Warp to be sure)\n" +
+                                "\n" +
+                                "If none of this works, please report the issue in https://groups.google.com/forum/#!forum/warp-em");
                 Close();
             }
 
@@ -231,7 +239,7 @@ namespace Warp
                         if (CurrentVersion < LatestVersion)
                         {
                             var MessageResult = await this.ShowMessageAsync("How the time flies!",
-                                                                            $"It's been a while since you last updated Warp. You're running version {CurrentVersion}, but version {LatestVersion} is even better! Would you like to go to the download page?",
+                                                                            $"It's been a while since you updated Warp. You're running version {CurrentVersion}, but version {LatestVersion} is even better! Would you like to go to the download page?",
                                                                             MessageDialogStyle.AffirmativeAndNegative,
                                                                             new MetroDialogSettings
                                                                             {
@@ -241,14 +249,37 @@ namespace Warp
 
                             if (MessageResult == MessageDialogResult.Affirmative)
                             {
-                                Process.Start("http://www.multiparticle.com/warp/?page_id=65");
+                                Process.Start("http://www.warpem.com/warp/?page_id=65");
                             }
+
+                            ButtonUpdateAvailable.Visibility = Visibility.Visible;
                         }
                     }
                     catch
                     {
                     }
                 }, DispatcherPriority.ApplicationIdle);
+
+            TimerCheckUpdates = new DispatcherTimer();
+            TimerCheckUpdates.Interval = new TimeSpan(0, 10, 0);
+            TimerCheckUpdates.Tick += (sender, e) =>
+            {
+                Dispatcher.InvokeAsync(() =>
+                {
+                    try
+                    {
+                        Version CurrentVersion = Assembly.GetExecutingAssembly().GetName().Version;
+                        Version LatestVersion = Analytics.GetLatestVersion();
+
+                        if (CurrentVersion < LatestVersion)
+                            ButtonUpdateAvailable.Visibility = Visibility.Visible;
+                    }
+                    catch
+                    {
+                    }
+                });
+            };
+            TimerCheckUpdates.Start();
 
             #endregion
 
@@ -646,6 +677,11 @@ namespace Warp
                 // ignored
             }
         }
+        
+        private void ButtonUpdateAvailable_OnClick(object sender, RoutedEventArgs e)
+        {
+            Process.Start("http://www.warpem.com/warp/?page_id=65");
+        }
 
         private void SwitchDayNight_OnClick(object sender, RoutedEventArgs e)
         {
@@ -848,7 +884,10 @@ namespace Warp
                     Options.Import.GainPath = "";
                     return;
                 }
+
+                Options.Runtime.GainReferenceHash = MathHelper.GetSHA1(Options.Import.GainPath, 1 << 20);
                 ButtonGainPathText.Text = Options.Import.GainPath == "" ? "Select gain reference..." : Options.Import.GainPath;
+                ButtonGainPathText.ToolTip = Options.Import.GainPath == "" ? null : Options.Import.GainPath;
             }
             else if (e.PropertyName == "CTF.Window")
             {
@@ -1009,6 +1048,7 @@ namespace Warp
                 try
                 {
                     Options.Save(DefaultOptionsName);
+                    Analytics.Save(DefaultAnalyticsName);
                 } catch { }
 
                 if (Options.Import.Folder != "")
@@ -1104,7 +1144,7 @@ namespace Warp
         {
             System.Windows.Forms.OpenFileDialog Dialog = new System.Windows.Forms.OpenFileDialog
             {
-                Filter = "Image Files|*.em;*.mrc",
+                Filter = "Image Files|*.dm4;*.mrc;*.em",
                 Multiselect = false
             };
             System.Windows.Forms.DialogResult Result = Dialog.ShowDialog();
@@ -1252,7 +1292,7 @@ namespace Warp
                 ButtonStartProcessing.Foreground = Brushes.Red;
                 IsPreprocessing = true;
 
-                PreprocessingTask = Task.Factory.StartNew(async () =>
+                PreprocessingTask = Task.Run(async () =>
                 {
                     List<int> UsedDevices = GetDeviceList();
 
@@ -1272,11 +1312,12 @@ namespace Warp
                             try
                             {
                                 GPU.SetDevice(d);
-                                ImageGain[d] = Image.FromFilePatient(50, 500,
-                                                                     Options.Import.GainPath,
-                                                                     new int2(Options.Import.HeaderlessWidth, Options.Import.HeaderlessHeight),
-                                                                     (int)Options.Import.HeaderlessOffset,
-                                                                     ImageFormatsHelper.StringToType(Options.Import.HeaderlessType));
+                                //ImageGain[d] = Image.FromFilePatient(50, 500,
+                                //                                     Options.Import.GainPath,
+                                //                                     new int2(Options.Import.HeaderlessWidth, Options.Import.HeaderlessHeight),
+                                //                                     (int)Options.Import.HeaderlessOffset,
+                                //                                     ImageFormatsHelper.StringToType(Options.Import.HeaderlessType));
+                                ImageGain[d] = LoadAndPrepareGainReference();
                             }
                             catch (Exception exc)
                             {
@@ -1421,7 +1462,6 @@ namespace Warp
                         bool DoCTF = Options.ProcessCTF;
                         bool DoMovement = Options.ProcessMovement;
                         bool DoPicking = Options.ProcessPicking;
-                        bool DoExport = OptionsExport.DoAverage || OptionsExport.DoStack || OptionsExport.DoDeconv || DoPicking;
 
                         foreach (var item in ImmutableItems)
                         {
@@ -1479,6 +1519,17 @@ namespace Warp
                             StatsProgressIndicator.Visibility = Visibility.Visible;
                         });
 
+                        int NSimultaneous = 1;
+                        int NPreread = NSimultaneous * 1;
+
+                        Dictionary<int, SemaphoreSlim> SemaphoresPreread = new Dictionary<int, SemaphoreSlim>();
+                        Dictionary<int, SemaphoreSlim> SemaphoresProcessing = new Dictionary<int, SemaphoreSlim>();
+                        foreach (var device in UsedDevices)
+                        {
+                            SemaphoresPreread.Add(device, new SemaphoreSlim(1));
+                            SemaphoresProcessing.Add(device, new SemaphoreSlim(NSimultaneous));
+                        }
+
                         #region Perform preprocessing on all available GPUs
 
                         Helper.ForEachGPU(NeedProcessing, (item, gpuID) =>
@@ -1487,15 +1538,20 @@ namespace Warp
                                 return true;    // This cancels the iterator
 
                             Image OriginalStack = null;
+                            bool AcquiredProcessingSemaphore = false;
 
                             try
                             {
+                                var TimerOverall = BenchmarkAllProcessing.Start();
+
                                 bool IsTomo = item.GetType() == typeof(TiltSeries);
 
                                 ProcessingOptionsMovieCTF CurrentOptionsCTF = Options.GetProcessingMovieCTF();
                                 ProcessingOptionsMovieMovement CurrentOptionsMovement = Options.GetProcessingMovieMovement();
                                 ProcessingOptionsBoxNet CurrentOptionsBoxNet = Options.GetProcessingBoxNet();
                                 ProcessingOptionsMovieExport CurrentOptionsExport = Options.GetProcessingMovieExport();
+
+                                bool DoExport = OptionsExport.DoAverage || OptionsExport.DoStack || OptionsExport.DoDeconv || (DoPicking && !File.Exists(item.AveragePath));
 
                                 bool NeedsNewCTF = CurrentOptionsCTF != item.OptionsCTF && DoCTF;
                                 bool NeedsNewMotion = CurrentOptionsMovement != item.OptionsMovement && DoMovement;
@@ -1516,7 +1572,18 @@ namespace Warp
                                                  (NeedsNewPicking && CurrentOptionsBoxNet.ExportParticles);
 
                                 if (!IsTomo)
-                                    PrepareHeaderAndMap(item.Path, ImageGain[gpuID], ScaleFactor, out OriginalHeader, out OriginalStack, NeedStack);
+                                {
+                                    SemaphoresPreread[gpuID].Wait();
+
+                                    Debug.WriteLine(GPU.GetDevice() + " loading...");
+                                    var TimerRead = BenchmarkRead.Start();
+
+                                    LoadAndPrepareHeaderAndMap(item.Path, ImageGain[gpuID], ScaleFactor, out OriginalHeader, out OriginalStack, NeedStack);
+
+                                    BenchmarkRead.Finish(TimerRead);
+                                    Debug.WriteLine(GPU.GetDevice() + " loaded.");
+                                    SemaphoresPreread[gpuID].Release();
+                                }
 
                                 // Store original dimensions in Angstrom
                                 if (!IsTomo)
@@ -1535,44 +1602,62 @@ namespace Warp
                                     CurrentOptionsMovement.Dimensions = StackDims;
                                     CurrentOptionsExport.Dimensions = StackDims;
                                 }
+                                
+                                SemaphoresProcessing[gpuID].Wait();
+                                AcquiredProcessingSemaphore = true;
+                                Debug.WriteLine(GPU.GetDevice() + " processing...");
 
                                 if (!IsPreprocessing)
                                 {
                                     OriginalStack?.Dispose();
+                                    SemaphoresProcessing[gpuID].Release();
                                     return true;
                                 } // These checks are needed to abort the processing faster
 
                                 if (DoMovement && NeedsNewMotion && item.GetType() != typeof(TiltSeries))
                                 {
+                                    var TimerMotion = BenchmarkMotion.Start();
+
                                     item.ProcessShift(OriginalStack, CurrentOptionsMovement);
 
+                                    BenchmarkMotion.Finish(TimerMotion);
                                     Analytics.LogProcessingMovement(CurrentOptionsMovement, (float)item.MeanFrameMovement);
                                 }
 
                                 if (!IsPreprocessing)
                                 {
                                     OriginalStack?.Dispose();
+                                    SemaphoresProcessing[gpuID].Release();
                                     return true;
                                 }
 
                                 if (DoCTF && NeedsNewCTF)
                                 {
+                                    var TimerCTF = BenchmarkCTF.Start();
+
                                     if (item.GetType() == typeof(Movie))
                                         item.ProcessCTF(OriginalStack, CurrentOptionsCTF);
                                     else
                                         ((TiltSeries)item).ProcessCTFSimultaneous(CurrentOptionsCTF);
 
+                                    BenchmarkCTF.Finish(TimerCTF);
                                     Analytics.LogProcessingCTF(CurrentOptionsCTF, item.CTF, (float)item.CTFResolutionEstimate);
                                 }
                                 if (!IsPreprocessing)
                                 {
                                     OriginalStack?.Dispose();
+                                    SemaphoresProcessing[gpuID].Release();
                                     return true;
                                 }
 
                                 if (DoExport && NeedsNewExport)
+                                {
+                                    var TimerOutput = BenchmarkOutput.Start();
+
                                     item.ExportMovie(OriginalStack, CurrentOptionsExport);
 
+                                    BenchmarkOutput.Finish(TimerOutput);
+                                }
 
                                 // In case no average was written out, force its creation to enable micrograph display
 
@@ -1580,6 +1665,8 @@ namespace Warp
                                 {
                                     if (!Directory.Exists(item.AverageDir))
                                         Directory.CreateDirectory(item.AverageDir);
+                                    
+                                    var TimerOutput = BenchmarkOutput.Start();
 
                                     Image StackAverage = OriginalStack.AsReducedAlongZ();
                                     //Task.Run(() =>
@@ -1593,6 +1680,8 @@ namespace Warp
                                             item.SaveMeta();
                                         }
                                     }//);
+                                    
+                                    BenchmarkOutput.Finish(TimerOutput);
                                 }
 
                                 if (!File.Exists(item.ThumbnailsPath))
@@ -1600,8 +1689,10 @@ namespace Warp
 
                                 if (DoPicking && NeedsNewPicking)
                                 {
+                                    var TimerPicking = BenchmarkPicking.Start();
+
                                     Image AverageForPicking = Image.FromFilePatient(50, 500, item.AveragePath);
-                                    item.MatchBoxNet2(new []{BoxNetworks[gpuID]}, AverageForPicking, CurrentOptionsBoxNet, null);
+                                    item.MatchBoxNet2(new[] { BoxNetworks[gpuID] }, AverageForPicking, CurrentOptionsBoxNet, null);
 
                                     Analytics.LogProcessingBoxNet(CurrentOptionsBoxNet, item.GetParticleCount("_" + BoxNetSuffix));
 
@@ -1642,7 +1733,11 @@ namespace Warp
                                         };
 
                                         item.ExportParticles(OriginalStack, Positions, ParticleOptions);
-                                        
+
+                                        OriginalStack?.Dispose();
+                                        Debug.WriteLine(GPU.GetDevice() + " processed.");
+                                        SemaphoresProcessing[gpuID].Release();
+
                                         float[] Defoci = new float[Positions.Length];
                                         if (item.GridCTF != null)
                                             Defoci = item.GridCTF.GetInterpolated(Positions.Select(v => new float3(v.X / CurrentOptionsBoxNet.Dimensions.X,
@@ -1694,14 +1789,30 @@ namespace Warp
                                                 TableBoxNetFiltered.Save(PathBoxNetFiltered);
                                             }
                                             catch
-                                            { }
+                                            {
+                                            }
                                         }
+                                    }
+                                    else
+                                    {
+                                        OriginalStack?.Dispose();
+                                        Debug.WriteLine(GPU.GetDevice() + " processed.");
+                                        SemaphoresProcessing[gpuID].Release();
                                     }
 
                                     #endregion
 
                                     AverageForPicking.Dispose();
+
+                                    BenchmarkPicking.Finish(TimerPicking);
                                 }
+                                else
+                                {
+                                    OriginalStack?.Dispose();
+                                    Debug.WriteLine(GPU.GetDevice() + " processed.");
+                                    SemaphoresProcessing[gpuID].Release();
+                                }
+
 
                                 Dispatcher.Invoke(() =>
                                 {
@@ -1711,9 +1822,9 @@ namespace Warp
                                     ProcessingStatusBar.UpdateElements();
                                 });
 
-                                UpdateStatsAll();
+                                BenchmarkAllProcessing.Finish(TimerOverall);
 
-                                OriginalStack?.Dispose();
+                                UpdateStatsAll();
 
                                 return false; // No need to cancel GPU ForEach iterator
                             }
@@ -1723,9 +1834,12 @@ namespace Warp
 
                                 item.UnselectManual = true;
 
+                                if (AcquiredProcessingSemaphore)
+                                    SemaphoresProcessing[gpuID].Release();
+
                                 return false;
                             }
-                        }, 1, UsedDevices);
+                        }, Math.Max(NPreread, NSimultaneous), UsedDevices);
 
 
                         Dispatcher.Invoke(() =>
@@ -1748,7 +1862,7 @@ namespace Warp
                         ImageGain[d]?.Dispose();
                         BoxNetworks[d]?.Dispose();
                     }
-                }, TaskCreationOptions.LongRunning);
+                });
             }
             else
             {
@@ -1764,6 +1878,19 @@ namespace Warp
 
                 foreach (var item in DisableWhenPreprocessing)
                     item.IsEnabled = true;
+                
+                #region Timers
+
+                BenchmarkAllProcessing.Clear();
+                BenchmarkRead.Clear();
+                BenchmarkCTF.Clear();
+                BenchmarkMotion.Clear();
+                BenchmarkPicking.Clear();
+                BenchmarkOutput.Clear();
+
+                #endregion
+
+                UpdateStatsAll();
 
                 ButtonStartProcessing.IsEnabled = true;
                 ButtonStartProcessing.Content = "START PROCESSING";
@@ -1838,6 +1965,14 @@ namespace Warp
 
         private int StatsAstigmatismZoom = 1;
 
+        private BenchmarkTimer BenchmarkRead = new BenchmarkTimer("File read");
+        private BenchmarkTimer BenchmarkCTF = new BenchmarkTimer("CTF");
+        private BenchmarkTimer BenchmarkMotion = new BenchmarkTimer("Motion");
+        private BenchmarkTimer BenchmarkPicking = new BenchmarkTimer("Picking");
+        private BenchmarkTimer BenchmarkOutput = new BenchmarkTimer("Output");
+
+        private BenchmarkTimer BenchmarkAllProcessing = new BenchmarkTimer("All processing");
+
         #endregion
 
         public void UpdateStatsAll()
@@ -1847,6 +1982,7 @@ namespace Warp
             UpdateStatsAstigmatismPlot();
             UpdateStatsStatus();
             UpdateFilterSuffixMenu();
+            UpdateBenchmarkTimes();
         }
 
         private void UpdateStatsStatus()
@@ -2260,6 +2396,27 @@ namespace Warp
             });
         }
 
+        public void UpdateBenchmarkTimes()
+        {
+            Dispatcher.Invoke(() =>
+            {
+                StatsBenchmarkOverall.Text = "";
+
+                if (BenchmarkAllProcessing.NItems < 5)
+                    return;
+
+                int NMeasurements = Math.Min(BenchmarkAllProcessing.NItems, 100);
+
+                StatsBenchmarkOverall.Text = ((int)Math.Round(BenchmarkAllProcessing.GetPerSecondConcurrent(NMeasurements) * 3600)) + " / h";
+
+                StatsBenchmarkInput.Text = BenchmarkRead.NItems > 0 ? (BenchmarkRead.GetAverageMilliseconds(NMeasurements) / 1000).ToString("F1") + " s" : "";
+                StatsBenchmarkCTF.Text = BenchmarkCTF.NItems > 0 ? (BenchmarkCTF.GetAverageMilliseconds(NMeasurements) / 1000).ToString("F1") + " s" : "";
+                StatsBenchmarkMotion.Text = BenchmarkMotion.NItems > 0 ? (BenchmarkMotion.GetAverageMilliseconds(NMeasurements) / 1000).ToString("F1") + " s" : "";
+                StatsBenchmarkPicking.Text = BenchmarkPicking.NItems > 0 ? (BenchmarkPicking.GetAverageMilliseconds(NMeasurements) / 1000).ToString("F1") + " s" : "";
+                StatsBenchmarkOutput.Text = BenchmarkOutput.NItems > 0 ? (BenchmarkOutput.GetAverageMilliseconds(NMeasurements) / 1000).ToString("F1") + " s" : "";
+            });
+        }
+
         #region GUI events
 
         private void PlotStatsAstigmatism_OnPointClicked(Movie obj)
@@ -2376,6 +2533,16 @@ namespace Warp
         private void MenuParticlesSuffix_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             UpdateFilterSuffixMenu();
+        }
+        
+        private void StatsBenchmarkOverall_OnMouseEnter(object sender, MouseEventArgs e)
+        {
+            StatsBenchmarkDetails.Visibility = Visibility.Visible;
+        }
+
+        private void StatsBenchmarkDetails_OnMouseLeave(object sender, MouseEventArgs e)
+        {
+            StatsBenchmarkDetails.Visibility = Visibility.Hidden;
         }
 
         #endregion
@@ -2672,6 +2839,9 @@ namespace Warp
             if (Options.Runtime.DisplayedMovie == null)
                 return;
 
+            Stopwatch Watch = new Stopwatch();
+            Watch.Start();
+
             Movie Item = Options.Runtime.DisplayedMovie;
 
             var Dialog = await this.ShowProgressAsync("Please wait...", $"Processing CTF for {Item.Name}...");
@@ -2687,11 +2857,7 @@ namespace Warp
                     #region Get gain ref if needed
 
                     if (!string.IsNullOrEmpty(Options.Import.GainPath) && Options.Import.CorrectGain && File.Exists(Options.Import.GainPath))
-                        ImageGain = Image.FromFilePatient(50, 500,
-                                                          Options.Import.GainPath,
-                                                          new int2(Options.Import.HeaderlessWidth, Options.Import.HeaderlessHeight),
-                                                          (int)Options.Import.HeaderlessOffset,
-                                                          ImageFormatsHelper.StringToType(Options.Import.HeaderlessType));
+                        ImageGain = LoadAndPrepareGainReference();
 
                     #endregion
 
@@ -2703,9 +2869,12 @@ namespace Warp
                     decimal ScaleFactor = 1M / (decimal)Math.Pow(2, (double)Options.Import.BinTimes);
 
                     if (!IsTomo)
-                        PrepareHeaderAndMap(Item.Path, ImageGain, ScaleFactor, out OriginalHeader, out OriginalStack);
+                        LoadAndPrepareHeaderAndMap(Item.Path, ImageGain, ScaleFactor, out OriginalHeader, out OriginalStack);
 
                     #endregion
+
+                    Watch.Stop();
+                    Debug.WriteLine(Watch.ElapsedMilliseconds / 1e3);
 
                     ProcessingOptionsMovieCTF CurrentOptionsCTF = Options.GetProcessingMovieCTF();
 
@@ -3069,7 +3238,25 @@ namespace Warp
             FileDiscoverer.ChangePath(Options.Import.Folder, Options.Import.Extension);
         }
 
-        public static void PrepareHeaderAndMap(string path, Image imageGain, decimal scaleFactor, out MapHeader header, out Image stack, bool needStack = true)
+        public static Image LoadAndPrepareGainReference()
+        {
+            Image Gain = Image.FromFilePatient(50, 500,
+                                               Options.Import.GainPath,
+                                               new int2(Options.Import.HeaderlessWidth, Options.Import.HeaderlessHeight),
+                                               (int)Options.Import.HeaderlessOffset,
+                                               ImageFormatsHelper.StringToType(Options.Import.HeaderlessType));
+
+            if (Options.Import.GainFlipX)
+                Gain = Gain.AsFlippedX();
+            if (Options.Import.GainFlipY)
+                Gain = Gain.AsFlippedY();
+            if (Options.Import.GainTranspose)
+                Gain = Gain.AsTransposed();
+
+            return Gain;
+        }
+
+        public static void LoadAndPrepareHeaderAndMap(string path, Image imageGain, decimal scaleFactor, out MapHeader header, out Image stack, bool needStack = true, int maxThreads = 8)
         {
             header = MapHeader.ReadFromFilePatient(50, 500,
                                                    path,
@@ -3081,19 +3268,68 @@ namespace Warp
                 if (header.Dimensions.X != imageGain.Dims.X || header.Dimensions.Y != imageGain.Dims.Y)
                     throw new Exception("Gain reference dimensions do not match image.");
 
+            bool NeedIOLock = header.GetType() != typeof(HeaderTiff);   // No need to create additional IO competition without compression
+            bool IsTiff = header.GetType() == typeof(HeaderTiff);
+            object IOLock = new object();
+
+            int NThreads = Math.Min(IsTiff ? 8 : 2, maxThreads);
+
+            int CurrentDevice = GPU.GetDevice();
+
             if (needStack)
             {
+                byte[] TiffBytes = null;
+                if (IsTiff)
+                {
+                    MemoryStream Stream = new MemoryStream();
+                    using (Stream BigBufferStream = IOHelper.OpenWithBigBuffer(path))
+                        BigBufferStream.CopyTo(Stream);
+                    TiffBytes = Stream.GetBuffer();
+                }
+
                 if (scaleFactor == 1M)
                 {
-                    stack = Image.FromFilePatient(50, 500,
-                                                  path,
-                                                  new int2(Options.Import.HeaderlessWidth, Options.Import.HeaderlessHeight),
-                                                  (int)Options.Import.HeaderlessOffset,
-                                                  ImageFormatsHelper.StringToType(Options.Import.HeaderlessType));
+                    stack = new Image(header.Dimensions);
+                    float[][] OriginalStackData = stack.GetHost(Intent.Write);
 
-                    if (imageGain != null)
-                        stack.MultiplySlices(imageGain);
-                    stack.Xray(20f);
+                    Helper.ForCPU(0, header.Dimensions.Z, NThreads, threadID => GPU.SetDevice(CurrentDevice), (z, threadID) =>
+                    {
+                        Image Layer = null;
+                        MemoryStream TiffStream = TiffBytes != null ? new MemoryStream(TiffBytes) : null;
+
+                        if (NeedIOLock)
+                        {
+                            lock (IOLock)
+                                Layer = Image.FromFilePatient(50, 500,
+                                                              path,
+                                                              new int2(Options.Import.HeaderlessWidth, Options.Import.HeaderlessHeight),
+                                                              (int)Options.Import.HeaderlessOffset,
+                                                              ImageFormatsHelper.StringToType(Options.Import.HeaderlessType),
+                                                              z,
+                                                              TiffStream);
+                        }
+                        else
+                        {
+                            Layer = Image.FromFilePatient(50, 500,
+                                                          path,
+                                                          new int2(Options.Import.HeaderlessWidth, Options.Import.HeaderlessHeight),
+                                                          (int)Options.Import.HeaderlessOffset,
+                                                          ImageFormatsHelper.StringToType(Options.Import.HeaderlessType),
+                                                          z,
+                                                          TiffStream);
+                        }
+
+                        lock (OriginalStackData)
+                        {
+                            if (imageGain != null)
+                                Layer.MultiplySlices(imageGain);
+                            Layer.Xray(20f);
+
+                            OriginalStackData[z] = Layer.GetHost(Intent.Read)[0];
+                            Layer.Dispose();
+                        }
+
+                    }, null);
                 }
                 else
                 {
@@ -3107,28 +3343,48 @@ namespace Warp
                     int PlanForw = GPU.CreateFFTPlan(header.Dimensions.Slice(), 1);
                     int PlanBack = GPU.CreateIFFTPlan(ScaledDims.Slice(), 1);
 
-                    //Parallel.For(0, ScaledDims.Z, new ParallelOptions {MaxDegreeOfParallelism = 4}, z =>
-                    for (int z = 0; z < ScaledDims.Z; z++)
-                    {
-                        Image Layer = Image.FromFilePatient(50, 500,
-                                                            path,
-                                                            new int2(Options.Import.HeaderlessWidth, Options.Import.HeaderlessHeight),
-                                                            (int)Options.Import.HeaderlessOffset,
-                                                            ImageFormatsHelper.StringToType(Options.Import.HeaderlessType),
-                                                            z);
-                        //lock (OriginalStackData)
-                        {
-                            if (imageGain != null)
-                                Layer.MultiplySlices(imageGain);
-                            Layer.Xray(20f);
+                    Helper.ForCPU(0, ScaledDims.Z, NThreads, threadID => GPU.SetDevice(CurrentDevice), (z, threadID) =>
+                                  {
+                                      Image Layer = null;
+                                      MemoryStream TiffStream = TiffBytes != null ? new MemoryStream(TiffBytes) : null;
 
-                            Image ScaledLayer = Layer.AsScaled(new int2(ScaledDims), PlanForw, PlanBack);
-                            Layer.Dispose();
+                                      if (NeedIOLock)
+                                      {
+                                          lock (IOLock)
+                                              Layer = Image.FromFilePatient(50, 500,
+                                                                            path,
+                                                                            new int2(Options.Import.HeaderlessWidth, Options.Import.HeaderlessHeight),
+                                                                            (int)Options.Import.HeaderlessOffset,
+                                                                            ImageFormatsHelper.StringToType(Options.Import.HeaderlessType),
+                                                                            z,
+                                                                            TiffStream);
+                                      }
+                                      else
+                                      {
+                                          Layer = Image.FromFilePatient(50, 500,
+                                                                        path,
+                                                                        new int2(Options.Import.HeaderlessWidth, Options.Import.HeaderlessHeight),
+                                                                        (int)Options.Import.HeaderlessOffset,
+                                                                        ImageFormatsHelper.StringToType(Options.Import.HeaderlessType),
+                                                                        z,
+                                                                        TiffStream);
+                                      }
 
-                            OriginalStackData[z] = ScaledLayer.GetHost(Intent.Read)[0];
-                            ScaledLayer.Dispose();
-                        }
-                    } //);
+                                      Image ScaledLayer = null;
+                                      lock (OriginalStackData)
+                                      {
+                                          if (imageGain != null)
+                                              Layer.MultiplySlices(imageGain);
+                                          Layer.Xray(20f);
+
+                                          ScaledLayer = Layer.AsScaled(new int2(ScaledDims), PlanForw, PlanBack);
+                                          Layer.Dispose();
+                                      }
+
+                                      OriginalStackData[z] = ScaledLayer.GetHost(Intent.Read)[0];
+                                      ScaledLayer.Dispose();
+
+                                  }, null);
 
                     GPU.DestroyFFTPlan(PlanForw);
                     GPU.DestroyFFTPlan(PlanBack);
@@ -3366,7 +3622,7 @@ namespace Warp
             //                        decimal ScaleFactor = 1M / (decimal)Math.Pow(2, (double)Options.PostBinTimes);
 
             //                        lock (IOSync[CurrentDevice.ID])
-            //                            PrepareHeaderAndMap(movie.Path, ImageGain[CurrentDevice.ID], ScaleFactor, out OriginalHeader, out OriginalStack);
+            //                            LoadAndPrepareHeaderAndMap(movie.Path, ImageGain[CurrentDevice.ID], ScaleFactor, out OriginalHeader, out OriginalStack);
 
             //                        if (movie.GetType() == typeof (Movie))
             //                        {
@@ -3579,7 +3835,7 @@ namespace Warp
             //                    Image OriginalStack = null;
             //                    decimal ScaleFactor = 1M / (decimal)Math.Pow(2, (double)Options.PostBinTimes);
 
-            //                    PrepareHeaderAndMap(movie.Path, ImageGain, ScaleFactor, out OriginalHeader, out OriginalStack);
+            //                    LoadAndPrepareHeaderAndMap(movie.Path, ImageGain, ScaleFactor, out OriginalHeader, out OriginalStack);
 
             //                    //OriginalStack.WriteMRC("d_stack.mrc");
             //                    movie.UpdateStarDefocus(TableIn, ColumnNames, ColumnCoordsX, ColumnCoordsY);

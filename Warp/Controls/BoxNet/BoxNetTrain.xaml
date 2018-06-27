@@ -56,13 +56,13 @@
                         </lvc:Axis>
                     </lvc:CartesianChart.AxisX>
                     <lvc:CartesianChart.AxisY>
-                        <lvc:Axis ShowLabels="True" Title="Accuracy" MaxValue="1" />
+                        <lvc:Axis ShowLabels="True" Title="Loss" MinValue="0" />
                     </lvc:CartesianChart.AxisY>
                     <lvc:CartesianChart.Series>
-                        <lvc:LineSeries Name="SeriesBackgroundAccuracy" Title="Accuracy – Old Examples" LineSmoothness="0" StrokeThickness="1" Stroke="DeepSkyBlue" PointGeometry="{x:Null}" Fill="Transparent" />
-                        <lvc:LineSeries Name="SeriesTrainAccuracy" Title="Accuracy – New Examples" LineSmoothness="0" StrokeThickness="1" Stroke="DeepPink" PointGeometry="{x:Null}" Fill="Transparent" />
-                        <lvc:LineSeries Name="SeriesBackgroundBaseline" Title="Old Baseline – Old Examples" LineSmoothness="0" StrokeThickness="1" Stroke="DeepSkyBlue" StrokeDashArray="4" PointGeometry="{x:Null}" Fill="Transparent" />
-                        <lvc:LineSeries Name="SeriesTrainBaseline" Title="Old Baseline – New Examples" LineSmoothness="0" StrokeThickness="1" Stroke="DeepPink" StrokeDashArray="4" PointGeometry="{x:Null}" Fill="Transparent" />
+                        <lvc:LineSeries Name="SeriesBackgroundAccuracy" Title="Loss – Old Examples" LineSmoothness="0" StrokeThickness="1" Stroke="DeepSkyBlue" PointGeometry="{x:Null}" Fill="Transparent" />
+                        <lvc:LineSeries Name="SeriesTrainAccuracy" Title="Loss – New Examples" LineSmoothness="0" StrokeThickness="1" Stroke="DeepPink" PointGeometry="{x:Null}" Fill="Transparent" />
+                        <!--<lvc:LineSeries Name="SeriesBackgroundBaseline" Title="Old Baseline – Old Examples" LineSmoothness="0" StrokeThickness="1" Stroke="DeepSkyBlue" StrokeDashArray="4" PointGeometry="{x:Null}" Fill="Transparent" />
+                        <lvc:LineSeries Name="SeriesTrainBaseline" Title="Old Baseline – New Examples" LineSmoothness="0" StrokeThickness="1" Stroke="DeepPink" StrokeDashArray="4" PointGeometry="{x:Null}" Fill="Transparent" />-->
                     </lvc:CartesianChart.Series>
                 </lvc:CartesianChart>
                 <Grid HorizontalAlignment="Right" VerticalAlignment="Top" Width="220" Margin="0,40,-236,0">
@@ -73,17 +73,17 @@
                     <Grid.RowDefinitions>
                         <RowDefinition Height="24" />
                         <RowDefinition Height="24" />
-                        <RowDefinition Height="24" />
-                        <RowDefinition Height="24" />
+                        <!--<RowDefinition Height="24" />
+                        <RowDefinition Height="24" />-->
                     </Grid.RowDefinitions>
                     <Line Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" X2="20" Stroke="DeepSkyBlue" StrokeThickness="1" />
-                    <TextBlock Grid.Row="0" Grid.Column="1" Text="Accuracy – Old Examples" VerticalAlignment="Center" />
+                    <TextBlock Grid.Row="0" Grid.Column="1" Text="Loss – Old Examples" VerticalAlignment="Center" />
                     <Line Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" X2="20" Stroke="DeepPink" StrokeThickness="1" />
-                    <TextBlock Grid.Row="1" Grid.Column="1" Text="Accuracy – New Examples" VerticalAlignment="Center" />
-                    <Line Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" X2="20" Stroke="DeepSkyBlue" StrokeThickness="1" StrokeDashArray="4" />
+                    <TextBlock Grid.Row="1" Grid.Column="1" Text="Loss – New Examples" VerticalAlignment="Center" />
+                    <!--<Line Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" X2="20" Stroke="DeepSkyBlue" StrokeThickness="1" StrokeDashArray="4" />
                     <TextBlock Grid.Row="2" Grid.Column="1" Text="Old Baseline – Old Examples" VerticalAlignment="Center" />
                     <Line Grid.Row="3" Grid.Column="0" VerticalAlignment="Center" X2="20" Stroke="DeepPink" StrokeThickness="1" StrokeDashArray="4" />
-                    <TextBlock Grid.Row="3" Grid.Column="1" Text="Old Baseline – New Examples" VerticalAlignment="Center" />
+                    <TextBlock Grid.Row="3" Grid.Column="1" Text="Old Baseline – New Examples" VerticalAlignment="Center" />-->
                 </Grid>
             </Grid>
             

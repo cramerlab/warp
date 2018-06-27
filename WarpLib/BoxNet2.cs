@@ -63,6 +63,8 @@ namespace Warp
                 NodeInputWeights = Graph["image_weights"][0];
                 NodeLearningRate = Graph["training_learning_rate"][0];
                 NodeOpTrain = Graph["train_momentum"][0];
+
+                NodeOutputLoss = Graph["cross_entropy"][0];
             }
             else
             {
@@ -71,7 +73,6 @@ namespace Warp
 
             NodeOutputArgMax = Graph["argmax_tensor"][0];
             NodeOutputSoftMax = Graph["softmax_tensor"][0];
-            NodeOutputLoss = Graph["cross_entropy"][0];
 
             if (forTraining)
             {

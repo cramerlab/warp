@@ -20,6 +20,9 @@ namespace Warp
 {
     public class Movie : WarpBase
     {
+        private static BenchmarkTimer[] CTFTimers = new BenchmarkTimer[0];
+        private static BenchmarkTimer[] OutputTimers = new BenchmarkTimer[0];
+
         #region Paths and names
 
         private string _Path = "";
@@ -570,13 +573,25 @@ namespace Warp
         public void OnParticlesChanged() => ParticlesChanged?.Invoke(this, null);
         
         #endregion
-
+        
         public Movie(string path)
         {
             Path = path;
 
             LoadMeta();
             DiscoverParticleSuffixes();
+
+            lock (CTFTimers)
+            {
+                if (CTFTimers.Length == 0)
+                    CTFTimers = Helper.ArrayOfFunction(i => new BenchmarkTimer(i.ToString()), 8);
+            }
+
+            lock (OutputTimers)
+            {
+                if (OutputTimers.Length == 0)
+                    OutputTimers = Helper.ArrayOfFunction(i => new BenchmarkTimer(i.ToString()), 8);
+            }
         }
 
         public virtual void LoadMeta()
@@ -990,6 +1005,7 @@ namespace Warp
 
             #endregion
 
+            var Timer0 = CTFTimers[0].Start();
             #region Allocate GPU memory
 
             Image CTFSpectra = new Image(IntPtr.Zero, new int3(DimsRegion.X, DimsRegion.X, (int)CTFSpectraGrid.Elements()), true);
@@ -998,9 +1014,11 @@ namespace Warp
             Image CTFCoordsPolarTrimmed = new Image(new int3(NFreq, DimsRegion.X, 1), false, true);
 
             #endregion
+            CTFTimers[0].Finish(Timer0);
 
             // Extract movie regions, create individual spectra in Cartesian coordinates and their mean.
 
+            var Timer1 = CTFTimers[1].Start();
             #region Create spectra
 
             if (options.UseMovieSum)
@@ -1041,11 +1059,13 @@ namespace Warp
                 originalStack.FreeDevice(); // Won't need it in this method anymore.
             }
 
-            CTFSpectra.WriteMRC("d_spectra.mrc", true);
+            //CTFSpectra.WriteMRC("d_spectra.mrc", true);
             #endregion
+            CTFTimers[1].Finish(Timer1);
 
             // Populate address arrays for later.
 
+            var Timer2 = CTFTimers[2].Start();
             #region Init addresses
 
             {
@@ -1065,9 +1085,11 @@ namespace Warp
             }
 
             #endregion
+            CTFTimers[2].Finish(Timer2);
 
             // Retrieve average 1D spectrum from CTFMean (not corrected for astigmatism yet).
 
+            var Timer3 = CTFTimers[3].Start();
             #region Initial 1D spectrum
 
             {
@@ -1096,7 +1118,9 @@ namespace Warp
             }
 
             #endregion
+            CTFTimers[3].Finish(Timer3);
 
+            var Timer4 = CTFTimers[4].Start();
             #region Background fitting methods
 
             Action UpdateBackgroundFit = () =>
@@ -1174,8 +1198,18 @@ namespace Warp
                 float ZStep = (ZMax - ZMin) / 200f;
                 
                 float BestZ = 0, BestIceOffset = 0, BestPhase = 0, BestScore = -float.MaxValue;
-                for (float z = ZMin; z <= ZMax + 1e-5f; z += 0.01f)
+
+                int NThreads = 8;
+                float[] ZValues = Helper.ArrayOfFunction(i => i * 0.01f + ZMin, (int)((ZMax + 1e-5f - ZMin) / 0.01f));
+                float[] MTBestZ = new float[NThreads];
+                float[] MTBestIceOffset = new float[NThreads];
+                float[] MTBestPhase = new float[NThreads];
+                float[] MTBestScore = Helper.ArrayOfConstant(-float.MaxValue, NThreads);
+
+                Helper.ForCPU(0, ZValues.Length, NThreads, null, (i, threadID) =>
                 {
+                    float z = ZValues[i];
+
                     for (float dz = (options.DoIce ? -0.06f : 0f); dz <= 0.0f + 1e-5f; dz += 0.005f)
                     {
                         for (float p = 0; p <= (options.DoPhase ? 1f : 0f); p += 0.01f)
@@ -1196,19 +1230,30 @@ namespace Warp
                                 IceStd = new float2(0.5f)
                             };
 
-                            float[] SimulatedCTF = CurrentParams.Get1DWithIce(PS1D.Length, true).Skip(MinFreqInclusive).Take(NFreq).ToArray();
+                            float[] SimulatedCTF = Helper.Subset(CurrentParams.Get1DWithIce(PS1D.Length, true), MinFreqInclusive, MinFreqInclusive + NFreq);
 
                             MathHelper.NormalizeInPlace(SimulatedCTF);
                             float Score = MathHelper.CrossCorrelate(Subtracted1D, SimulatedCTF);
 
-                            if (Score > BestScore)
+                            if (Score > MTBestScore[threadID])
                             {
-                                BestScore = Score;
-                                BestZ = z;
-                                BestIceOffset = dz;
-                                BestPhase = p;
+                                MTBestScore[threadID] = Score;
+                                MTBestZ[threadID] = z;
+                                MTBestIceOffset[threadID] = dz;
+                                MTBestPhase[threadID] = p;
                             }
                         }
+                    }
+                }, null);
+
+                for (int i = 0; i < NThreads; i++)
+                {
+                    if (MTBestScore[i] > BestScore)
+                    {
+                        BestScore = MTBestScore[i];
+                        BestZ = MTBestZ[i];
+                        BestIceOffset = MTBestIceOffset[i];
+                        BestPhase = MTBestPhase[i];
                     }
                 }
 
@@ -1231,10 +1276,12 @@ namespace Warp
                 UpdateRotationalAverage(true); // This doesn't have a nice background yet.
                 UpdateBackgroundFit(); // Now get a reasonably nice background.
             }
+            CTFTimers[4].Finish(Timer4);
 
             // Do BFGS optimization of defocus, astigmatism and phase shift,
             // using 2D simulation for comparison
 
+            var Timer5 = CTFTimers[5].Start();
             #region BFGS
 
             GridCTF = new CubicGrid(GridCTF.Dimensions, (float)CTF.Defocus, (float)CTF.Defocus, Dimension.X);
@@ -1607,10 +1654,12 @@ namespace Warp
             }
 
             #endregion
+            CTFTimers[5].Finish(Timer5);
 
             // Subtract background from 2D average and write it to disk. 
             // This image is used for quick visualization purposes only.
 
+            var Timer6 = CTFTimers[6].Start();
             #region PS2D update
             {
                 int3 DimsAverage = new int3(DimsRegion.X, DimsRegion.X / 2, 1);
@@ -1647,7 +1696,9 @@ namespace Warp
                                        Average2DData);
             }
             #endregion
+            CTFTimers[6].Finish(Timer6);
 
+            var Timer7 = CTFTimers[7].Start();
             for (int i = 0; i < PS1D.Length; i++)
                 PS1D[i].Y -= SimulatedBackground.Interp(PS1D[i].X);
             SimulatedBackground = new Cubic1D(SimulatedBackground.Data.Select(v => new float2(v.X, 0f)).ToArray());
@@ -1680,6 +1731,18 @@ namespace Warp
             SaveMeta();
 
             IsProcessing = false;
+            CTFTimers[7].Finish(Timer7);
+
+            lock (CTFTimers)
+            {
+                if (CTFTimers[0].NItems > 5)
+                    using (TextWriter Writer = File.CreateText("d_ctftimers.txt"))
+                        foreach (var timer in CTFTimers)
+                        {
+                            Debug.WriteLine(timer.Name + ": " + timer.GetAverageMilliseconds(100).ToString("F0"));
+                            Writer.WriteLine(timer.Name + ": " + timer.GetAverageMilliseconds(100).ToString("F0"));
+                        }
+            }
         }
 
         public void ProcessShift(Image originalStack, ProcessingOptionsMovieMovement options)
@@ -2107,6 +2170,8 @@ namespace Warp
 
         public void ExportMovie(Image originalStack, ProcessingOptionsMovieExport options)
         {
+            Debug.WriteLine(GPU.GetFreeMemory(GPU.GetDevice()));
+
             IsProcessing = true;
 
             #region Make sure all directories are there
@@ -2135,95 +2200,7 @@ namespace Warp
 
             #endregion
 
-            #region Warp, and get FTs of all relevant frames
-
-            Image ShiftedStackFT = new Image(IntPtr.Zero, Dims, true, true);
-            int PlanForw = GPU.CreateFFTPlan(Dims.Slice(), 1);
-
-            Image WarpedFrame = new Image(IntPtr.Zero, Dims.Slice());
-
-            float StepZ = 1f / Math.Max(originalStack.Dims.Z - 1, 1);
-
-            for (int z = 0; z < Dims.Z; z++)
-            {
-                int2 DimsWarp = new int2(16);
-                float3[] InterpPoints = new float3[DimsWarp.Elements()];
-                for (int y = 0; y < DimsWarp.Y; y++)
-                    for (int x = 0; x < DimsWarp.X; x++)
-                        InterpPoints[y * DimsWarp.X + x] = new float3((float)x / (DimsWarp.X - 1), (float)y / (DimsWarp.Y - 1), (z + FirstFrame) * StepZ);
-
-                float2[] WarpXY = GetShiftFromPyramid(InterpPoints);
-                float[] WarpX = WarpXY.Select(v => v.X / (float)options.BinnedPixelSizeMean).ToArray();
-                float[] WarpY = WarpXY.Select(v => v.Y / (float)options.BinnedPixelSizeMean).ToArray();
-
-                GPU.WarpImage(originalStack.GetDeviceSlice(z + FirstFrame, Intent.Read),
-                              WarpedFrame.GetDevice(Intent.Write),
-                              new int2(Dims),
-                              WarpX,
-                              WarpY,
-                              DimsWarp);
-
-                GPU.FFT(WarpedFrame.GetDevice(Intent.Read),
-                        ShiftedStackFT.GetDeviceSlice(z, Intent.Write),
-                        Dims.Slice(),
-                        1,
-                        PlanForw);
-            }
-
-            WarpedFrame.Dispose();
-            originalStack.FreeDevice();
-            GPU.DestroyFFTPlan(PlanForw);
-
-            #endregion
-
-            #region In case shifted stack is needed, IFFT everything and async write to disk
-
-            if (options.DoStack)
-            {
-                int PlanBack = GPU.CreateIFFTPlan(Dims.Slice(), 1);
-
-                Image ShiftedStack = new Image(IntPtr.Zero, Dims);
-                for (int i = 0; i < Dims.Z; i++)
-                    GPU.IFFT(ShiftedStackFT.GetDeviceSlice(i, Intent.Read),
-                             ShiftedStack.GetDeviceSlice(i, Intent.Write),
-                             Dims.Slice(),
-                             1,
-                             PlanBack,
-                             true);
-
-                GPU.DestroyFFTPlan(PlanBack);
-                ShiftedStack.FreeDevice();
-
-                WriteStackAsync = new Task(() =>
-                {
-                    if (options.StackGroupSize <= 1)
-                    {
-                        ShiftedStack.WriteMRC(ShiftedStackPath, (float)options.BinnedPixelSizeMean, true);
-                        ShiftedStack.Dispose();
-                    }
-                    else
-                    {
-                        int NGroups = ShiftedStack.Dims.Z / options.StackGroupSize;
-                        Image GroupedStack = new Image(new int3(ShiftedStack.Dims.X, ShiftedStack.Dims.Y, NGroups));
-                        float[][] GroupedStackData = GroupedStack.GetHost(Intent.Write);
-                        float[][] ShiftedStackData = ShiftedStack.GetHost(Intent.Read);
-
-                        Parallel.For(0, NGroups, g =>
-                        {
-                            for (int f = 0; f < options.StackGroupSize; f++)
-                                GroupedStackData[g] = MathHelper.Add(GroupedStackData[g], ShiftedStackData[g * options.StackGroupSize + f]);
-                        });
-
-                        GroupedStack.WriteMRC(ShiftedStackPath, (float)options.BinnedPixelSizeMean, true);
-
-                        GroupedStack.Dispose();
-                        ShiftedStack.Dispose();
-                    }
-                });
-                WriteStackAsync.Start();
-            }
-
-            #endregion
+            var Timer1 = OutputTimers[1].Start();
 
             #region Prepare spectral coordinates
 
@@ -2234,7 +2211,7 @@ namespace Warp
             Image Wiener = null;
             {
                 float2[] CTFCoordsData = new float2[Dims.Slice().ElementsFFT()];
-                Helper.ForEachElementFT(new int2(Dims), (x, y, xx, yy) =>
+                Helper.ForEachElementFTParallel(new int2(Dims), (x, y, xx, yy) =>
                 {
                     float xs = xx / (float)Dims.X;
                     float ys = yy / (float)Dims.Y;
@@ -2272,58 +2249,55 @@ namespace Warp
             }
 
             #endregion
-            Image Weights = new Image(Dims.Slice(), true, false);
-            Weights.Fill(1e-15f);
 
-            #region Apply spectral filter to every frame in stack
+            OutputTimers[1].Finish(Timer1);
 
-            for (int nframe = FirstFrame; nframe < LastFrameExclusive; nframe++)
+            Debug.WriteLine(GPU.GetFreeMemory(GPU.GetDevice()));
+
+            var Timer0 = OutputTimers[0].Start();
+
+            Image AverageFT = new Image(Dims.Slice(), true, true);
+
+            #region Warp, get FTs of all relevant frames, apply spectral filter, and add to average
+
+            Image ShiftedStackFT = options.DoStack ? new Image(Dims, true, true) : null;
+            float[][] ShiftedStackFTData = options.DoStack ? ShiftedStackFT.GetHost(Intent.Write) : null;
+
+            int PlanForw = GPU.CreateFFTPlan(Dims.Slice(), 1);
+
+            Image[] Frame = { new Image(IntPtr.Zero, Dims.Slice()), new Image(IntPtr.Zero, Dims.Slice()) };
+            Image[] FrameFT = { new Image(IntPtr.Zero, Dims.Slice(), true, true), new Image(IntPtr.Zero, Dims.Slice(), true, true) };
+            Image[] DoseImage = { new Image(IntPtr.Zero, Dims.Slice(), true), new Image(IntPtr.Zero, Dims.Slice(), true) };
+            Image[] PS = { new Image(Dims.Slice(), true), new Image(Dims.Slice(), true) };
+
+            float StepZ = 1f / Math.Max(originalStack.Dims.Z - 1, 1);
+
+            int DeviceID = GPU.GetDevice();
+
+            Helper.ForCPU(0, Dims.Z, 2, threadID => GPU.SetDevice(DeviceID), (z, threadID) =>
             {
-                Image PS = new Image(Dims.Slice(), true);
-                PS.Fill(1f);
+                int2 DimsWarp = new int2(16);
+                float3[] InterpPoints = new float3[DimsWarp.Elements()];
+                for (int y = 0; y < DimsWarp.Y; y++)
+                for (int x = 0; x < DimsWarp.X; x++)
+                    InterpPoints[y * DimsWarp.X + x] = new float3((float)x / (DimsWarp.X - 1), (float)y / (DimsWarp.Y - 1), (z + FirstFrame) * StepZ);
 
-                #region Apply motion blur filter.
-                /*{
-                    float StartZ = (nframe - 0.5f) * StepZ;
-                    float StopZ = (nframe + 0.5f) * StepZ;
+                float2[] WarpXY = GetShiftFromPyramid(InterpPoints);
+                float[] WarpX = WarpXY.Select(v => v.X / (float)options.BinnedPixelSizeMean).ToArray();
+                float[] WarpY = WarpXY.Select(v => v.Y / (float)options.BinnedPixelSizeMean).ToArray();
+                
+                GPU.WarpImage(originalStack.GetDeviceSlice(z + FirstFrame, Intent.Read),
+                              Frame[threadID].GetDevice(Intent.Write),
+                              new int2(Dims),
+                              WarpX,
+                              WarpY,
+                              DimsWarp);
 
-                    float2[] Shifts = new float2[21];
-                    for (int z = 0; z < Shifts.Length; z++)
-                    {
-                        float zp = StartZ + (StopZ - StartZ) / (Shifts.Length - 1) * z;
-                        Shifts[z] = new float2(CollapsedMovementX.GetInterpolated(new float3(0.5f, 0.5f, zp)),
-                                               CollapsedMovementY.GetInterpolated(new float3(0.5f, 0.5f, zp)));
-                    }
-                    // Center the shifts around 0
-                    float2 ShiftMean = MathHelper.Mean(Shifts);
-                    Shifts = Shifts.Select(v => v - ShiftMean).ToArray();
-
-                    Image MotionFilter = new Image(IntPtr.Zero, Dims.Slice(), true);
-                    GPU.CreateMotionBlur(MotionFilter.GetDevice(Intent.Write), 
-                                         MotionFilter.Dims, 
-                                         Helper.ToInterleaved(Shifts.Select(v => new float3(v.X, v.Y, 0)).ToArray()), 
-                                         (uint)Shifts.Length, 
-                                         1);
-                    PS.Multiply(MotionFilter);
-                    //MotionFilter.WriteMRC("motion.mrc");
-                    MotionFilter.Dispose();
-                }*/
-                #endregion
+                PS[threadID].Fill(1f);
+                int nframe = z + FirstFrame;
 
                 // Apply dose weighting.
                 {
-                    float3 NikoConst = new float3(0.245f, -1.665f, 2.81f);
-
-                    // Niko's formula expects e-/A2/frame.
-
-                    Image DoseImage = new Image(IntPtr.Zero, Dims.Slice(), true);
-                    //GPU.DoseWeighting(CTFFreq.GetDevice(Intent.Read),
-                    //                  DoseImage.GetDevice(Intent.Write),
-                    //                  (uint)DoseImage.ElementsSliceComplex,
-                    //                  new[] { (float)options.DosePerAngstromFrame * nframe, (float)options.DosePerAngstromFrame * (nframe + 0.5f) },
-                    //                  NikoConst,
-                    //                  options.Voltage > 250 ? 1 : 0.8f, // It's only defined for 300 and 200 kV, but let's not throw an exception
-                    //                  1);
                     CTF CTFBfac = new CTF()
                     {
                         PixelSize = (decimal)PixelSize,
@@ -2334,44 +2308,124 @@ namespace Warp
                         IllumAngle = 0,
                         Bfactor = -(decimal)((float)options.DosePerAngstromFrame * (nframe + 0.5f) * 3)
                     };
-                    GPU.CreateCTF(DoseImage.GetDevice(Intent.Write),
+                    GPU.CreateCTF(DoseImage[threadID].GetDevice(Intent.Write),
                                   CTFCoordsWeighting.GetDevice(Intent.Read),
                                   (uint)CTFCoordsWeighting.ElementsSliceComplex,
                                   new[] { CTFBfac.ToStruct() },
                                   false,
                                   1);
 
-                    PS.Multiply(DoseImage);
+                    PS[threadID].Multiply(DoseImage[threadID]);
                     //DoseImage.WriteMRC("dose.mrc");
-                    DoseImage.Dispose();
                 }
                 //PS.WriteMRC("ps.mrc");
 
-                GPU.MultiplyComplexSlicesByScalar(ShiftedStackFT.GetDeviceSlice(nframe - FirstFrame, Intent.Read),
-                                                  PS.GetDevice(Intent.Read),
-                                                  ShiftedStackFT.GetDeviceSlice(nframe - FirstFrame, Intent.Write),
-                                                  PS.ElementsSliceReal,
-                                                  1);
-                
-                Weights.Add(PS);
+                lock (Frame)
+                {
+                    GPU.FFT(Frame[threadID].GetDevice(Intent.Read),
+                            FrameFT[threadID].GetDevice(Intent.Write),
+                            Dims.Slice(),
+                            1,
+                            PlanForw);
 
-                PS.Dispose();
-            }
+                    if (options.DoStack)
+                        GPU.CopyDeviceToHost(FrameFT[threadID].GetDevice(Intent.Read), ShiftedStackFTData[z], FrameFT[threadID].ElementsSliceReal);
+                
+                    GPU.MultiplyComplexSlicesByScalar(FrameFT[threadID].GetDevice(Intent.Read),
+                                                      PS[threadID].GetDevice(Intent.Read),
+                                                      FrameFT[threadID].GetDevice(Intent.Write),
+                                                      PS[threadID].ElementsSliceReal,
+                                                      1);
+
+                    AverageFT.Add(FrameFT[threadID]);
+                }
+
+            }, null);
+
+            originalStack.FreeDevice();
+
+            GPU.DestroyFFTPlan(PlanForw);
+
+            Debug.WriteLine(GPU.GetFreeMemory(GPU.GetDevice()));
 
             #endregion
 
-            Image AverageFT = new Image(Dims.Slice(), true, true);
-            GPU.ReduceAdd(ShiftedStackFT.GetDevice(Intent.Read),
-                          AverageFT.GetDevice(Intent.Write),
-                          (uint)ShiftedStackFT.ElementsSliceReal,
-                          (uint)ShiftedStackFT.Dims.Z,
-                          1);
-            ShiftedStackFT.Dispose();
+            OutputTimers[0].Finish(Timer0);
 
+            #region In case shifted stack is needed, IFFT everything and async write to disk
+
+            if (options.DoStack)
+            {
+                int PlanBack = GPU.CreateIFFTPlan(Dims.Slice(), 1);
+
+                Image ShiftedStack = new Image(Dims);
+                float[][] ShiftedStackData = ShiftedStack.GetHost(Intent.Write);
+
+                for (int i = 0; i < Dims.Z; i++)
+                {
+                    GPU.CopyHostToDevice(ShiftedStackFTData[i], FrameFT[0].GetDevice(Intent.Write), FrameFT[0].ElementsSliceReal);
+
+                    GPU.IFFT(FrameFT[0].GetDevice(Intent.Read),
+                             Frame[0].GetDevice(Intent.Write),
+                             Dims.Slice(),
+                             1,
+                             PlanBack,
+                             true);
+
+                    GPU.CopyDeviceToHost(Frame[0].GetDevice(Intent.Read), ShiftedStackData[i], Frame[0].ElementsSliceReal);
+                }
+
+                GPU.DestroyFFTPlan(PlanBack);
+
+                WriteStackAsync = new Task(() =>
+                {
+                    if (options.StackGroupSize <= 1)
+                    {
+                        ShiftedStack.WriteMRC(ShiftedStackPath, (float)options.BinnedPixelSizeMean, true);
+                        ShiftedStack.Dispose();
+                    }
+                    else
+                    {
+                        int NGroups = ShiftedStack.Dims.Z / options.StackGroupSize;
+                        Image GroupedStack = new Image(new int3(ShiftedStack.Dims.X, ShiftedStack.Dims.Y, NGroups));
+                        float[][] GroupedStackData = GroupedStack.GetHost(Intent.Write);
+
+                        Parallel.For(0, NGroups, g =>
+                        {
+                            for (int f = 0; f < options.StackGroupSize; f++)
+                                GroupedStackData[g] = MathHelper.Add(GroupedStackData[g], ShiftedStackData[g * options.StackGroupSize + f]);
+                        });
+
+                        GroupedStack.WriteMRC(ShiftedStackPath, (float)options.BinnedPixelSizeMean, true);
+
+                        GroupedStack.Dispose();
+                        ShiftedStack.Dispose();
+                    }
+                });
+                WriteStackAsync.Start();
+            }
+
+            #endregion
+            
+            Debug.WriteLine(GPU.GetFreeMemory(GPU.GetDevice()));
+
+            foreach (var image in Frame)
+                image.Dispose();
+            foreach (var image in FrameFT)
+                image.Dispose();
+            foreach (var image in DoseImage)
+                image.Dispose();
+            foreach (var image in PS)
+                image.Dispose();
+            
+            ShiftedStackFT?.Dispose();
+            
             //AverageFT.Divide(Weights);
             //AverageFT.WriteMRC("averageft.mrc");
             //Weights.WriteMRC("weights.mrc");
-            Weights.Dispose();
+            //Weights.Dispose();
+
+            var Timer4 = OutputTimers[4].Start();
 
             Image Average;
             if (options.DoAverage)
@@ -2423,15 +2477,30 @@ namespace Warp
                 Writer.WriteLine($"{(CTF.Defocus + CTF.DefocusDelta / 2M) * 1e4M} {(CTF.Defocus - CTF.DefocusDelta / 2M) * 1e4M} {CTF.DefocusAngle} {1.0} {CTF.PhaseShift * 180M} Final Values");
             }
 
+            Debug.WriteLine(GPU.GetFreeMemory(GPU.GetDevice()));
+
             // Wait for all async IO to finish
             WriteStackAsync?.Wait();
-            WriteDeconvAsync?.Wait();
+            //WriteDeconvAsync?.Wait();
             WriteAverageAsync?.Wait();
+
+            OutputTimers[4].Finish(Timer4);
 
             OptionsMovieExport = options;
             SaveMeta();
 
             IsProcessing = false;
+
+            lock (OutputTimers)
+            {
+                if (OutputTimers[0].NItems > 5)
+                    using (TextWriter Writer = File.CreateText("d_outputtimers.txt"))
+                        foreach (var timer in OutputTimers)
+                        {
+                            Debug.WriteLine(timer.Name + ": " + timer.GetAverageMilliseconds(100).ToString("F0"));
+                            Writer.WriteLine(timer.Name + ": " + timer.GetAverageMilliseconds(100).ToString("F0"));
+                        }
+            }
         }
 
         public void CreateThumbnail(int size, float stddevRange)
@@ -2681,6 +2750,8 @@ namespace Warp
                 }
             }
 
+            originalStack.FreeDevice();
+
             if (options.DoStack)
             {
                 WriteStackAsync = new Task(() =>
@@ -2762,7 +2833,7 @@ namespace Warp
 
             // Wait for all async IO to finish
             WriteStackAsync?.Wait();
-            WriteAverageAsync?.Wait();
+            //WriteAverageAsync?.Wait();
 
             OptionsParticlesExport = options;
             SaveMeta();

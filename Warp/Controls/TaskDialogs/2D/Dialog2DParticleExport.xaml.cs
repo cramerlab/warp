@@ -302,10 +302,7 @@ namespace Warp.Controls.TaskDialogs.TwoD
                     for (int d = 0; d < UsedDevices; d++)
                     {
                         GPU.SetDevice(d);
-                        ImageGain[d] = Image.FromFile(Options.Import.GainPath,
-                                                      new int2(Options.Import.HeaderlessWidth, Options.Import.HeaderlessHeight),
-                                                      (int)Options.Import.HeaderlessOffset,
-                                                      ImageFormatsHelper.StringToType(Options.Import.HeaderlessType));
+                        ImageGain[d] = MainWindow.LoadAndPrepareGainReference();
                     }
 
                 #endregion
@@ -391,7 +388,7 @@ namespace Warp.Controls.TaskDialogs.TwoD
                         decimal ScaleFactor = 1M / (decimal)Math.Pow(2, (double)ExportOptions.BinTimes);
 
                         if (!DoOnlyStar && (!FileExists || Overwrite))
-                            MainWindow.PrepareHeaderAndMap(movie.Path, ImageGain[gpuID], ScaleFactor, out OriginalHeader, out OriginalStack);
+                            MainWindow.LoadAndPrepareHeaderAndMap(movie.Path, ImageGain[gpuID], ScaleFactor, out OriginalHeader, out OriginalStack);
 
                         if (IsCanceled)
                         {

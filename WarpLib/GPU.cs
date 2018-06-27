@@ -72,6 +72,12 @@ namespace Warp
         [DllImport("GPUAcceleration.dll", CharSet = CharSet.Ansi, SetLastError = true, CallingConvention = CallingConvention.StdCall, EntryPoint = "CopyHostToDevice")]
         public static extern void CopyHostToDevice(float[] h_source, IntPtr d_dest, long elements);
 
+        [DllImport("GPUAcceleration.dll", CharSet = CharSet.Ansi, SetLastError = true, CallingConvention = CallingConvention.StdCall, EntryPoint = "CopyHostToHost")]
+        public static extern void CopyHostToHost(float[] h_source, IntPtr h_dest, long elements);
+
+        [DllImport("GPUAcceleration.dll", CharSet = CharSet.Ansi, SetLastError = true, CallingConvention = CallingConvention.StdCall, EntryPoint = "CopyHostToHost")]
+        public static extern void CopyHostToHost(IntPtr h_source, float[] h_dest, long elements);
+
         [DllImport("GPUAcceleration.dll", CharSet = CharSet.Ansi, SetLastError = true, CallingConvention = CallingConvention.StdCall, EntryPoint = "CopyHostToDevice")]
         public static extern void CopyHostPinnedToDevice(IntPtr hp_source, IntPtr d_dest, long elements);
 
@@ -758,7 +764,7 @@ namespace Warp
         public static extern void BackprojectorReconstructGPU(int3 dimsori, int3 dimspadded, int oversampling, IntPtr d_dataft, IntPtr d_weights, bool do_reconstruct_ctf, IntPtr d_result, int pre_planforw = -1, int pre_planback = -1, int pre_planforwctf = -1);
 
         [DllImport("GPUAcceleration.dll", CharSet = CharSet.Ansi, SetLastError = true, CallingConvention = CallingConvention.StdCall, EntryPoint = "Bandpass")]
-        public static extern void Bandpass(IntPtr d_input, IntPtr d_output, int3 dims, float nyquistlow, float nyquisthigh, uint batch);
+        public static extern void Bandpass(IntPtr d_input, IntPtr d_output, int3 dims, float nyquistlow, float nyquisthigh, float nyquistsoftedge, uint batch);
 
         [DllImport("GPUAcceleration.dll", CharSet = CharSet.Ansi, SetLastError = true, CallingConvention = CallingConvention.StdCall, EntryPoint = "Rotate2D")]
         public static extern void Rotate2D(IntPtr d_input, IntPtr d_output, int2 dims, float[] h_angles, int oversample, uint batch);
@@ -893,6 +899,9 @@ namespace Warp
 
         [DllImport("GPUAcceleration.dll", CharSet = CharSet.Ansi, SetLastError = true, CallingConvention = CallingConvention.StdCall, EntryPoint = "WarpImage")]
         public static extern void WarpImage(IntPtr d_input, IntPtr d_output, int2 dims, float[] h_warpx, float[] h_warpy, int2 dimswarp);
+
+        [DllImport("GPUAcceleration.dll", CharSet = CharSet.Ansi, SetLastError = true, CallingConvention = CallingConvention.StdCall, EntryPoint = "Rotate3DExtractAt")]
+        public static extern void Rotate3DExtractAt(ulong t_volume, int3 dimsvolume, IntPtr d_proj, int3 dimsproj, float[] h_angles, float[] h_positions, uint batch);
 
         [DllImport("GPUAcceleration.dll", CharSet = CharSet.Ansi, SetLastError = true, CallingConvention = CallingConvention.StdCall, EntryPoint = "PeekLastCUDAError")]
         public static extern int PeekLastCUDAError();

@@ -54,11 +54,14 @@ namespace Warp.Headers
         {
         }
 
-        public HeaderTiff(string path)
+        public HeaderTiff(string path, Stream stream = null)
         {
             Path = path;
 
-            using (Tiff Image = Tiff.Open(path, "r"))
+            if (stream == null)
+                stream = File.OpenRead(path);
+
+            Tiff Image = Tiff.ClientOpen("inmemory", "r", stream, new TiffStream());
             {
                 {
                     FieldValue[] value = Image.GetField(TiffTag.IMAGEWIDTH);
@@ -116,11 +119,14 @@ namespace Warp.Headers
                         throw new FormatException("Unexpected format.");
                 }
             }
+
+            if (stream.GetType() != typeof(MemoryStream))
+                stream.Close();
         }
 
         public override void Write(BinaryWriter writer)
         {
-            throw  new NotImplementedException();
+            throw new NotImplementedException();
         }
 
         public float[][] ReadData(int layer = -1)
@@ -215,6 +221,110 @@ namespace Warp.Headers
                     Slices[slice] = ConvertedData;
                 }
             }
+
+            return Slices;
+        }
+
+        public float[][] ReadData(Stream stream, int layer = -1)
+        {
+            float[][] Slices = new float[layer < 0 ? Dimensions.Z : 1][];
+
+            if (stream == null)
+                stream = File.OpenRead(Path);
+
+            for (int slice = 0; slice < Slices.Length; slice++)
+            {
+                stream.Seek(0, SeekOrigin.Begin);
+
+                Tiff Image = Tiff.ClientOpen("inmemory", "r", stream, new TiffStream());
+                {
+                    bool Encoded = false;
+                    FieldValue[] compressionTagValue = Image.GetField(TiffTag.COMPRESSION);
+                    if (compressionTagValue != null)
+                        Encoded = (compressionTagValue[0].ToInt() != (int)Compression.NONE);
+
+                    int NumberOfStrips = Image.NumberOfStrips();
+
+                    float[] ConvertedData = new float[Dimensions.ElementsSlice()];
+
+                    Image.SetDirectory(layer < 0 ? (short)slice : (short)layer);
+
+                    int Offset = 0;
+                    byte[] StripsData = new byte[NumberOfStrips * Image.StripSize()];
+                    for (int i = 0; i < NumberOfStrips; i++)
+                    {
+                        int bytesRead = readStrip(Image, i, StripsData, Offset, Encoded);
+                        Offset += bytesRead;
+                    }
+
+                    unsafe
+                    {
+                        fixed (byte* StripsDataPtr = StripsData)
+                        fixed (float* ConvertedDataPtr = ConvertedData)
+                        {
+                            if (Mode == TiffDataType.Byte)
+                            {
+                                byte* StripsDataP = (byte*)StripsDataPtr;
+                                for (int i = 0; i < ConvertedData.Length; i++)
+                                    ConvertedDataPtr[i] = (float)StripsDataP[i];
+                            }
+                            else if (Mode == TiffDataType.Ushort)
+                            {
+                                ushort* StripsDataP = (ushort*)StripsDataPtr;
+                                for (int i = 0; i < ConvertedData.Length; i++)
+                                    ConvertedDataPtr[i] = (float)StripsDataP[i];
+                            }
+                            else if (Mode == TiffDataType.Short)
+                            {
+                                short* StripsDataP = (short*)StripsDataPtr;
+                                for (int i = 0; i < ConvertedData.Length; i++)
+                                    ConvertedDataPtr[i] = (float)StripsDataP[i];
+                            }
+                            else if (Mode == TiffDataType.Uint)
+                            {
+                                uint* StripsDataP = (uint*)StripsDataPtr;
+                                for (int i = 0; i < ConvertedData.Length; i++)
+                                    ConvertedDataPtr[i] = (float)StripsDataP[i];
+                            }
+                            else if (Mode == TiffDataType.Int)
+                            {
+                                int* StripsDataP = (int*)StripsDataPtr;
+                                for (int i = 0; i < ConvertedData.Length; i++)
+                                    ConvertedDataPtr[i] = (float)StripsDataP[i];
+                            }
+                            else if (Mode == TiffDataType.Ulong)
+                            {
+                                ulong* StripsDataP = (ulong*)StripsDataPtr;
+                                for (int i = 0; i < ConvertedData.Length; i++)
+                                    ConvertedDataPtr[i] = (float)StripsDataP[i];
+                            }
+                            else if (Mode == TiffDataType.Long)
+                            {
+                                long* StripsDataP = (long*)StripsDataPtr;
+                                for (int i = 0; i < ConvertedData.Length; i++)
+                                    ConvertedDataPtr[i] = (float)StripsDataP[i];
+                            }
+                            else if (Mode == TiffDataType.Float)
+                            {
+                                float* StripsDataP = (float*)StripsDataPtr;
+                                for (int i = 0; i < ConvertedData.Length; i++)
+                                    ConvertedDataPtr[i] = StripsDataP[i];
+                            }
+                            else if (Mode == TiffDataType.Double)
+                            {
+                                double* StripsDataP = (double*)StripsDataPtr;
+                                for (int i = 0; i < ConvertedData.Length; i++)
+                                    ConvertedDataPtr[i] = (float)StripsDataP[i];
+                            }
+                        }
+                    }
+
+                    Slices[slice] = ConvertedData;
+                }
+            }
+
+            if (stream.GetType() != typeof(MemoryStream))
+                stream.Close();
 
             return Slices;
         }

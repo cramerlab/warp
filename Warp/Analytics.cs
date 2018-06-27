@@ -18,7 +18,6 @@ namespace Warp
         private Guid Secret = Guid.Parse("5527e951-beab-46d3-ba75-73ea94d1a9df");
 
         private bool _PromptShown = false;
-
         [WarpSerializable]
         public bool PromptShown
         {
@@ -34,7 +33,6 @@ namespace Warp
         }
 
         private bool _AllowCollection = false;
-
         [WarpSerializable]
         public bool AllowCollection
         {
@@ -47,6 +45,14 @@ namespace Warp
                     OnPropertyChanged();
                 }
             }
+        }
+
+        private bool _ShowBoxNetReminder = true;
+        [WarpSerializable]
+        public bool ShowBoxNetReminder
+        {
+            get { return _ShowBoxNetReminder; }
+            set { if (value != _ShowBoxNetReminder) { _ShowBoxNetReminder = value; OnPropertyChanged(); } }
         }
 
         public Version GetLatestVersion()

@@ -46,32 +46,31 @@ namespace Warp.Tools
             return Dims;
         }
 
-        public static float[][] ReadMapFloat(string path, int2 headerlessSliceDims, long headerlessOffset, Type headerlessType, int layer = -1)
+        public static float[][] ReadMapFloat(string path, int2 headerlessSliceDims, long headerlessOffset, Type headerlessType, int layer = -1, Stream stream = null)
         {
             try
             {
-                return ReadMapFloat(path, headerlessSliceDims, headerlessOffset, headerlessType, false, layer);
+                return ReadMapFloat(path, headerlessSliceDims, headerlessOffset, headerlessType, false, layer, stream);
             }
             catch
             {
-                return ReadMapFloat(path, headerlessSliceDims, headerlessOffset, headerlessType, true, layer);
+                return ReadMapFloat(path, headerlessSliceDims, headerlessOffset, headerlessType, true, layer, stream);
             }
         }
 
-        public static float[][] ReadMapFloat(string path, int2 headerlessSliceDims, long headerlessOffset, Type headerlessType, bool isBigEndian, int layer = -1)
+        public static float[][] ReadMapFloat(string path, int2 headerlessSliceDims, long headerlessOffset, Type headerlessType, bool isBigEndian, int layer = -1, Stream stream = null)
         {
             MapHeader Header = null;
             Type ValueType = null;
-            FileInfo Info = new FileInfo(path);
             float[][] Data;
 
-            using (BinaryReader Reader = isBigEndian ? new BinaryReaderBE(OpenWithBigBuffer(path)): new BinaryReader(OpenWithBigBuffer(path)))
-            {
-                Header = MapHeader.ReadFromFile(Reader, Info, headerlessSliceDims, headerlessOffset, headerlessType);
-                ValueType = Header.GetValueType();
-                Data = new float[layer < 0 ? Header.Dimensions.Z : 1][];
+            if (MapHeader.GetHeaderType(path) != typeof(HeaderTiff))
+                using (BinaryReader Reader = isBigEndian ? new BinaryReaderBE(OpenWithBigBuffer(path)) : new BinaryReader(OpenWithBigBuffer(path)))
+                {
+                    Header = MapHeader.ReadFromFile(Reader, path, headerlessSliceDims, headerlessOffset, headerlessType);
+                    ValueType = Header.GetValueType();
+                    Data = new float[layer < 0 ? Header.Dimensions.Z : 1][];
 
-                if (Header.GetType() != typeof(HeaderTiff))
                     for (int z = 0; z < Data.Length; z++)
                     {
                         if (layer >= 0)
@@ -82,7 +81,7 @@ namespace Warp.Tools
 
                         if (isBigEndian)
                         {
-                            if (ValueType == typeof (short) || ValueType == typeof (ushort))
+                            if (ValueType == typeof(short) || ValueType == typeof(ushort))
                             {
                                 for (int i = 0; i < Bytes.Length / 2; i++)
                                     Array.Reverse(Bytes, i * 2, 2);
@@ -147,10 +146,11 @@ namespace Warp.Tools
                             }
                         }
                     }
-                else
-                {
-                    Data = ((HeaderTiff)Header).ReadData(layer);
                 }
+            else
+            {
+                Header = MapHeader.ReadFromFile(null, path, headerlessSliceDims, headerlessOffset, headerlessType, stream);
+                Data = ((HeaderTiff)Header).ReadData(stream, layer);
             }
 
             return Data;
@@ -158,12 +158,11 @@ namespace Warp.Tools
 
         public static float[] ReadSmallMapFloat(string path, int2 headerlessSliceDims, long headerlessOffset, Type headerlessType)
         {
-            FileInfo Info = new FileInfo(path);
             float[] Data;
 
             using (BinaryReader Reader = new BinaryReader(OpenWithBigBuffer(path)))
             {
-                MapHeader Header = MapHeader.ReadFromFile(Reader, Info, headerlessSliceDims, headerlessOffset, headerlessType);
+                MapHeader Header = MapHeader.ReadFromFile(Reader, path, headerlessSliceDims, headerlessOffset, headerlessType);
                 Type ValueType = Header.GetValueType();
                 Data = new float[Header.Dimensions.Elements()];
                 

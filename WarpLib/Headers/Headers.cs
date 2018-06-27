@@ -18,18 +18,23 @@ namespace Warp.Headers
         public abstract Type GetValueType();
         public abstract void SetValueType(Type t);
 
-        public static MapHeader ReadFromFile(BinaryReader reader, FileInfo info, int2 headerlessSliceDims, long headerlessOffset, Type headerlessType, bool isBigEndian = false)
+        public static MapHeader ReadFromFile(BinaryReader reader, string path, int2 headerlessSliceDims, long headerlessOffset, Type headerlessType, Stream stream = null)
         {
             MapHeader Header = null;
+            string Extension = Helper.PathToExtension(path).ToLower();
 
-            if (info.Extension.ToLower() == ".mrc" || info.Extension.ToLower() == ".mrcs" || info.Extension.ToLower() == ".rec" || info.Extension.ToLower() == ".st")
+            if (Extension == ".mrc" || Extension == ".mrcs" || Extension == ".rec" || Extension == ".st")
                 Header = new HeaderMRC(reader);
-            else if (info.Extension.ToLower() == ".em")
+            else if (Extension == ".em")
                 Header = new HeaderEM(reader);
-            else if (info.Extension.ToLower() == ".tif" || info.Extension.ToLower() == ".tiff")
-                Header = new HeaderTiff(info.FullName);
-            else if (info.Extension.ToLower() == ".dat")
+            else if (Extension == ".dm4" || Extension == ".dm3")
+                Header = new HeaderDM4(reader);
+            else if (Extension == ".tif" || Extension == ".tiff")
+                Header = new HeaderTiff(path, stream);
+            else if (Extension == ".dat")
             {
+                FileInfo info = new FileInfo(path);
+
                 long SliceElements = headerlessSliceDims.Elements() * ImageFormatsHelper.SizeOf(headerlessType);
                 long Slices = (info.Length - headerlessOffset) / SliceElements;
                 int3 Dims3 = new int3(headerlessSliceDims.X, headerlessSliceDims.Y, (int)Slices);
@@ -41,11 +46,29 @@ namespace Warp.Headers
             return Header;
         }
 
-        public static MapHeader ReadFromFile(string path, int2 headerlessSliceDims, long headerlessOffset, Type headerlessType)
+        public static Type GetHeaderType(string path)
+        {
+            string Extension = Helper.PathToExtension(path).ToLower();
+
+            if (Extension == ".mrc" || Extension == ".mrcs" || Extension == ".rec" || Extension == ".st")
+                return typeof(HeaderMRC);
+            else if (Extension == ".em")
+                return typeof(HeaderEM);
+            else if (Extension == ".tif" || Extension == ".tiff")
+                return typeof(HeaderTiff);
+            else if (Extension == ".dat")
+                return typeof(HeaderRaw);
+            else if (Extension == ".dm4" || Extension == ".dm3")
+                return typeof(HeaderDM4);
+            else
+                throw new Exception("File type not supported.");
+        }
+
+        public static MapHeader ReadFromFile(string path, int2 headerlessSliceDims, long headerlessOffset, Type headerlessType, Stream stream = null)
         {
             try
             {
-                MapHeader Result = ReadFromFile(path, headerlessSliceDims, headerlessOffset, headerlessType, false);
+                MapHeader Result = ReadFromFile(path, headerlessSliceDims, headerlessOffset, headerlessType, false, stream);
                 if (Result.Dimensions.X < 0 || 
                     Result.Dimensions.Y < 0 || 
                     Result.Dimensions.Z < 0 || 
@@ -56,19 +79,21 @@ namespace Warp.Headers
             }
             catch
             {
-                return ReadFromFile(path, headerlessSliceDims, headerlessOffset, headerlessType, true);
+                return ReadFromFile(path, headerlessSliceDims, headerlessOffset, headerlessType, true, stream);
             }
         }
 
-        public static MapHeader ReadFromFile(string path, int2 headerlessSliceDims, long headerlessOffset, Type headerlessType, bool isBigEndian)
+        public static MapHeader ReadFromFile(string path, int2 headerlessSliceDims, long headerlessOffset, Type headerlessType, bool isBigEndian, Stream stream = null)
         {
             MapHeader Header = null;
-            FileInfo Info = new FileInfo(path);
 
-            using (BinaryReader Reader = isBigEndian ? new BinaryReaderBE(File.OpenRead(path)) : new BinaryReader(File.OpenRead(path)))
-            {
-                Header = ReadFromFile(Reader, Info, headerlessSliceDims, headerlessOffset, headerlessType);
-            }
+            if (GetHeaderType(path) != typeof(HeaderTiff))
+                using (BinaryReader Reader = isBigEndian ? new BinaryReaderBE(File.OpenRead(path)) : new BinaryReader(File.OpenRead(path)))
+                {
+                    Header = ReadFromFile(Reader, path, headerlessSliceDims, headerlessOffset, headerlessType);
+                }
+            else
+                Header = ReadFromFile(null, path, headerlessSliceDims, headerlessOffset, headerlessType, stream);
 
             return Header;
         }
@@ -108,7 +133,8 @@ namespace Warp.Headers
         EM = 2,
         K2Raw = 3,
         FEIRaw = 4,
-        TIFF = 5    
+        TIFF = 5,
+        DM4 = 6
     }
 
     public static class ImageFormatsHelper
@@ -129,6 +155,8 @@ namespace Warp.Headers
                     return ImageFormats.FEIRaw;
                 case "TIFF":
                     return ImageFormats.TIFF;
+                case "DM4":
+                    return ImageFormats.DM4;
                 default:
                     return ImageFormats.MRC;
             }
@@ -150,6 +178,8 @@ namespace Warp.Headers
                     return "FEIRaw";
                 case ImageFormats.TIFF:
                     return "TIFF";
+                case ImageFormats.DM4:
+                    return "DM4";
                 default:
                     return "";
             }
@@ -171,6 +201,8 @@ namespace Warp.Headers
                     return ".raw";
                 case ImageFormats.TIFF:
                     return ".tif";
+                case ImageFormats.DM4:
+                    return ".dm4";
                 default:
                     return "";
             }
@@ -190,6 +222,8 @@ namespace Warp.Headers
                     return new HeaderRaw(new int3(1, 1, 1), 0, typeof(byte));
                 case ImageFormats.FEIRaw:
                     return new HeaderRaw(new int3(1, 1, 1), 49, typeof(int));
+                case ImageFormats.DM4:
+                    return new HeaderDM4();
                 default:
                     return null;
             }

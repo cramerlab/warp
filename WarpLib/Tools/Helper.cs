@@ -7,6 +7,7 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Security.AccessControl;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Xml;
 using System.Xml.XPath;
 using Warp.Headers;
@@ -359,6 +360,21 @@ namespace Warp.Tools
                     action(x, y, xx, yy);
                 }
             }
+        }
+
+        public static void ForEachElementFTParallel(int2 dims, Action<int, int, int, int> action)
+        {
+            Parallel.For(0, dims.Y, y =>
+            {
+                int yy = y < dims.Y / 2 + 1 ? y : y - dims.Y;
+
+                for (int x = 0; x < dims.X / 2 + 1; x++)
+                {
+                    int xx = x;
+
+                    action(x, y, xx, yy);
+                }
+            });
         }
 
         public static void ForEachElementFT(int2 dims, Action<int, int, int, int, float, float> action)
@@ -806,6 +822,11 @@ namespace Warp.Tools
                 path = path.Substring(0, path.LastIndexOf("."));
 
             return path;
+        }
+
+        public static string PathToExtension(string path)
+        {
+            return path.Substring(path.LastIndexOf("."));
         }
 
         public static string PathToFolder(string path)

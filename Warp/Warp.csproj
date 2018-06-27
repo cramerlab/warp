@@ -245,6 +245,7 @@
       <DependentUpon>TiltDialItem.xaml</DependentUpon>
     </Compile>
     <Compile Include="FileDiscoverer.cs" />
+    <Compile Include="IOQueue.cs" />
     <Compile Include="Options.cs" />
     <Page Include="Controls\FirstRunPrompt.xaml">
       <SubType>Designer</SubType>

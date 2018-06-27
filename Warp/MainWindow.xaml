@@ -27,6 +27,7 @@
         <m:WindowCommands>
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                 <!--<Button Name="ButtonOpenLog" Content="OPEN LOG" FontSize="14" FontWeight="SemiBold" Foreground="White" VerticalAlignment="Center" Style="{StaticResource ChromelessButtonStyle}" Click="ButtonOpenLog_OnClick" />-->
+                <Button Name="ButtonUpdateAvailable" Content="UPDATE AVAILABLE" Visibility="Collapsed" FontSize="16" FontWeight="Medium" Foreground="White" Margin="20,0,10,0" VerticalAlignment="Center" Style="{StaticResource ChromelessButtonStyle}" Click="ButtonUpdateAvailable_OnClick" />
                 <Button Name="SwitchDayNight" Content="🔆" FontSize="18" FontWeight="Medium" Foreground="White" Margin="20,0" VerticalAlignment="Center" Style="{StaticResource ChromelessButtonStyle}" Click="SwitchDayNight_OnClick" />
                 <StackPanel Name="PanelGPUStats" Orientation="Horizontal" VerticalAlignment="Center" />
             </StackPanel>
@@ -139,19 +140,23 @@
                             <Grid Name="GridOptionsPreprocessing" Margin="6,0">
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="24" />
-                                    <!--<RowDefinition Height="24" />
-                                    <RowDefinition Height="24" />-->
+                                    <RowDefinition Height="28" />
                                 </Grid.RowDefinitions>
-                                <CheckBox Grid.Row="0" IsChecked="{Binding Import.CorrectGain}" FontSize="13">
+                                <CheckBox IsChecked="{Binding Import.CorrectGain}" FontSize="13">
                                     <CheckBox.Content>
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="Correct gain using: " />
-                                            <Button Name="ButtonGainPath" Style="{StaticResource HyperlinkLikeButton}" Click="ButtonGainPath_OnClick">
-                                                <TextBlock Name="ButtonGainPathText" TextTrimming="CharacterEllipsis" TextAlignment="Right" MaxWidth="280">Select reference...</TextBlock>
-                                            </Button>
-                                        </StackPanel>
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="Correct gain using: " />
+                                                <Button Name="ButtonGainPath" Style="{StaticResource HyperlinkLikeButton}" Click="ButtonGainPath_OnClick">
+                                                    <TextBlock Name="ButtonGainPathText" TextTrimming="CharacterEllipsis" TextAlignment="Right" MaxWidth="280">Select reference...</TextBlock>
+                                                </Button>
+                                            </StackPanel>
                                     </CheckBox.Content>
                                 </CheckBox>
+                                <StackPanel Grid.Row="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="26,0,0,0">
+                                    <CheckBox IsChecked="{Binding Import.GainFlipX}" Content="Flip X axis" FontSize="13" />
+                                    <CheckBox IsChecked="{Binding Import.GainFlipY}" Content="Flip Y axis" FontSize="13" Margin="16,0,0,0" />
+                                    <CheckBox IsChecked="{Binding Import.GainTranspose}" Content="Transpose" FontSize="13" Margin="16,0,0,0" />
+                                </StackPanel>
                                 <!--<CheckBox Grid.Row="1" IsChecked="{Binding CorrectBlackRectangles}" Content="Discard frames with black rectangles." FontSize="13" />-->
                                 <!--<CheckBox Grid.Row="2" IsChecked="{Binding CorrectDoseWeighting}" FontSize="13">
                                     <s:ValueSlider Value="{Binding CorrectDosePerFrame, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="Weight frequencies according to dose, {0} e⁻/px/frame." MinValue="0.1" MaxValue="10000" StepSize="0.1" />
@@ -368,7 +373,7 @@
                                             <StackPanel Orientation="Vertical">
                                                 <TextBlock Text="Processing Status" FontSize="18" Margin="0,8" HorizontalAlignment="Center" />
                                                 <Grid>
-                                                    <m:ProgressRing Name="StatsProgressIndicator" Width="100" Height="100" Visibility="Hidden" />
+                                                    <m:ProgressRing Name="StatsProgressIndicator" Width="130" Height="130" EllipseDiameterScale="0.5" Visibility="Hidden" />
                                                     <lvc:PieChart DisableAnimations="True" LegendLocation="None" Width="256" Height="256" InnerRadius="80" HorizontalAlignment="Center">
                                                         <lvc:PieChart.ChartLegend>
                                                             <lvc:DefaultLegend BulletSize="20" />
@@ -401,6 +406,39 @@
                                                             </lvc:PieSeries>
                                                         </lvc:PieChart.Series>
                                                     </lvc:PieChart>
+                                                    <TextBlock Name="StatsBenchmarkOverall" Text="" VerticalAlignment="Center" HorizontalAlignment="Center" FontSize="30" FontWeight="Thin" Background="Transparent" MouseEnter="StatsBenchmarkOverall_OnMouseEnter" />
+                                                    <Grid Name="StatsBenchmarkDetails" Width="256" Height="256" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Hidden">
+                                                        <Ellipse Width="256" Height="256" Fill="White" MouseLeave="StatsBenchmarkDetails_OnMouseLeave">
+                                                            <Ellipse.Effect>
+                                                                <DropShadowEffect ShadowDepth="0" BlurRadius="10" />
+                                                            </Ellipse.Effect>
+                                                        </Ellipse>
+                                                        <Grid HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition />
+                                                                <ColumnDefinition />
+                                                            </Grid.ColumnDefinitions>
+                                                            <Grid.RowDefinitions>
+                                                                <RowDefinition Height="30" />
+                                                                <RowDefinition Height="30" />
+                                                                <RowDefinition Height="30" />
+                                                                <RowDefinition Height="30" />
+                                                                <RowDefinition Height="30" />
+                                                            </Grid.RowDefinitions>
+
+                                                            <TextBlock Grid.Column="0" Grid.Row="0" FontSize="18" Margin="0,0,16,0" Text="Input:" />
+                                                            <TextBlock Grid.Column="0" Grid.Row="1" FontSize="18" Margin="0,0,16,0" Text="CTF:" />
+                                                            <TextBlock Grid.Column="0" Grid.Row="2" FontSize="18" Margin="0,0,16,0" Text="Motion:" />
+                                                            <TextBlock Grid.Column="0" Grid.Row="3" FontSize="18" Margin="0,0,16,0" Text="Picking:" />
+                                                            <TextBlock Grid.Column="0" Grid.Row="4" FontSize="18" Margin="0,0,16,0" Text="Output:" />
+
+                                                            <TextBlock Name="StatsBenchmarkInput" Grid.Column="1" Grid.Row="0" FontSize="18" HorizontalAlignment="Right" />
+                                                            <TextBlock Name="StatsBenchmarkCTF" Grid.Column="1" Grid.Row="1" FontSize="18" HorizontalAlignment="Right" />
+                                                            <TextBlock Name="StatsBenchmarkMotion" Grid.Column="1" Grid.Row="2" FontSize="18" HorizontalAlignment="Right" />
+                                                            <TextBlock Name="StatsBenchmarkPicking" Grid.Column="1" Grid.Row="3" FontSize="18" HorizontalAlignment="Right" />
+                                                            <TextBlock Name="StatsBenchmarkOutput" Grid.Column="1" Grid.Row="4" FontSize="18" HorizontalAlignment="Right" />
+                                                        </Grid>
+                                                    </Grid>
                                                 </Grid>
                                             </StackPanel>
 

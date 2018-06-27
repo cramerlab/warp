@@ -20,6 +20,14 @@ namespace Warp
         [WarpSerializable]
         public string GainPath { get; set; }
         [WarpSerializable]
+        public string GainHash { get; set; }
+        [WarpSerializable]
+        public bool GainFlipX { get; set; }
+        [WarpSerializable]
+        public bool GainFlipY { get; set; }
+        [WarpSerializable]
+        public bool GainTranspose { get; set; }
+        [WarpSerializable]
         public float3 Dimensions { get; set; }
 
         public decimal PixelSizeMean => (PixelSizeX + PixelSizeY) * 0.5M;
@@ -36,7 +44,10 @@ namespace Warp
             return PixelSizeX == other.PixelSizeX &&
                    PixelSizeY == other.PixelSizeY &&
                    PixelSizeAngle == other.PixelSizeAngle &&
-                   GainPath == other.GainPath &&
+                   (string.IsNullOrEmpty(GainHash) ? GainPath == other.GainPath : GainHash == other.GainHash) &&
+                   GainFlipX == other.GainFlipX &&
+                   GainFlipY == other.GainFlipY &&
+                   GainTranspose == other.GainTranspose &&
                    BinTimes == other.BinTimes;
         }
 

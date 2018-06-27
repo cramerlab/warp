@@ -50,49 +50,49 @@ __declspec(dllexport) void* __stdcall CreateEinspline1(float* h_values, int dims
 
 __declspec(dllexport) void __stdcall EvalEinspline3(void* spline, float3* h_pos, int npos, float* h_output)
 {
-#pragma omp parallel for
+//#pragma omp parallel for
     for (int i = 0; i < npos; i++)
         eval_UBspline_3d_s((UBspline_3d_s*)spline, h_pos[i].z, h_pos[i].y, h_pos[i].x, h_output + i);
 }
 
 __declspec(dllexport) void __stdcall EvalEinspline2XY(void* spline, float3* h_pos, int npos, float* h_output)
 {
-#pragma omp parallel for
+//#pragma omp parallel for
     for (int i = 0; i < npos; i++)
         eval_UBspline_2d_s((UBspline_2d_s*)spline, h_pos[i].y, h_pos[i].x, h_output + i);
 }
 
 __declspec(dllexport) void __stdcall EvalEinspline2XZ(void* spline, float3* h_pos, int npos, float* h_output)
 {
-#pragma omp parallel for
+//#pragma omp parallel for
     for (int i = 0; i < npos; i++)
         eval_UBspline_2d_s((UBspline_2d_s*)spline, h_pos[i].z, h_pos[i].x, h_output + i);
 }
 
 __declspec(dllexport) void __stdcall EvalEinspline2YZ(void* spline, float3* h_pos, int npos, float* h_output)
 {
-#pragma omp parallel for
+//#pragma omp parallel for
     for (int i = 0; i < npos; i++)
         eval_UBspline_2d_s((UBspline_2d_s*)spline, h_pos[i].z, h_pos[i].y, h_output + i);
 }
 
 __declspec(dllexport) void __stdcall EvalEinspline1X(void* spline, float3* h_pos, int npos, float* h_output)
 {
-#pragma omp parallel for
+//#pragma omp parallel for
     for (int i = 0; i < npos; i++)
         eval_UBspline_1d_s((UBspline_1d_s*)spline, h_pos[i].x, h_output + i);
 }
 
 __declspec(dllexport) void __stdcall EvalEinspline1Y(void* spline, float3* h_pos, int npos, float* h_output)
 {
-#pragma omp parallel for
+//#pragma omp parallel for
     for (int i = 0; i < npos; i++)
         eval_UBspline_1d_s((UBspline_1d_s*)spline, h_pos[i].y, h_output + i);
 }
 
 __declspec(dllexport) void __stdcall EvalEinspline1Z(void* spline, float3* h_pos, int npos, float* h_output)
 {
-#pragma omp parallel for
+//#pragma omp parallel for
     for (int i = 0; i < npos; i++)
         eval_UBspline_1d_s((UBspline_1d_s*)spline, h_pos[i].z, h_output + i);
 }

@@ -6,7 +6,7 @@ template<int N> float CubicInterp(float2* data, float x);
 
 __declspec(dllexport) void __stdcall CubicInterpOnGrid(int3 dimensions, float* values, float3 spacing, int3 valueGrid, float3 step, float3 offset, float* output)
 {
-	#pragma omp parallel for
+	///#pragma omp parallel for
 	for (int valueZ = 0; valueZ < valueGrid.z; valueZ++)
 		for (int valueY = 0; valueY < valueGrid.y; valueY++)
 			for (int valueX = 0; valueX < valueGrid.x; valueX++)
@@ -82,7 +82,7 @@ __declspec(dllexport) void __stdcall CubicInterpOnGrid(int3 dimensions, float* v
 
 __declspec(dllexport) void __stdcall CubicInterpIrregular(int3 dimensions, float* values, float3* positions, int npositions, float3 spacing, float3 samplingmargin, float3 samplingmarginscale, float* output)
 {
-#pragma omp parallel for
+///#pragma omp parallel for
     for (int position = 0; position < npositions; position++)
     {
         float3 coords = positions[position];

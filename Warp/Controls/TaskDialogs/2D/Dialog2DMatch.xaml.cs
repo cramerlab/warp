@@ -161,10 +161,7 @@ namespace Warp.Controls.TaskDialogs.TwoD
                 if (!string.IsNullOrEmpty(Options.Import.GainPath) && Options.Import.CorrectGain && File.Exists(Options.Import.GainPath))
                     for (int d = 0; d < NParallel; d++)
                     {
-                        ImageGain[d] = Image.FromFile(Options.Import.GainPath,
-                                                      new int2(Options.Import.HeaderlessWidth, Options.Import.HeaderlessHeight),
-                                                      (int)Options.Import.HeaderlessOffset,
-                                                      ImageFormatsHelper.StringToType(Options.Import.HeaderlessType));
+                        ImageGain[d] = MainWindow.LoadAndPrepareGainReference();
                     }
 
                 #endregion
@@ -193,7 +190,7 @@ namespace Warp.Controls.TaskDialogs.TwoD
 
                     MapHeader OriginalHeader = MapHeader.ReadFromFile(item.Path);
 
-                    MainWindow.PrepareHeaderAndMap(item.Path, ImageGain[gpuID], ScaleFactor, out OriginalHeader, out OriginalStack);
+                    MainWindow.LoadAndPrepareHeaderAndMap(item.Path, ImageGain[gpuID], ScaleFactor, out OriginalHeader, out OriginalStack);
 
                     if (IsCanceled)
                     {

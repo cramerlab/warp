@@ -353,6 +353,10 @@ namespace Warp
                 PixelSizeAngle = PixelSizeAngle,
                 BinTimes = Import.BinTimes,
                 GainPath = Import.CorrectGain ? Import.GainPath : "",
+                GainHash = Import.CorrectGain ? Runtime.GainReferenceHash : "",
+                GainFlipX = Import.GainFlipX,
+                GainFlipY = Import.GainFlipY,
+                GainTranspose = Import.GainTranspose,
                 Window = CTF.Window,
                 RangeMin = CTF.RangeMin,
                 RangeMax = CTF.RangeMax,
@@ -384,6 +388,9 @@ namespace Warp
             Import.BinTimes = options.BinTimes;
             Import.GainPath = options.GainPath;
             Import.CorrectGain = !string.IsNullOrEmpty(options.GainPath);
+            Import.GainFlipX = options.GainFlipX;
+            Import.GainFlipY = options.GainFlipY;
+            Import.GainTranspose = options.GainTranspose;
 
             CTF.Window = options.Window;
             CTF.RangeMin = options.RangeMin;
@@ -418,6 +425,10 @@ namespace Warp
                 PixelSizeAngle = PixelSizeAngle,
                 BinTimes = Import.BinTimes,
                 GainPath = Import.CorrectGain ? Import.GainPath : "",
+                GainHash = Import.CorrectGain ? Runtime.GainReferenceHash : "",
+                GainFlipX = Import.GainFlipX,
+                GainFlipY = Import.GainFlipY,
+                GainTranspose = Import.GainTranspose,
                 RangeMin = Movement.RangeMin,
                 RangeMax = Movement.RangeMax,
                 Bfactor = Movement.Bfactor,
@@ -433,6 +444,9 @@ namespace Warp
             Import.BinTimes = options.BinTimes;
             Import.GainPath = options.GainPath;
             Import.CorrectGain = !string.IsNullOrEmpty(options.GainPath);
+            Import.GainFlipX = options.GainFlipX;
+            Import.GainFlipY = options.GainFlipY;
+            Import.GainTranspose = options.GainTranspose;
             Movement.RangeMin = options.RangeMin;
             Movement.RangeMax = options.RangeMax;
             Movement.Bfactor = options.Bfactor;
@@ -451,6 +465,10 @@ namespace Warp
 
                 BinTimes = Import.BinTimes,
                 GainPath = Import.CorrectGain ? Import.GainPath : "",
+                GainHash = Import.CorrectGain ? Runtime.GainReferenceHash : "",
+                GainFlipX = Import.GainFlipX,
+                GainFlipY = Import.GainFlipY,
+                GainTranspose = Import.GainTranspose,
                 DosePerAngstromFrame = Import.DosePerAngstromFrame,
 
                 DoAverage = Export.DoAverage,
@@ -475,6 +493,10 @@ namespace Warp
             Import.BinTimes = options.BinTimes;
             Import.GainPath = options.GainPath;
             Import.CorrectGain = !string.IsNullOrEmpty(options.GainPath);
+            Import.GainFlipX = options.GainFlipX;
+            Import.GainFlipY = options.GainFlipY;
+            Import.GainTranspose = options.GainTranspose;
+
             Import.DosePerAngstromFrame = options.DosePerAngstromFrame;
 
             CTF.Voltage = options.Voltage;
@@ -503,6 +525,10 @@ namespace Warp
 
                 BinTimes = BinTimes,
                 GainPath = Import.CorrectGain ? Import.GainPath : "",
+                GainHash = Import.CorrectGain ? Runtime.GainReferenceHash : "",
+                GainFlipX = Import.GainFlipX,
+                GainFlipY = Import.GainFlipY,
+                GainTranspose = Import.GainTranspose,
                 DosePerAngstromFrame = Import.DosePerAngstromFrame,
 
                 DoAverage = Tasks.Export2DDoAverages,
@@ -527,6 +553,10 @@ namespace Warp
 
                 BinTimes = BinTimes,
                 GainPath = Import.CorrectGain ? Import.GainPath : "",
+                GainHash = Import.CorrectGain ? Runtime.GainReferenceHash : "",
+                GainFlipX = Import.GainFlipX,
+                GainFlipY = Import.GainFlipY,
+                GainTranspose = Import.GainTranspose,
                 DosePerAngstromFrame = Import.DosePerAngstromFrame,
                 Voltage = CTF.Voltage,
 
@@ -557,6 +587,10 @@ namespace Warp
 
                 BinTimes = Import.BinTimes,
                 GainPath = Import.CorrectGain ? Import.GainPath : "",
+                GainHash = Import.CorrectGain ? Runtime.GainReferenceHash : "",
+                GainFlipX = Import.GainFlipX,
+                GainFlipY = Import.GainFlipY,
+                GainTranspose = Import.GainTranspose,
 
                 OverwriteFiles = true,
 
@@ -590,6 +624,10 @@ namespace Warp
 
                 BinTimes = BinTimes,
                 GainPath = Import.CorrectGain ? Import.GainPath : "",
+                GainHash = Import.CorrectGain ? Runtime.GainReferenceHash : "",
+                GainFlipX = Import.GainFlipX,
+                GainFlipY = Import.GainFlipY,
+                GainTranspose = Import.GainTranspose,
 
                 Dimensions = new float3((float)Tomo.DimensionsX,
                                         (float)Tomo.DimensionsY,
@@ -620,6 +658,10 @@ namespace Warp
 
                 BinTimes = BinTimes,
                 GainPath = Import.CorrectGain ? Import.GainPath : "",
+                GainHash = Import.CorrectGain ? Runtime.GainReferenceHash : "",
+                GainFlipX = Import.GainFlipX,
+                GainFlipY = Import.GainFlipY,
+                GainTranspose = Import.GainTranspose,
 
                 Dimensions = new float3((float)Tomo.DimensionsX,
                                         (float)Tomo.DimensionsY,
@@ -654,6 +696,10 @@ namespace Warp
 
                 BinTimes = BinTimes,
                 GainPath = Import.CorrectGain ? Import.GainPath : "",
+                GainHash = Import.CorrectGain ? Runtime.GainReferenceHash : "",
+                GainFlipX = Import.GainFlipX,
+                GainFlipY = Import.GainFlipY,
+                GainTranspose = Import.GainTranspose,
 
                 Dimensions = new float3((float)Tomo.DimensionsX,
                                         (float)Tomo.DimensionsY,
@@ -856,6 +902,30 @@ namespace Warp
                     OnPropertyChanged();
                 }
             }
+        }
+
+        private bool _GainFlipX = false;
+        [WarpSerializable]
+        public bool GainFlipX
+        {
+            get { return _GainFlipX; }
+            set { if (value != _GainFlipX) { _GainFlipX = value; OnPropertyChanged(); } }
+        }
+
+        private bool _GainFlipY = false;
+        [WarpSerializable]
+        public bool GainFlipY
+        {
+            get { return _GainFlipY; }
+            set { if (value != _GainFlipY) { _GainFlipY = value; OnPropertyChanged(); } }
+        }
+
+        private bool _GainTranspose = false;
+        [WarpSerializable]
+        public bool GainTranspose
+        {
+            get { return _GainTranspose; }
+            set { if (value != _GainTranspose) { _GainTranspose = value; OnPropertyChanged(); } }
         }
 
         private bool _CorrectGain = false;
@@ -1915,6 +1985,13 @@ namespace Warp
         {
             get { return _BinnedPixelSizeMean; }
             set { if (value != _BinnedPixelSizeMean) { _BinnedPixelSizeMean = value; OnPropertyChanged(); } }
+        }
+
+        private string _GainReferenceHash = "";
+        public string GainReferenceHash
+        {
+            get { return _GainReferenceHash; }
+            set { if (value != _GainReferenceHash) { _GainReferenceHash = value; OnPropertyChanged(); } }
         }
 
         private string _GPUStats = "";
