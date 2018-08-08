@@ -43,6 +43,8 @@ namespace Warp.Controls
         bool BlinkyOn = false;
         DispatcherTimer BlinkyTimer;
 
+        bool ShowedNoiseNetWarning = false;
+
         #region Dependency properties
 
         public Movie Movie
@@ -80,6 +82,13 @@ namespace Warp.Controls
             set { SetValue(DeconvEnabledProperty, value); }
         }
         public static readonly DependencyProperty DeconvEnabledProperty = DependencyProperty.Register("DeconvEnabled", typeof(bool), typeof(MicrographDisplay), new PropertyMetadata(false, (sender, e) => ((MicrographDisplay)sender).DisplaySettingsChanged(sender, e)));
+        
+        public string DeconvMode
+        {
+            get { return (string)GetValue(DeconvModeProperty); }
+            set { SetValue(DeconvModeProperty, value); }
+        }
+        public static readonly DependencyProperty DeconvModeProperty = DependencyProperty.Register("DeconvMode", typeof(string), typeof(MicrographDisplay), new PropertyMetadata("Denoise", (sender, e) => ((MicrographDisplay)sender).DisplaySettingsChanged(sender, e)));
 
         public decimal DeconvStrength
         {
@@ -251,18 +260,27 @@ namespace Warp.Controls
         int2 DimsPlanForw = new int2(-1);
         int PlanBack = -1;
         int2 DimsPlanBack = new int2(-1);
+        int PlanForw3A = -1;
+        int2 DimsPlanForw3A = new int2(-1);
+        int PlanBack3A = -1;
+        int2 DimsPlanBack3A = new int2(-1);
 
         Image MicrographFT = null;
+        Image MicrographDenoised = null;
         Movie MicrographOwner = null;
         int MicrographOwnerSlice = -1;
 
         private BoxNet2[] BoxNetworks = null;
         private string BoxNetworksModelDir = "";
 
+        private NoiseNet2D[] NoiseNetworks = null;
+        private string NoiseNetworksModelDir = "";
+
         readonly List<Particle> Particles = new List<Particle>();
         readonly List<Particle> ParticlesBad = new List<Particle>();
 
         private int2 MicrographDims = new int2(1);
+        private int2 MicrographDims3A = new int2(1);
         private int2 MaskDims = new int2(1);
         private byte[] MaskData = null;
         private byte[] MaskImageBytes = null;
@@ -412,6 +430,7 @@ namespace Warp.Controls
                     MapHeader Header = MapHeader.ReadFromFile(((Movie)e.NewValue).AveragePath);
                     PixelSize = Header.PixelSize.X;
                     MicrographDims = new int2(Header.Dimensions);
+                    MicrographDims3A = new int2(new float2(MicrographDims) * PixelSize / 3f) / 2 * 2;
 
                     float2 MicrographDimsPhysical = new float2(MicrographDims) * PixelSize;
                     MaskDims = new int2(MicrographDimsPhysical / 8f + 0.5f) / 2 * 2;
@@ -482,7 +501,13 @@ namespace Warp.Controls
         private void Movie_AverageChanged(object sender, EventArgs e)
         {
             MicrographOwner = null;
+
             MicrographFT?.Dispose();
+            MicrographFT = null;
+
+            MicrographDenoised?.Dispose();
+            MicrographDenoised = null;
+
             DispatchUpdateImage();
         }
 
@@ -517,16 +542,49 @@ namespace Warp.Controls
 
             ImageSource AverageImage = null;
             GridNotProcessed.Visibility = Visibility.Hidden;
-            ImageDisplay.Visibility = Visibility.Collapsed;
+            //ImageDisplay.Visibility = Visibility.Collapsed;
             CanvasTrack.Visibility = Visibility.Collapsed;
             CanvasTrackMouse.Visibility = Visibility.Collapsed;
             ProgressImage.Visibility = Visibility.Visible;
 
+            PanelVisuals.Effect = new BlurEffect() { Radius = 16 };
+
             PanelImageSettings.Visibility = Visibility.Visible;
+
+            // Warn once about low memory in case denoising is to be performed
+            if (!ShowedNoiseNetWarning && DeconvMode == "Denoise" && DeconvEnabled)
+            {
+                ShowedNoiseNetWarning = true;
+
+                if (GPU.GetFreeMemory(0) < 5500)
+                {
+                    var Result = await ((MainWindow)Application.Current.MainWindow).ShowMessageAsync("Careful there!",
+                                                                                                     "You are about to activate denoising. This feature will consume ca. 2.5 GB of GPU memory\n" +
+                                                                                                     "permanently until you restart Warp. It looks like your GPU might not have enough memory\n" +
+                                                                                                     "to still be able to do all the other cool things. A likely symptom will be completely black\n" +
+                                                                                                     "movie averages, or Warp just crashing.\n\n" +
+                                                                                                     "Would you like to disable denoising and do deconvolution instead?",
+                                                                                                     MessageDialogStyle.AffirmativeAndNegative,
+                                                                                                     new MetroDialogSettings()
+                                                                                                     {
+                                                                                                         AffirmativeButtonText = "Yes, deconvolve instead",
+                                                                                                         NegativeButtonText = "No, proceed with denoising"
+                                                                                                     });
+                    
+                    if (Result == MessageDialogResult.Affirmative)
+                    {
+                        DeconvMode = "Deconvolve";
+                        return;
+                    }
+                }
+            }
+
+            PanelDeconvCanonicalOptions.Visibility = DeconvMode == "Deconvolve" ? Visibility.Visible : Visibility.Collapsed;
+            PanelDeconvDenoisingOptions.Visibility = DeconvMode == "Denoise" ? Visibility.Visible : Visibility.Collapsed;
 
             //await Task.Run(() =>
             {
-                Image Average;
+                Image Average = null;
                 bool CanDeconvolve = Movie.GetType() == typeof (Movie) && Movie.OptionsCTF != null;
                 bool ShouldDeconvolve = CanDeconvolve && DeconvEnabled;
 
@@ -536,48 +594,88 @@ namespace Warp.Controls
 
                 if (Zoom != 1 || ShouldDeconvolve)
                 {
-                    Image AverageFT;// = GetMicrographFT(Movie);
-                    if (Movie.GetType() == typeof(Movie))
-                        AverageFT = GetMicrographFT(Movie);
-                    else
-                        AverageFT = new Image(new int3(64, 64, 1), true, true);
+                    Movie _Movie = Movie;
+                    double _ScaleFactor = ScaleFactor;
+                    decimal _Zoom = Zoom;
+                    decimal _DeconvStrength = DeconvStrength;
+                    decimal _DeconvFalloff = DeconvFalloff;
+                    decimal _DeconvHighpass = DeconvHighpass;
 
-                    Image AverageFTCropped = AverageFT;
-                    if (Zoom < 1)
+                    if (!(ShouldDeconvolve && DeconvMode == "Denoise"))     // Normal deconvolution
                     {
-                        int2 DimsZoomed = AverageFT.DimsSlice * (float)ScaleFactor / 2 * 2;
-                        AverageFTCropped = AverageFT.AsPadded(DimsZoomed);
-                    }
+                        Average = await Task.Run(() =>
+                        {
+                            Image AverageFT;
+                            if (_Movie.GetType() == typeof(Movie))
+                                AverageFT = GetMicrographFT(_Movie);
+                            else
+                                AverageFT = new Image(new int3(64, 64, 1), true, true);
 
-                    Image AverageFTCroppedDeconv = AverageFTCropped;
-                    if (ShouldDeconvolve)
+                            Image AverageFTCropped = AverageFT;
+                            if (_Zoom < 1)
+                            {
+                                int2 DimsZoomed = AverageFT.DimsSlice * (float)_ScaleFactor / 2 * 2;
+                                AverageFTCropped = AverageFT.AsPadded(DimsZoomed);
+                            }
+
+                            Image AverageFTCroppedDeconv = AverageFTCropped;
+                            if (ShouldDeconvolve)
+                            {
+                                CTF DeconvCTF = _Movie.CTF.GetCopy();
+                                DeconvCTF.PixelSize = (decimal)PixelSize;
+                                DeconvCTF.PixelSize /= (decimal)Math.Min(1, _ScaleFactor);
+
+                                float HighpassNyquist = (float)(DeconvCTF.PixelSize * 2 / _DeconvHighpass);
+
+                                AverageFTCroppedDeconv = new Image(IntPtr.Zero, AverageFTCropped.Dims, true, true);
+                                GPU.DeconvolveCTF(AverageFTCropped.GetDevice(Intent.Read),
+                                                  AverageFTCroppedDeconv.GetDevice(Intent.Write),
+                                                  AverageFTCropped.Dims,
+                                                  DeconvCTF.ToStruct(),
+                                                  (float)_DeconvStrength,
+                                                  (float)_DeconvFalloff,
+                                                  HighpassNyquist);
+                            }
+
+                            Image Result =  AverageFTCroppedDeconv.AsIFFT(false, GetPlanBack(AverageFTCroppedDeconv.DimsSlice), true);
+
+                            if (_Zoom < 1)
+                                AverageFTCropped.Dispose();
+                            if (ShouldDeconvolve)
+                                AverageFTCroppedDeconv.Dispose();
+
+                            return Result;
+                        });
+                    }
+                    else        // Deconvolution + denoising
                     {
-                        CTF DeconvCTF = Movie.CTF.GetCopy();
-                        DeconvCTF.PixelSize /= (decimal)Math.Min(1, ScaleFactor);
+                        Average = await Task.Run(async () =>
+                        {
+                            int2 DimsZoomed = MicrographDims * (float)Math.Min(1, _ScaleFactor) / 2 * 2;
 
-                        float HighpassNyquist = (float)(DeconvCTF.PixelSize * 2 / DeconvHighpass);
+                            try
+                            {
+                                Image Denoised = await GetMicrographDenoised(_Movie);
+                                return Denoised.AsScaled(DimsZoomed, GetPlanForw3A(new int2(Denoised.Dims)), GetPlanBack(DimsZoomed));
+                            }
+                            catch (Exception exc)
+                            {
+                                await ((MainWindow)Application.Current.MainWindow).ShowMessageAsync("Oopsie",
+                                                                                                    "Something went wrong while trying to denoise this image. Here are the details:\n\n" +
+                                                                                                    exc.ToString() +
+                                                                                                    "\n\nIf you keep getting this message, your system might not have enough memory\n" +
+                                                                                                    "to process data and apply denoising at the same time. Please report the issue at\n" +
+                                                                                                    "https://groups.google.com/forum/#!forum/warp-em");
 
-                        AverageFTCroppedDeconv = new Image(IntPtr.Zero, AverageFTCropped.Dims, true, true);
-                        GPU.DeconvolveCTF(AverageFTCropped.GetDevice(Intent.Read),
-                                          AverageFTCroppedDeconv.GetDevice(Intent.Write),
-                                          AverageFTCropped.Dims,
-                                          DeconvCTF.ToStruct(),
-                                          (float)DeconvStrength,
-                                          (float)DeconvFalloff,
-                                          HighpassNyquist);
+                                return new Image(new int3(DimsZoomed));
+                            }
+                        });
                     }
-
-                    Average = AverageFTCroppedDeconv.AsIFFT(false, GetPlanBack(AverageFTCroppedDeconv.DimsSlice), true);
-
-                    if (Zoom < 1)
-                        AverageFTCropped.Dispose();
-                    if (ShouldDeconvolve)
-                        AverageFTCroppedDeconv.Dispose();
                 }
                 else
                 {
                     if (Movie.GetType() == typeof(Movie))
-                        Average = Image.FromFile(AveragePath);
+                        Average = await Task.Run(() => Image.FromFile(AveragePath));
                     else
                         Average = new Image(new int3(64, 64, 1)); // Image.FromFile(Movie.Path, SliceID - 1);
                 }
@@ -656,6 +754,8 @@ namespace Warp.Controls
 
                 #endregion
             }//);
+
+            PanelVisuals.Effect = null;
 
             ProgressImage.Visibility = Visibility.Hidden;
             ImageDisplay.Source = AverageImage;
@@ -1532,7 +1632,7 @@ namespace Warp.Controls
 
         #endregion
 
-        #region BoxNet
+        #region BoxNet and NoiseNet
 
         private async void ButtonBoxNetPick_OnClick(object sender, RoutedEventArgs e)
         {
@@ -1620,9 +1720,267 @@ namespace Warp.Controls
             BoxNetworksModelDir = "";
         }
 
+        private async Task<NoiseNet2D[]> PopulateNoiseNetworks(string modelDir)
+        {
+            ProgressDialogController Progress = null;
+            await Dispatcher.Invoke(async () =>
+            {
+                Progress = await ((MainWindow)Application.Current.MainWindow).ShowProgressAsync("Loading NoiseNet model...", "");
+                Progress.SetIndeterminate();
+            });
+
+            await Task.Run(() =>
+            {
+                NoiseNetworks = Helper.ArrayOfFunction(i => new NoiseNet2D(modelDir, new int2(128), 2, 1, false, i), 1);//GPU.GetDeviceCount());
+                NoiseNetworksModelDir = modelDir;
+            });
+
+            await Dispatcher.Invoke(async () => await Progress.CloseAsync());
+
+            return NoiseNetworks;
+        }
+
+        public void DropNoiseNetworks()
+        {
+            if (NoiseNetworks == null)
+                return;
+
+            foreach (var network in NoiseNetworks)
+                network.Dispose();
+            NoiseNetworks = null;
+            NoiseNetworksModelDir = "";
+        }
+
         public void UpdateBoxNetName(string name)
         {
             ButtonBoxNetPick.Content = ("Pick with " + name).ToUpper();
+        }
+
+        private async void ButtonDeconvRetrain_Click(object sender, RoutedEventArgs e)
+        {
+            Movie[] Movies = ((MainWindow)Application.Current.MainWindow).FileDiscoverer.GetImmutableFiles();
+
+            List<Movie> WithExamples = new List<Movie>();
+            foreach (var movie in Movies)
+                if (File.Exists(movie.DenoiseTrainingOddPath) && File.Exists(movie.DenoiseTrainingEvenPath))
+                    WithExamples.Add(movie);
+
+            WithExamples = WithExamples.Take(128).ToList();
+
+            bool Proceed = false;
+
+            if (WithExamples.Count < 10)
+            {
+                await ((MainWindow)Application.Current.MainWindow).ShowMessageAsync("Not enough training examples found", 
+                                                                                    "You need training data for at least 10 movies for retraining, although more is recommended.\n" +
+                                                                                    "Training data are generated automatically as you process movies with 'Average' activated in\n" +
+                                                                                    "the Output options. Examples cannot be generated from input data with less than 2 frames.", 
+                                                                                    MessageDialogStyle.Affirmative);
+            }
+            else
+            {
+                var Result = await ((MainWindow)Application.Current.MainWindow).ShowMessageAsync("Ready to start retraining", 
+                                                                                                 $"Retraining will use examples from {Math.Min(128, WithExamples.Count)} movies. Proceed?", 
+                                                                                                 MessageDialogStyle.AffirmativeAndNegative);
+                if (Result == MessageDialogResult.Affirmative)
+                    Proceed = true;
+            }
+
+            if (!Proceed)
+                return;
+
+            var ProgressDialog = await ((MainWindow)Application.Current.MainWindow).ShowProgressAsync("Preparing training examples...", "");
+
+            await Task.Run(() =>
+            {
+                int Dim = 128;
+                int BatchSize = 4;
+
+                DropNoiseNetworks();
+
+                GPU.SetDevice(0);
+
+                List<Image> MapsEven = new List<Image>();
+                List<Image> MapsOdd = new List<Image>();
+
+                Dispatcher.Invoke(() => ProgressDialog.SetProgress(0));
+
+                int Loaded = 0;
+                foreach (Movie movie in WithExamples)
+                {
+                    Image OddImage = Image.FromFile(movie.DenoiseTrainingOddPath);
+                    {
+                        float2 StdMean = MathHelper.MeanAndStd(OddImage.GetHostContinuousCopy());
+                        OddImage.TransformValues(v => (v) / StdMean.Y);
+
+                        GPU.PrefilterForCubic(OddImage.GetDevice(Intent.ReadWrite), OddImage.Dims);
+                        OddImage.FreeDevice();
+                        MapsOdd.Add(OddImage);
+                    }
+                    
+                    Image EvenImage = Image.FromFile(movie.DenoiseTrainingEvenPath);
+                    {
+                        float2 StdMean = MathHelper.MeanAndStd(EvenImage.GetHostContinuousCopy());
+                        EvenImage.TransformValues(v => (v) / StdMean.Y);
+
+                        GPU.PrefilterForCubic(EvenImage.GetDevice(Intent.ReadWrite), EvenImage.Dims);
+                        EvenImage.FreeDevice();
+                        MapsEven.Add(EvenImage);
+                    }
+
+                    Loaded++;
+                    Dispatcher.Invoke(() => ProgressDialog.SetProgress(Loaded / (float)WithExamples.Count));
+                }
+
+                Dispatcher.Invoke(() =>
+                {
+                    ProgressDialog.SetIndeterminate();
+                    ProgressDialog.SetTitle("Loading old model...");
+                });
+
+                NoiseNet2D TrainModel = new NoiseNet2D("noisenetmodel", new int2(Dim), 1, BatchSize, true);
+
+                GPU.SetDevice(0);
+
+                Random Rand = new Random(123);
+
+                int NMaps = MapsOdd.Count;
+                int NMapsPerBatch = Math.Min(128, NMaps);
+                int MapSamples = BatchSize;
+                int NEpochs = 40;
+
+                Image[] ExtractedOdd = Helper.ArrayOfFunction(i => new Image(new int3(Dim, Dim, MapSamples)), NMapsPerBatch);
+                Image[] ExtractedEven = Helper.ArrayOfFunction(i => new Image(new int3(Dim, Dim, MapSamples)), NMapsPerBatch);
+                
+                Dispatcher.Invoke(() =>
+                {
+                    ProgressDialog.SetProgress(0);
+                    ProgressDialog.SetTitle("Retraining...");
+                });
+
+                for (int iepoch = 0; iepoch < NEpochs; iepoch++)
+                {
+                    int[] ShuffledMapIDs = Helper.RandomSubset(Helper.ArrayOfSequence(0, NMaps, 1), NMapsPerBatch, Rand.Next(9999));
+
+                    for (int m = 0; m < NMapsPerBatch; m++)
+                    {
+                        int MapID = ShuffledMapIDs[m];
+
+                        Image MapOdd = MapsOdd[MapID];
+                        Image MapEven = MapsEven[MapID];
+
+                        int3 DimsMap = MapEven.Dims;
+
+                        int3 Margin = new int3((int)(Dim / 2 * 1.5f));
+                        Margin.Z = 0;
+                        float3[] Position = Helper.ArrayOfFunction(i => new float3((float)Rand.NextDouble() * (DimsMap.X - Margin.X * 2) + Margin.X,
+                                                                                   (float)Rand.NextDouble() * (DimsMap.Y - Margin.Y * 2) + Margin.Y,
+                                                                                   0), MapSamples);
+
+                        float3[] Angle = Helper.ArrayOfFunction(i => new float3(0,
+                                                                                0,
+                                                                                (float)Rand.NextDouble() * 360) * Helper.ToRad, MapSamples);
+
+                        float[] StdFudge = Helper.ArrayOfFunction(i => (float)Rand.NextDouble() * 0.8f + 0.6f, MapSamples);
+                        float MeanFudge = (float)Rand.NextDouble() * 0.5f - 0.25f;
+
+                        {
+                            ulong[] Texture = new ulong[1], TextureArray = new ulong[1];
+                            GPU.CreateTexture3D(MapEven.GetDevice(Intent.Read), MapEven.Dims, Texture, TextureArray, true);
+                            MapEven.FreeDevice();
+
+                            GPU.Rotate3DExtractAt(Texture[0],
+                                                  MapEven.Dims,
+                                                  ExtractedOdd[m].GetDevice(Intent.Write),
+                                                  new int3(Dim, Dim, 1),
+                                                  Helper.ToInterleaved(Angle),
+                                                  Helper.ToInterleaved(Position),
+                                                  (uint)MapSamples);
+
+                            ExtractedOdd[m].Multiply(StdFudge);
+                            ExtractedOdd[m].Add(MeanFudge);
+
+                            //ExtractedSource[MapID].WriteMRC("d_extractedsource.mrc", true);
+
+                            GPU.DestroyTexture(Texture[0], TextureArray[0]);
+                        }
+
+                        {
+                            ulong[] Texture = new ulong[1], TextureArray = new ulong[1];
+                            GPU.CreateTexture3D(MapOdd.GetDevice(Intent.Read), MapOdd.Dims, Texture, TextureArray, true);
+                            MapOdd.FreeDevice();
+
+                            GPU.Rotate3DExtractAt(Texture[0],
+                                                  MapOdd.Dims,
+                                                  ExtractedEven[m].GetDevice(Intent.Write),
+                                                  new int3(Dim, Dim, 1),
+                                                  Helper.ToInterleaved(Angle),
+                                                  Helper.ToInterleaved(Position),
+                                                  (uint)MapSamples);
+
+                            ExtractedEven[m].Multiply(StdFudge);
+                            ExtractedEven[m].Add(MeanFudge);
+
+                            //ExtractedTarget.WriteMRC("d_extractedtarget.mrc", true);
+
+                            GPU.DestroyTexture(Texture[0], TextureArray[0]);
+                        }
+
+                        MapEven.FreeDevice();
+                        MapOdd.FreeDevice();
+                    }
+
+                    List<float> AllLosses = new List<float>();
+                    float[] PredictedData = null, Loss = null;
+                    float[] SourceData = null;
+                    float[] TargetData = null;
+                    float[] AverageData = null;
+
+                    //for (int s = 0; s < MapSamples; s++)
+                    {
+                        float CurrentLearningRate = (float)(0.00005 * Math.Pow(10, -iepoch / (float)NEpochs * 2));
+
+                        for (int m = 0; m < ShuffledMapIDs.Length; m++)
+                        {
+                            int MapID = m;
+
+                            bool Twist = Rand.Next(2) == 0;
+
+                            if (Twist)
+                                TrainModel.Train(ExtractedOdd[MapID].GetDeviceSlice(Dim * 0, Intent.Read),
+                                                 ExtractedEven[MapID].GetDeviceSlice(Dim * 0, Intent.Read),
+                                                 CurrentLearningRate,
+                                                 0,
+                                                 out PredictedData,
+                                                 out Loss);
+                            else
+                                TrainModel.Train(ExtractedEven[MapID].GetDeviceSlice(Dim * 0, Intent.Read),
+                                                 ExtractedOdd[MapID].GetDeviceSlice(Dim * 0, Intent.Read),
+                                                 CurrentLearningRate,
+                                                 0,
+                                                 out PredictedData,
+                                                 out Loss);
+                        }
+                    }
+
+                    Dispatcher.Invoke(() => ProgressDialog.SetProgress((iepoch + 1) / (float)NEpochs));
+                }
+
+                Dispatcher.Invoke(() =>
+                {
+                    ProgressDialog.SetIndeterminate();
+                    ProgressDialog.SetTitle("Saving new model...");
+                });
+
+                TrainModel.Export(WithExamples[0].DenoiseTrainingDirModel);
+                NoiseNetworksModelDir = "";
+                TrainModel.Dispose();
+            });
+
+            await ProgressDialog.CloseAsync();
+
+            MicrographOwner = null;
+            UpdateImage();
         }
 
         #endregion
@@ -1835,6 +2193,34 @@ namespace Warp.Controls
             return PlanBack;
         }
 
+        int GetPlanForw3A(int2 dims)
+        {
+            if (dims == DimsPlanForw3A && PlanForw3A > 0)
+                return PlanForw3A;
+
+            if (PlanForw3A > 0)
+                GPU.DestroyFFTPlan(PlanForw3A);
+
+            PlanForw3A = GPU.CreateFFTPlan(new int3(dims), 1);
+            DimsPlanForw3A = dims;
+
+            return PlanForw3A;
+        }
+
+        int GetPlanBack3A(int2 dims)
+        {
+            if (dims == DimsPlanBack3A && PlanBack3A > 0)
+                return PlanBack3A;
+
+            if (PlanBack3A > 0)
+                GPU.DestroyFFTPlan(PlanBack3A);
+
+            PlanBack3A = GPU.CreateIFFTPlan(new int3(dims), 1);
+            DimsPlanBack3A = dims;
+
+            return PlanBack3A;
+        }
+
         Image GetMicrographFT(Movie owner)
         {
             if (owner == null)
@@ -1846,6 +2232,8 @@ namespace Warp.Controls
                     return MicrographFT;
 
                 MicrographFT?.Dispose();
+                MicrographDenoised?.Dispose();
+                MicrographDenoised = null;
 
                 if (!File.Exists(owner.AveragePath))
                     return null;
@@ -1890,10 +2278,78 @@ namespace Warp.Controls
             return null;
         }
 
+        async Task<Image> GetMicrographDenoised(Movie owner)
+        {
+            if (owner == null)
+                return null;
+
+            if (owner.GetType() == typeof(Movie))
+            {
+                if (MicrographDenoised != null && MicrographOwner == owner)
+                    return MicrographDenoised;
+
+                if (!File.Exists(owner.AveragePath))
+                    return null;
+
+                Image ImageFT = GetMicrographFT(owner);
+                if (ImageFT == null)
+                    return null;
+
+
+                string ModelDir = owner.DenoiseTrainingDirModel;
+                if (!Directory.Exists(ModelDir))
+                    ModelDir = "noisenetmodel";
+
+                if (NoiseNetworks == null || NoiseNetworksModelDir != ModelDir)
+                {
+                    DropNoiseNetworks();
+                    await PopulateNoiseNetworks(ModelDir);
+                }
+
+                MicrographDenoised?.Dispose();
+
+                Image ImageCroppedFT = ImageFT.AsPadded(MicrographDims3A);
+
+                CTF CTF3A = owner.CTF.GetCopy();
+                CTF3A.PixelSize = 3;
+                float HighpassNyquist = 3 * 2 / 100f;
+                GPU.DeconvolveCTF(ImageCroppedFT.GetDevice(Intent.Read),
+                                  ImageCroppedFT.GetDevice(Intent.Write),
+                                  ImageCroppedFT.Dims,
+                                  CTF3A.ToStruct(),
+                                  1.0f,
+                                  0.25f,
+                                  HighpassNyquist);
+
+                MicrographDenoised = ImageCroppedFT.AsIFFT(false, GetPlanBack3A(MicrographDims3A));
+                ImageCroppedFT.Dispose();
+
+                GPU.Normalize(MicrographDenoised.GetDevice(Intent.Read),
+                              MicrographDenoised.GetDevice(Intent.Write),
+                              (uint)MicrographDenoised.ElementsReal,
+                              1);
+
+                //MicrographDenoised.Multiply(1f / 1.14f);
+
+                NoiseNet2D.Denoise(MicrographDenoised, NoiseNetworks);
+                
+                return MicrographDenoised;
+            }
+            else if (owner.GetType() == typeof(TiltSeries))
+            {
+                return null;
+            }
+
+            return null;
+        }
+
         void FreeOnDevice()
         {
             MicrographFT?.Dispose();
             MicrographFT = null;
+
+            MicrographDenoised?.Dispose();
+            MicrographDenoised = null;
 
             MicrographOwner = null;
             MicrographOwnerSlice = -1;
@@ -1907,6 +2363,16 @@ namespace Warp.Controls
                 GPU.DestroyFFTPlan(PlanBack);
             PlanBack = -1;
             DimsPlanBack = new int2(-1);
+
+            if (PlanForw3A > 0)
+                GPU.DestroyFFTPlan(PlanForw3A);
+            PlanForw3A = -1;
+            DimsPlanForw3A = new int2(-1);
+
+            if (PlanBack3A > 0)
+                GPU.DestroyFFTPlan(PlanBack3A);
+            PlanBack3A = -1;
+            DimsPlanBack3A = new int2(-1);
         }
 
         private Size MeasureString(string candidate, double size)
@@ -1956,6 +2422,20 @@ namespace Warp.Controls
                     Encoder.Save(stream);
             }
             catch { }
+        }
+
+        public void SetProcessingMode(bool enabled)
+        {
+            if (enabled)
+            {
+                ButtonBoxNetPick.IsEnabled = false;
+                ButtonDeconvRetrain.IsEnabled = false;
+            }
+            else
+            {
+                ButtonBoxNetPick.IsEnabled = true;
+                ButtonDeconvRetrain.IsEnabled = true;
+            }
         }
 
         #endregion

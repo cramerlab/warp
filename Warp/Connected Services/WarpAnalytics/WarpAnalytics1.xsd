@@ -137,4 +137,27 @@
       </xs:sequence>
     </xs:complexType>
   </xs:element>
+  <xs:element name="LogCrash">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element xmlns:q6="http://schemas.microsoft.com/2003/10/Serialization/" minOccurs="0" name="secret" type="q6:guid" />
+        <xs:element minOccurs="0" name="dateTime" nillable="true" type="xs:string" />
+        <xs:element minOccurs="0" name="version" nillable="true" type="xs:string" />
+        <xs:element minOccurs="0" name="cpuCores" type="xs:int" />
+        <xs:element minOccurs="0" name="cpuClock" type="xs:int" />
+        <xs:element minOccurs="0" name="cpuMemory" type="xs:int" />
+        <xs:element minOccurs="0" name="gpuCores" type="xs:int" />
+        <xs:element minOccurs="0" name="gpuMemory" type="xs:int" />
+        <xs:element minOccurs="0" name="gpuName" nillable="true" type="xs:string" />
+        <xs:element minOccurs="0" name="exception" nillable="true" type="xs:string" />
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="LogCrashResponse">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element minOccurs="0" name="LogCrashResult" nillable="true" type="xs:string" />
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
 </xs:schema>

@@ -22,6 +22,7 @@ namespace Warp
         public readonly int BatchSize = 1;
         public readonly string ModelDir;
         public readonly int MaxThreads;
+        public readonly int DeviceID;
 
         private bool ForTraining;
         private TFSession Session;
@@ -44,97 +45,101 @@ namespace Warp
 
         private bool IsDisposed = false;
 
-        public BoxNet2(string modelDir, int gpuID = 0, int nThreads = 1, bool forTraining = false)
+        public BoxNet2(string modelDir, int deviceID = 0, int nThreads = 1, bool forTraining = false)
         {
-            ForTraining = forTraining;
-            ModelDir = modelDir;
-            MaxThreads = nThreads;
-
-            TFSessionOptions SessionOptions = TFHelper.CreateOptions();
-            TFSession Dummy = new TFSession(new TFGraph(), SessionOptions);
-
-            Session = TFHelper.FromSavedModel(SessionOptions, null, ModelDir, new[] { forTraining ? "train" : "serve" }, new TFGraph(), $"/device:GPU:{gpuID}");
-            Graph = Session.Graph;
-
-            if (forTraining)
+            lock (TFHelper.DeviceSync[deviceID])
             {
-                NodeInputMicTile = Graph["images"][0];
-                NodeInputLabels = Graph["image_classes"][0];
-                NodeInputWeights = Graph["image_weights"][0];
-                NodeLearningRate = Graph["training_learning_rate"][0];
-                NodeOpTrain = Graph["train_momentum"][0];
+                DeviceID = deviceID;
+                ForTraining = forTraining;
+                ModelDir = modelDir;
+                MaxThreads = nThreads;
 
-                NodeOutputLoss = Graph["cross_entropy"][0];
-            }
-            else
-            {
-                NodeInputMicTilePredict = Graph["images_predict"][0];
-            }
+                TFSessionOptions SessionOptions = TFHelper.CreateOptions();
+                TFSession Dummy = new TFSession(new TFGraph(), SessionOptions);
 
-            NodeOutputArgMax = Graph["argmax_tensor"][0];
-            NodeOutputSoftMax = Graph["softmax_tensor"][0];
+                Session = TFHelper.FromSavedModel(SessionOptions, null, ModelDir, new[] { forTraining ? "train" : "serve" }, new TFGraph(), $"/device:GPU:{deviceID}");
+                Graph = Session.Graph;
 
-            if (forTraining)
-            {
-                TensorMicTile = Helper.ArrayOfFunction(i => TFTensor.FromBuffer(new TFShape(BatchSize, BoxDimensionsTrain.X, BoxDimensionsTrain.Y, 1),
-                                                                                new float[BatchSize * BoxDimensionsTrain.Elements()],
-                                                                                0,
-                                                                                BatchSize * (int)BoxDimensionsTrain.Elements()),
-                                                       nThreads);
+                if (forTraining)
+                {
+                    NodeInputMicTile = Graph["images"][0];
+                    NodeInputLabels = Graph["image_classes"][0];
+                    NodeInputWeights = Graph["image_weights"][0];
+                    NodeLearningRate = Graph["training_learning_rate"][0];
+                    NodeOpTrain = Graph["train_momentum"][0];
 
-                TensorTrainingLabels = Helper.ArrayOfFunction(i => TFTensor.FromBuffer(new TFShape(BatchSize, BoxDimensionsTrain.X, BoxDimensionsTrain.Y, 3),
-                                                                                       new float[BatchSize * BoxDimensionsTrain.Elements() * 3],
-                                                                                       0,
-                                                                                       BatchSize * (int)BoxDimensionsTrain.Elements() * 3),
+                    NodeOutputLoss = Graph["cross_entropy"][0];
+                }
+                else
+                {
+                    NodeInputMicTilePredict = Graph["images_predict"][0];
+                }
+
+                NodeOutputArgMax = Graph["argmax_tensor"][0];
+                NodeOutputSoftMax = Graph["softmax_tensor"][0];
+
+                if (forTraining)
+                {
+                    TensorMicTile = Helper.ArrayOfFunction(i => TFTensor.FromBuffer(new TFShape(BatchSize, BoxDimensionsTrain.X, BoxDimensionsTrain.Y, 1),
+                                                                                    new float[BatchSize * BoxDimensionsTrain.Elements()],
+                                                                                    0,
+                                                                                    BatchSize * (int)BoxDimensionsTrain.Elements()),
+                                                           nThreads);
+
+                    TensorTrainingLabels = Helper.ArrayOfFunction(i => TFTensor.FromBuffer(new TFShape(BatchSize, BoxDimensionsTrain.X, BoxDimensionsTrain.Y, 3),
+                                                                                           new float[BatchSize * BoxDimensionsTrain.Elements() * 3],
+                                                                                           0,
+                                                                                           BatchSize * (int)BoxDimensionsTrain.Elements() * 3),
+                                                                  nThreads);
+
+                    TensorTrainingWeights = Helper.ArrayOfFunction(i => TFTensor.FromBuffer(new TFShape(BatchSize, BoxDimensionsTrain.X, BoxDimensionsTrain.Y, 1),
+                                                                                            new float[BatchSize * BoxDimensionsTrain.Elements()],
+                                                                                            0,
+                                                                                            BatchSize * (int)BoxDimensionsTrain.Elements()),
+                                                                   nThreads);
+
+                    TensorLearningRate = Helper.ArrayOfFunction(i => TFTensor.FromBuffer(new TFShape(1),
+                                                                                         new float[1],
+                                                                                         0,
+                                                                                         1),
+                                                                nThreads);
+                }
+                else
+                {
+
+                    TensorMicTilePredict = Helper.ArrayOfFunction(i => TFTensor.FromBuffer(new TFShape(BatchSize, BoxDimensionsPredict.X, BoxDimensionsPredict.Y, 1),
+                                                                                           new float[BatchSize * BoxDimensionsPredict.Elements()],
+                                                                                           0,
+                                                                                           BatchSize * (int)BoxDimensionsPredict.Elements()),
+                                                                  nThreads);
+                }
+
+                if (forTraining)
+                {
+                    ResultArgMax = Helper.ArrayOfFunction(i => new long[BatchSize * (int)BoxDimensionsTrain.Elements()], nThreads);
+                    ResultSoftMax = Helper.ArrayOfFunction(i => new float[BatchSize * (int)BoxDimensionsTrain.Elements() * 3], nThreads);
+                    ResultLoss = Helper.ArrayOfFunction(i => new float[BatchSize], nThreads);
+                }
+                else
+                {
+                    ResultArgMax = Helper.ArrayOfFunction(i => new long[BatchSize * (int)BoxDimensionsPredict.Elements()], nThreads);
+                    ResultSoftMax = Helper.ArrayOfFunction(i => new float[BatchSize * (int)BoxDimensionsPredict.Elements() * 3], nThreads);
+                }
+
+                if (!ForTraining)
+                    RunnerPrediction = Helper.ArrayOfFunction(i => Session.GetRunner().
+                                                                   AddInput(NodeInputMicTilePredict, TensorMicTilePredict[i]).
+                                                                   Fetch(NodeOutputArgMax, NodeOutputSoftMax),
                                                               nThreads);
-
-                TensorTrainingWeights = Helper.ArrayOfFunction(i => TFTensor.FromBuffer(new TFShape(BatchSize, BoxDimensionsTrain.X, BoxDimensionsTrain.Y, 1),
-                                                                                        new float[BatchSize * BoxDimensionsTrain.Elements()],
-                                                                                        0,
-                                                                                        BatchSize * (int)BoxDimensionsTrain.Elements()),
-                                                               nThreads);
-
-                TensorLearningRate = Helper.ArrayOfFunction(i => TFTensor.FromBuffer(new TFShape(1),
-                                                                                     new float[1],
-                                                                                     0,
-                                                                                     1),
+                if (ForTraining)
+                    RunnerTraining = Helper.ArrayOfFunction(i => Session.GetRunner().
+                                                                 AddInput(NodeInputMicTile, TensorMicTile[i]).
+                                                                 AddInput(NodeInputLabels, TensorTrainingLabels[i]).
+                                                                 AddInput(NodeInputWeights, TensorTrainingWeights[i]).
+                                                                 AddInput(NodeLearningRate, TensorLearningRate[i]).
+                                                                 Fetch(NodeOpTrain, NodeOutputArgMax, NodeOutputSoftMax, NodeOutputLoss),
                                                             nThreads);
             }
-            else
-            {
-
-                TensorMicTilePredict = Helper.ArrayOfFunction(i => TFTensor.FromBuffer(new TFShape(BatchSize, BoxDimensionsPredict.X, BoxDimensionsPredict.Y, 1),
-                                                                                       new float[BatchSize * BoxDimensionsPredict.Elements()],
-                                                                                       0,
-                                                                                       BatchSize * (int)BoxDimensionsPredict.Elements()),
-                                                              nThreads);
-            }
-
-            if (forTraining)
-            {
-                ResultArgMax = Helper.ArrayOfFunction(i => new long[BatchSize * (int)BoxDimensionsTrain.Elements()], nThreads);
-                ResultSoftMax = Helper.ArrayOfFunction(i => new float[BatchSize * (int)BoxDimensionsTrain.Elements() * 3], nThreads);
-                ResultLoss = Helper.ArrayOfFunction(i => new float[BatchSize], nThreads);
-            }
-            else
-            {
-                ResultArgMax = Helper.ArrayOfFunction(i => new long[BatchSize * (int)BoxDimensionsPredict.Elements()], nThreads);
-                ResultSoftMax = Helper.ArrayOfFunction(i => new float[BatchSize * (int)BoxDimensionsPredict.Elements() * 3], nThreads);
-            }
-
-            if (!ForTraining)
-                RunnerPrediction = Helper.ArrayOfFunction(i => Session.GetRunner().
-                                                               AddInput(NodeInputMicTilePredict, TensorMicTilePredict[i]).
-                                                               Fetch(NodeOutputArgMax, NodeOutputSoftMax),
-                                                          nThreads);
-            if (ForTraining)
-                RunnerTraining = Helper.ArrayOfFunction(i => Session.GetRunner().
-                                                             AddInput(NodeInputMicTile, TensorMicTile[i]).
-                                                             AddInput(NodeInputLabels, TensorTrainingLabels[i]).
-                                                             AddInput(NodeInputWeights, TensorTrainingWeights[i]).
-                                                             AddInput(NodeLearningRate, TensorLearningRate[i]).
-                                                             Fetch(NodeOpTrain, NodeOutputArgMax, NodeOutputSoftMax, NodeOutputLoss),
-                                                        nThreads);
 
             // Run prediction or training for one batch to claim all the memory needed
             long[] InitArgMax;
@@ -162,17 +167,20 @@ namespace Warp
             //if (ForTraining)
             //    throw new Exception("Network was loaded in training mode, but asked to predict.");
 
-            Marshal.Copy(data, 0, TensorMicTilePredict[threadID].Data, BatchSize * (int)BoxDimensionsPredict.Elements());
-            var Output = RunnerPrediction[threadID].Run();
+            lock (TFHelper.DeviceSync[DeviceID])
+            {
+                Marshal.Copy(data, 0, TensorMicTilePredict[threadID].Data, BatchSize * (int)BoxDimensionsPredict.Elements());
+                var Output = RunnerPrediction[threadID].Run();
 
-            Marshal.Copy(Output[0].Data, ResultArgMax[threadID], 0, BatchSize * (int)BoxDimensionsPredict.Elements());
-            Marshal.Copy(Output[1].Data, ResultSoftMax[threadID], 0, BatchSize * (int)BoxDimensionsPredict.Elements() * 3);
+                Marshal.Copy(Output[0].Data, ResultArgMax[threadID], 0, BatchSize * (int)BoxDimensionsPredict.Elements());
+                Marshal.Copy(Output[1].Data, ResultSoftMax[threadID], 0, BatchSize * (int)BoxDimensionsPredict.Elements() * 3);
 
-            argmax = ResultArgMax[threadID];
-            probability = ResultSoftMax[threadID];
+                argmax = ResultArgMax[threadID];
+                probability = ResultSoftMax[threadID];
 
-            foreach (var tensor in Output)
-                tensor.Dispose();
+                foreach (var tensor in Output)
+                    tensor.Dispose();
+            }
         }
 
         public void Predict(IntPtr d_data, int threadID, out long[] argmax, out float[] probability)
@@ -180,17 +188,20 @@ namespace Warp
             //if (ForTraining)
             //    throw new Exception("Network was loaded in training mode, but asked to predict.");
 
-            GPU.CopyDeviceToHostPinned(d_data, TensorMicTilePredict[threadID].Data, BatchSize * (int)BoxDimensionsPredict.Elements());
-            var Output = RunnerPrediction[threadID].Run();
+            lock (TFHelper.DeviceSync[DeviceID])
+            {
+                GPU.CopyDeviceToHostPinned(d_data, TensorMicTilePredict[threadID].Data, BatchSize * (int)BoxDimensionsPredict.Elements());
+                var Output = RunnerPrediction[threadID].Run();
 
-            Marshal.Copy(Output[0].Data, ResultArgMax[threadID], 0, BatchSize * (int)BoxDimensionsPredict.Elements());
-            Marshal.Copy(Output[1].Data, ResultSoftMax[threadID], 0, BatchSize * (int)BoxDimensionsPredict.Elements() * 3);
+                Marshal.Copy(Output[0].Data, ResultArgMax[threadID], 0, BatchSize * (int)BoxDimensionsPredict.Elements());
+                Marshal.Copy(Output[1].Data, ResultSoftMax[threadID], 0, BatchSize * (int)BoxDimensionsPredict.Elements() * 3);
 
-            argmax = ResultArgMax[threadID];
-            probability = ResultSoftMax[threadID];
+                argmax = ResultArgMax[threadID];
+                probability = ResultSoftMax[threadID];
 
-            foreach (var tensor in Output)
-                tensor.Dispose();
+                foreach (var tensor in Output)
+                    tensor.Dispose();
+            }
         }
 
         public float Train(float[] data, float[] labels, float[] weights, float learningRate, int threadID, out long[] argmax, out float[] probability)
@@ -198,24 +209,27 @@ namespace Warp
             if (!ForTraining)
                 throw new Exception("Network was loaded in prediction mode, but asked to train.");
 
-            Marshal.Copy(data, 0, TensorMicTile[threadID].Data, BatchSize * (int)BoxDimensionsTrain.Elements());
-            Marshal.Copy(labels, 0, TensorTrainingLabels[threadID].Data, BatchSize * (int)BoxDimensionsTrain.Elements() * 3);
-            Marshal.Copy(weights, 0, TensorTrainingWeights[threadID].Data, BatchSize * (int)BoxDimensionsTrain.Elements());
-            Marshal.Copy(new[] { learningRate }, 0, TensorLearningRate[threadID].Data, 1);
+            lock (TFHelper.DeviceSync[DeviceID])
+            {
+                Marshal.Copy(data, 0, TensorMicTile[threadID].Data, BatchSize * (int)BoxDimensionsTrain.Elements());
+                Marshal.Copy(labels, 0, TensorTrainingLabels[threadID].Data, BatchSize * (int)BoxDimensionsTrain.Elements() * 3);
+                Marshal.Copy(weights, 0, TensorTrainingWeights[threadID].Data, BatchSize * (int)BoxDimensionsTrain.Elements());
+                Marshal.Copy(new[] { learningRate }, 0, TensorLearningRate[threadID].Data, 1);
 
-            var Output = RunnerTraining[threadID].Run();
+                var Output = RunnerTraining[threadID].Run();
 
-            Marshal.Copy(Output[1].Data, ResultArgMax[threadID], 0, BatchSize * (int)BoxDimensionsTrain.Elements());
-            Marshal.Copy(Output[2].Data, ResultSoftMax[threadID], 0, BatchSize * (int)BoxDimensionsTrain.Elements() * 3);
-            Marshal.Copy(Output[3].Data, ResultLoss[threadID], 0, BatchSize);
+                Marshal.Copy(Output[1].Data, ResultArgMax[threadID], 0, BatchSize * (int)BoxDimensionsTrain.Elements());
+                Marshal.Copy(Output[2].Data, ResultSoftMax[threadID], 0, BatchSize * (int)BoxDimensionsTrain.Elements() * 3);
+                Marshal.Copy(Output[3].Data, ResultLoss[threadID], 0, BatchSize);
 
-            argmax = ResultArgMax[threadID];
-            probability = ResultSoftMax[threadID];
+                argmax = ResultArgMax[threadID];
+                probability = ResultSoftMax[threadID];
 
-            foreach (var tensor in Output)
-                tensor.Dispose();
+                foreach (var tensor in Output)
+                    tensor.Dispose();
 
-            return MathHelper.Mean(ResultLoss[threadID]);
+                return MathHelper.Mean(ResultLoss[threadID]);
+            }
         }
 
         public float Train(IntPtr d_data, IntPtr d_labels, IntPtr d_weights, float learningRate, int threadID, out long[] argmax, out float[] probability)
@@ -223,25 +237,28 @@ namespace Warp
             if (!ForTraining)
                 throw new Exception("Network was loaded in prediction mode, but asked to train.");
 
-            GPU.CopyDeviceToHostPinned(d_data, TensorMicTile[threadID].Data, BatchSize * (int)BoxDimensionsTrain.Elements());
-            GPU.CopyDeviceToHostPinned(d_labels, TensorTrainingLabels[threadID].Data, BatchSize * (int)BoxDimensionsTrain.Elements() * 3);
-            GPU.CopyDeviceToHostPinned(d_weights, TensorTrainingWeights[threadID].Data, BatchSize * (int)BoxDimensionsTrain.Elements());
+            lock (TFHelper.DeviceSync[DeviceID])
+            {
+                GPU.CopyDeviceToHostPinned(d_data, TensorMicTile[threadID].Data, BatchSize * (int)BoxDimensionsTrain.Elements());
+                GPU.CopyDeviceToHostPinned(d_labels, TensorTrainingLabels[threadID].Data, BatchSize * (int)BoxDimensionsTrain.Elements() * 3);
+                GPU.CopyDeviceToHostPinned(d_weights, TensorTrainingWeights[threadID].Data, BatchSize * (int)BoxDimensionsTrain.Elements());
 
-            Marshal.Copy(new[] { learningRate }, 0, TensorLearningRate[threadID].Data, 1);
+                Marshal.Copy(new[] { learningRate }, 0, TensorLearningRate[threadID].Data, 1);
 
-            var Output = RunnerTraining[threadID].Run();
+                var Output = RunnerTraining[threadID].Run();
 
-            Marshal.Copy(Output[1].Data, ResultArgMax[threadID], 0, BatchSize * (int)BoxDimensionsTrain.Elements());
-            Marshal.Copy(Output[2].Data, ResultSoftMax[threadID], 0, BatchSize * (int)BoxDimensionsTrain.Elements() * 3);
-            Marshal.Copy(Output[3].Data, ResultLoss[threadID], 0, BatchSize);
+                Marshal.Copy(Output[1].Data, ResultArgMax[threadID], 0, BatchSize * (int)BoxDimensionsTrain.Elements());
+                Marshal.Copy(Output[2].Data, ResultSoftMax[threadID], 0, BatchSize * (int)BoxDimensionsTrain.Elements() * 3);
+                Marshal.Copy(Output[3].Data, ResultLoss[threadID], 0, BatchSize);
 
-            argmax = ResultArgMax[threadID];
-            probability = ResultSoftMax[threadID];
+                argmax = ResultArgMax[threadID];
+                probability = ResultSoftMax[threadID];
 
-            foreach (var tensor in Output)
-                tensor.Dispose();
+                foreach (var tensor in Output)
+                    tensor.Dispose();
 
-            return MathHelper.Mean(ResultLoss[threadID]);
+                return MathHelper.Mean(ResultLoss[threadID]);
+            }
         }
 
         public void Export(string newModelDir)

@@ -368,7 +368,7 @@ namespace Warp
                 Thickness = CTF.Thickness,
                 Amplitude = CTF.Amplitude,
                 DoPhase = CTF.DoPhase,
-                DoIce = CTF.DoIce,
+                DoIce = false, //CTF.DoIce,
                 DoSimultaneous = CTF.DoSimultaneous,
                 UseMovieSum = CTF.UseMovieSum,
                 Astigmatism = CTF.Astigmatism,
@@ -403,7 +403,7 @@ namespace Warp
             CTF.Thickness = options.Thickness;
             CTF.Amplitude = options.Amplitude;
             CTF.DoPhase = options.DoPhase;
-            CTF.DoIce = options.DoIce;
+            //CTF.DoIce = options.DoIce;
             CTF.DoSimultaneous = options.DoSimultaneous;
             CTF.UseMovieSum = options.UseMovieSum;
             CTF.Astigmatism = options.Astigmatism;
@@ -471,7 +471,7 @@ namespace Warp
                 GainTranspose = Import.GainTranspose,
                 DosePerAngstromFrame = Import.DosePerAngstromFrame,
 
-                DoAverage = Export.DoAverage,
+                DoAverage = true, //Export.DoAverage,
                 DoStack = Export.DoStack,
                 DoDeconv = Export.DoDeconvolve,
                 DeconvolutionStrength = Export.DeconvolutionStrength,
@@ -1099,13 +1099,13 @@ namespace Warp
             set { if (value != _DoPhase) { _DoPhase = value; OnPropertyChanged(); } }
         }
 
-        private bool _DoIce = false;
-        [WarpSerializable]
-        public bool DoIce
-        {
-            get { return _DoIce; }
-            set { if (value != _DoIce) { _DoIce = value; OnPropertyChanged(); } }
-        }
+        //private bool _DoIce = false;
+        //[WarpSerializable]
+        //public bool DoIce
+        //{
+        //    get { return _DoIce; }
+        //    set { if (value != _DoIce) { _DoIce = value; OnPropertyChanged(); } }
+        //}
 
         private bool _DoSimultaneous = false;
         [WarpSerializable]

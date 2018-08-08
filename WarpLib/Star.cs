@@ -188,15 +188,23 @@ namespace Warp
                         ColumnWidths[i] = Math.Max(ColumnWidths[i], row[i].Length);
                 int RowLength = ColumnWidths.Select(v => v + 2).Sum();
 
-                foreach (var row in Rows)
+                string[] ComposedRows = new string[Rows.Count];
+                Parallel.For(0, Rows.Count, r =>
                 {
+                    List<string> row = Rows[r];
                     StringBuilder RowBuilder = new StringBuilder(RowLength);
                     for (int i = 0; i < row.Count; i++)
                     {
                         RowBuilder.Append(' ', 2 + ColumnWidths[i] - row[i].Length);
                         RowBuilder.Append(row[i]);
                     }
-                    Writer.WriteLine(RowBuilder.ToString());
+
+                    ComposedRows[r] = RowBuilder.ToString();
+                });
+
+                foreach (var row in ComposedRows)
+                {
+                    Writer.WriteLine(row);
                 }
             }
         }
@@ -418,6 +426,11 @@ namespace Warp
             Rows.Add(row);
         }
 
+        public void AddRow(IEnumerable<List<string>> rows)
+        {
+            Rows.AddRange(rows);
+        }
+
         public void RemoveRows(int[] indices)
         {
             for (int i = indices.Length - 1; i >= 0; i--)
@@ -431,6 +444,79 @@ namespace Warp
                 Subset.AddRow(new List<string>(Rows[row]));
 
             return Subset;
+        }
+
+        public float3[] GetRelionCoordinates()
+        {
+            float[] X = HasColumn("rlnCoordinateX") ? GetColumn("rlnCoordinateX").Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray() : new float[RowCount];
+            float[] Y = HasColumn("rlnCoordinateY") ? GetColumn("rlnCoordinateY").Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray() : new float[RowCount];
+            float[] Z = HasColumn("rlnCoordinateZ") ? GetColumn("rlnCoordinateZ").Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray() : new float[RowCount];
+
+            return Helper.Zip(X, Y, Z);
+        }
+
+        public float3[] GetRelionOffsets()
+        {
+            float[] X = HasColumn("rlnOriginX") ? GetColumn("rlnOriginX").Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray() : new float[RowCount];
+            float[] Y = HasColumn("rlnOriginY") ? GetColumn("rlnOriginY").Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray() : new float[RowCount];
+            float[] Z = HasColumn("rlnOriginZ") ? GetColumn("rlnOriginZ").Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray() : new float[RowCount];
+
+            return Helper.Zip(X, Y, Z);
+        }
+
+        public float3[] GetRelionAngles()
+        {
+            float[] X = HasColumn("rlnAngleRot") ? GetColumn("rlnAngleRot").Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray() : new float[RowCount];
+            float[] Y = HasColumn("rlnAngleTilt") ? GetColumn("rlnAngleTilt").Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray() : new float[RowCount];
+            float[] Z = HasColumn("rlnAnglePsi") ? GetColumn("rlnAnglePsi").Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray() : new float[RowCount];
+
+            return Helper.Zip(X, Y, Z);
+        }
+
+        public string[] GetRelionMicrographNames()
+        {
+            return GetColumn("rlnMicrographName");
+        }
+
+        public ValueTuple<string, int>[] GetRelionParticlePaths()
+        {
+            return GetColumn("rlnImageName").Select(s =>
+            {
+                string[] Parts = s.Split('@');
+                return new ValueTuple<string, int>(Parts[1], int.Parse(Parts[0]) - 1);
+            }).ToArray();
+        }
+
+        public CTF[] GetRelionCTF()
+        {
+            float[] DefocusU = HasColumn("rlnDefocusU") ? GetColumn("rlnDefocusU").Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray() : new float[RowCount];
+            float[] DefocusV = HasColumn("rlnDefocusV") ? GetColumn("rlnDefocusV").Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray() : new float[RowCount];
+            float[] DefocusAngle = HasColumn("rlnDefocusAngle") ? GetColumn("rlnDefocusAngle").Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray() : new float[RowCount];
+            float[] Cs = HasColumn("rlnSphericalAberration") ? GetColumn("rlnSphericalAberration").Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray() : Helper.ArrayOfConstant(2.7f, RowCount);
+            float[] PhaseShift = HasColumn("rlnPhaseShift") ? GetColumn("rlnPhaseShift").Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray() : new float[RowCount];
+            float[] Amplitude = HasColumn("rlnAmplitudeContrast") ? GetColumn("rlnAmplitudeContrast").Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray() : Helper.ArrayOfConstant(0.07f, RowCount);
+            float[] Magnification = HasColumn("rlnMagnification") ? GetColumn("rlnMagnification").Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray() : Helper.ArrayOfConstant(10000f, RowCount);
+            float[] PixelSize = HasColumn("rlnDetectorPixelSize") ? GetColumn("rlnDetectorPixelSize").Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray() : Helper.ArrayOfConstant(1f, RowCount);
+            float[] NormCorrection = HasColumn("rlnNormCorrection") ? GetColumn("rlnNormCorrection").Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray() : Helper.ArrayOfConstant(1f, RowCount);
+
+            CTF[] Result = new CTF[RowCount];
+
+            for (int r = 0; r < RowCount; r++)
+            {
+                Result[r] = new CTF
+                {
+                    PixelSize = (decimal)(PixelSize[r] / Magnification[r] * 10000),
+                    Amplitude = (decimal)Amplitude[r],
+                    PhaseShift = (decimal)PhaseShift[r],
+                    Cs = (decimal)Cs[r],
+                    DefocusAngle = (decimal)DefocusAngle[r],
+                    Defocus = (decimal)((DefocusU[r] + DefocusV[r]) * 0.5e-4f),
+                    DefocusDelta = (decimal)((DefocusU[r] - DefocusV[r]) * 0.5e-4f),
+                    Scale = (decimal)NormCorrection[r]
+                };
+            }
+
+            return Result;
         }
 
         public static float[] LoadFloat(string path, string name1 = null)

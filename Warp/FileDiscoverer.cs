@@ -13,6 +13,8 @@ namespace Warp
 {
     public class FileDiscoverer
     {
+        int ExceptionsLogged = 0;
+
         List<Tuple<string, Stopwatch, long>> Incubator = new List<Tuple<string, Stopwatch, long>>();    // Files that could still change in size go here.
         string FolderPath = "";
         string FileExtension = "*.*";
@@ -241,6 +243,15 @@ namespace Warp
                 {
                     Debug.WriteLine("FileDiscoverer crashed:");
                     Debug.WriteLine(exc);
+
+                    if (ExceptionsLogged < 100)
+                        using (TextWriter Writer = File.AppendText("d_filediscoverer.txt"))
+                        {
+                            Writer.WriteLine(DateTime.Now + ":");
+                            Writer.WriteLine(exc.ToString());
+                            Writer.WriteLine("");
+                            ExceptionsLogged++;
+                        }
                 }
 
                 if (EventNeedsFiring)

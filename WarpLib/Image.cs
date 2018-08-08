@@ -826,6 +826,9 @@ namespace Warp
             if (IsComplex != IsFT)
                 throw new Exception("FT format can only have complex data for padding purposes.");
 
+            if (dimensions == new int2(Dims))
+                return GetCopy();
+
             if (IsFT && (new int2(Dims) < dimensions) == (new int2(Dims) > dimensions))
                 throw new Exception("For FT padding/cropping, both dimensions must be either smaller, or bigger.");
 
@@ -1404,8 +1407,8 @@ namespace Warp
                         fx *= fx;
 
                         float r = (float)Math.Sqrt(fx + fy + fz);
-                        if (r > nyquistLowpass)
-                            continue;
+                        //if (r > nyquistLowpass)
+                        //    continue;
 
                         r *= SpectrumLength;
                         if (r > SpectrumLength - 1)
@@ -1414,7 +1417,7 @@ namespace Warp
                         float WeightLow = 1f - (r - (int)r);
                         float WeightHigh = 1f - WeightLow;
                         float Val = FTAmpData[z][y * (Dims.X / 2 + 1) + x];
-                        Val *= Val;
+                        //Val *= Val;
 
                         Spectrum[(int)r] += WeightLow * Val;
                         Samples[(int)r] += WeightLow;
@@ -1429,7 +1432,7 @@ namespace Warp
             }
 
             for (int i = 0; i < Spectrum.Length; i++)
-                Spectrum[i] = (float)Math.Sqrt(Spectrum[i]) / Math.Max(1e-5f, Samples[i]);
+                Spectrum[i] = Spectrum[i] / Math.Max(1e-5f, Samples[i]);
 
             for (int z = 0; z < Dims.Z; z++)
             {
@@ -1450,7 +1453,14 @@ namespace Warp
                         float fx = (float)x / (Dims.X / 2);
                         fx *= fx;
 
-                        float r = (float)Math.Sqrt(fx + fy + fz) * SpectrumLength;
+                        float r = (float)Math.Sqrt(fx + fy + fz);
+                        if (r > nyquistLowpass)
+                        {
+                            FTAmpData[z][y * (Dims.X / 2 + 1) + x] = 0;
+                            continue;
+                        }
+
+                        r *= SpectrumLength;
                         r = Math.Min(SpectrumLength - 2, r);
 
                         float WeightLow = 1f - (r - (int)r);
@@ -1470,6 +1480,7 @@ namespace Warp
 
             return IFT;
         }
+
         public float[] AsAmplitudes1D(bool isVolume = true, float nyquistLowpass = 1f, int spectrumLength = -1)
         {
             if (IsComplex || IsHalf)
@@ -1479,9 +1490,10 @@ namespace Warp
 
             Image FT = isVolume ? AsFFT_CPU() : AsFFT(false);
             Image FTAmp = FT.AsAmplitudes();
+            FTAmp.FreeDevice();
             FT.Dispose();
 
-            int SpectrumLength = Math.Min(Dims.X, isVolume ? Math.Min(Dims.Y, Dims.Z) : Dims.Y) / 2;
+            int SpectrumLength = Math.Min(Dims.X, Dims.Z > 1 ? Math.Min(Dims.Y, Dims.Z) : Dims.Y) / 2;
             if (spectrumLength > 0)
                 SpectrumLength = Math.Min(spectrumLength, SpectrumLength);
 
@@ -1509,8 +1521,8 @@ namespace Warp
                         fx *= fx;
 
                         float r = (float)Math.Sqrt(fx + fy + fz);
-                        if (r > nyquistLowpass)
-                            continue;
+                        //if (r > nyquistLowpass)
+                        //    continue;
 
                         r *= SpectrumLength;
                         if (r > SpectrumLength - 1)
@@ -1519,7 +1531,7 @@ namespace Warp
                         float WeightLow = 1f - (r - (int)r);
                         float WeightHigh = 1f - WeightLow;
                         float Val = FTAmpData[z][y * (Dims.X / 2 + 1) + x];
-                        Val *= Val;
+                        //Val *= Val;
 
                         Spectrum[(int)r] += WeightLow * Val;
                         Samples[(int)r] += WeightLow;
@@ -1534,11 +1546,66 @@ namespace Warp
             }
 
             for (int i = 0; i < Spectrum.Length; i++)
-                Spectrum[i] = (float)Math.Sqrt(Spectrum[i]) / Math.Max(1e-5f, Samples[i]);
+                Spectrum[i] = Spectrum[i] / Math.Max(1e-5f, Samples[i]);
 
             FTAmp.Dispose();
 
             return Spectrum;
+        }
+
+        public Image AsSpectrumMultiplied(bool isVolume, float[] spectrumMultiplicators)
+        {
+            Image FT = isVolume ? AsFFT_CPU() : AsFFT(false);
+            Image FTAmp = FT.AsAmplitudes();
+            float[][] FTAmpData = FTAmp.GetHost(Intent.ReadWrite);
+
+            int SpectrumLength = spectrumMultiplicators.Length;
+
+            for (int z = 0; z < Dims.Z; z++)
+            {
+                int zz = z < Dims.Z / 2 ? z : z - Dims.Z;
+                float fz = (float)zz / (Dims.Z / 2);
+                fz *= fz;
+                if (!isVolume)
+                    fz = 0;
+
+                for (int y = 0; y < Dims.Y; y++)
+                {
+                    int yy = y < Dims.Y / 2 ? y : y - Dims.Y;
+                    float fy = (float)yy / (Dims.Y / 2);
+                    fy *= fy;
+
+                    for (int x = 0; x < Dims.X / 2 + 1; x++)
+                    {
+                        float fx = (float)x / (Dims.X / 2);
+                        fx *= fx;
+
+                        float r = (float)Math.Sqrt(fx + fy + fz);
+                        if (r > 1)
+                        {
+                            FTAmpData[z][y * (Dims.X / 2 + 1) + x] = 0;
+                            continue;
+                        }
+
+                        r *= SpectrumLength;
+                        r = Math.Min(SpectrumLength - 2, r);
+
+                        float WeightLow = 1f - (r - (int)r);
+                        float WeightHigh = 1f - WeightLow;
+                        float Val = spectrumMultiplicators[(int)r] * WeightLow + spectrumMultiplicators[(int)r + 1] * WeightHigh;
+
+                        FTAmpData[z][y * (Dims.X / 2 + 1) + x] = Val;
+                    }
+                }
+            }
+
+            FT.Multiply(FTAmp);
+            FTAmp.Dispose();
+
+            Image IFT = isVolume ? FT.AsIFFT_CPU() : FT.AsIFFT(false);
+            FT.Dispose();
+
+            return IFT;
         }
 
         public Image AsConvolvedGaussian(float sigma, bool normalize = true)
@@ -1708,6 +1775,45 @@ namespace Warp
             }
 
             return Transposed;
+        }
+
+        public Image AsExpandedBinary(int expandDistance)
+        {
+            Image BinaryExpanded = AsDistanceMapExact(expandDistance);
+            BinaryExpanded.Multiply(-1);
+            BinaryExpanded.Binarize(-expandDistance + 1e-6f);
+
+            return BinaryExpanded;
+        }
+
+        public Image AsSliceXY(int z)
+        {
+            Image Slice = new Image(GetHost(Intent.Read)[z], new int3(Dims.X, Dims.Y, 1));
+            return Slice;
+        }
+
+        public Image AsSliceXZ(int y)
+        {
+            Image Slice = new Image(new int3(Dims.X, Dims.Z, 1));
+            float[] SliceData = Slice.GetHost(Intent.Write)[0];
+            float[][] Data = GetHost(Intent.Read);
+            for (int z = 0; z < Dims.Z; z++)
+                for (int x = 0; x < Dims.X; x++)
+                    SliceData[z * Dims.X + x] = Data[z][y * Dims.X + x];
+
+            return Slice;
+        }
+
+        public Image AsSliceYZ(int x)
+        {
+            Image Slice = new Image(new int3(Dims.Y, Dims.Z, 1));
+            float[] SliceData = Slice.GetHost(Intent.Write)[0];
+            float[][] Data = GetHost(Intent.Read);
+            for (int z = 0; z < Dims.Z; z++)
+                for (int y = 0; y < Dims.X; y++)
+                    SliceData[z * Dims.Y + y] = Data[z][y * Dims.X + x];
+
+            return Slice;
         }
 
         public void RemapToFT(bool isvolume = false)
@@ -2223,6 +2329,25 @@ namespace Warp
         public override string ToString()
         {
             return Dims.ToString() + ", " + PixelSize + " A/px";
+        }
+
+        public static Image Stack(Image[] images)
+        {
+            int SumZ = images.Sum(i => i.Dims.Z);
+
+            Image Stacked = new Image(new int3(images[0].Dims.X, images[0].Dims.Y, SumZ), images[0].IsFT, images[0].IsComplex);
+            float[][] StackedData = Stacked.GetHost(Intent.Write);
+
+            int OffsetZ = 0;
+            foreach (var image in images)
+            {
+                float[][] ImageData = image.GetHost(Intent.Read);
+                for (int i = 0; i < ImageData.Length; i++)
+                    StackedData[i + OffsetZ] = ImageData[i].ToArray();
+                OffsetZ += ImageData.Length;
+            }
+
+            return Stacked;
         }
     }
     

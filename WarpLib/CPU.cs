@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Runtime.InteropServices;
+using System.Security;
 using Warp.Tools;
 
 namespace Warp
 {
+    [SuppressUnmanagedCodeSecurity]
     public static class CPU
     {
         [DllImport("GPUAcceleration.dll", CharSet = CharSet.Ansi, SetLastError = true, CallingConvention = CallingConvention.StdCall, EntryPoint = "HostFree")]

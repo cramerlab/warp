@@ -1,10 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using System.Security;
 using Warp.Tools;
 
 namespace Warp
 {
+    [SuppressUnmanagedCodeSecurity]
     public static class GPU
     {
         public static readonly object Sync = new object();

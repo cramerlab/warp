@@ -7,6 +7,7 @@
 #include "tensorflow/cc/saved_model/loader.h"
 #include "tensorflow/c/c_api_internal.h"
 #include "tensorflow/core/common_runtime/device_mgr.h"
+#include "tensorflow/core/common_runtime/gpu/process_state.h"
 #include "tensorflow/core/common_runtime/shape_refiner.h"
 #include "tensorflow/core/framework/allocation_description.pb.h"
 #include "tensorflow/core/framework/log_memory.h"
@@ -44,3 +45,5 @@
 extern "C" __declspec(dllexport) TF_Session* TF_LoadSessionFromSavedModelOnDevice(const TF_SessionOptions* session_options, const TF_Buffer* run_options,
                                                                                   const char* export_dir, const char* const* tags, int tags_len,
                                                                                   TF_Graph* graph, const char* device, TF_Status* status);
+
+extern "C" __declspec(dllexport) void TF_FreeAllMemory();

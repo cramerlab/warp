@@ -216,6 +216,20 @@ namespace Warp
             return Reconstruction;
         }
 
+        public void Reconstruct(IntPtr d_reconstruction, int planForw = -1, int planBack = -1, int planForwCTF = -1)
+        {
+            GPU.BackprojectorReconstructGPU(Dims,
+                                            DimsOversampled,
+                                            Oversampling,
+                                            Data.GetDevice(Intent.Read),
+                                            Weights.GetDevice(Intent.Read),
+                                            false,
+                                            d_reconstruction,
+                                            planForw,
+                                            planBack,
+                                            planForwCTF);
+        }
+
         public Image ReconstructCPU(bool isctf, string symmetry)
         {
             float[] ContinuousData = Data.GetHostContinuousCopy();

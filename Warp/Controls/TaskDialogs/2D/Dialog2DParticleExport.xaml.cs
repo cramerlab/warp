@@ -68,6 +68,7 @@ namespace Warp.Controls.TaskDialogs.TwoD
                 SliderParticleDiameter,
                 RadioAverage,
                 RadioStack,
+                RadioStar,
                 CheckInvert,
                 CheckNormalize,
                 CheckPreflip,

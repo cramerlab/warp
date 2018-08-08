@@ -37,6 +37,12 @@
   <wsdl:message name="IWarpAnalytics_LogEnvironment_OutputMessage">
     <wsdl:part name="parameters" element="tns:LogEnvironmentResponse" />
   </wsdl:message>
+  <wsdl:message name="IWarpAnalytics_LogCrash_InputMessage">
+    <wsdl:part name="parameters" element="tns:LogCrash" />
+  </wsdl:message>
+  <wsdl:message name="IWarpAnalytics_LogCrash_OutputMessage">
+    <wsdl:part name="parameters" element="tns:LogCrashResponse" />
+  </wsdl:message>
   <wsdl:portType name="IWarpAnalytics">
     <wsdl:operation name="GetLatestVersion">
       <wsdl:input wsaw:Action="http://tempuri.org/IWarpAnalytics/GetLatestVersion" message="tns:IWarpAnalytics_GetLatestVersion_InputMessage" />
@@ -57,6 +63,10 @@
     <wsdl:operation name="LogEnvironment">
       <wsdl:input wsaw:Action="http://tempuri.org/IWarpAnalytics/LogEnvironment" message="tns:IWarpAnalytics_LogEnvironment_InputMessage" />
       <wsdl:output wsaw:Action="http://tempuri.org/IWarpAnalytics/LogEnvironmentResponse" message="tns:IWarpAnalytics_LogEnvironment_OutputMessage" />
+    </wsdl:operation>
+    <wsdl:operation name="LogCrash">
+      <wsdl:input wsaw:Action="http://tempuri.org/IWarpAnalytics/LogCrash" message="tns:IWarpAnalytics_LogCrash_InputMessage" />
+      <wsdl:output wsaw:Action="http://tempuri.org/IWarpAnalytics/LogCrashResponse" message="tns:IWarpAnalytics_LogCrash_OutputMessage" />
     </wsdl:operation>
   </wsdl:portType>
   <wsdl:binding name="BasicHttpBinding_IWarpAnalytics" type="tns:IWarpAnalytics">
@@ -99,6 +109,15 @@
     </wsdl:operation>
     <wsdl:operation name="LogEnvironment">
       <soap:operation soapAction="http://tempuri.org/IWarpAnalytics/LogEnvironment" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="LogCrash">
+      <soap:operation soapAction="http://tempuri.org/IWarpAnalytics/LogCrash" style="document" />
       <wsdl:input>
         <soap:body use="literal" />
       </wsdl:input>

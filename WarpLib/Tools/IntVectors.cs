@@ -176,6 +176,16 @@ namespace Warp.Tools
         {
             return new int3((int)(o1.X - o2.X), (int)(o1.Y - o2.Y), (int)(o1.Z - o2.Z));
         }
+
+        public static int3 operator /(int3 o1, int3 o2)
+        {
+            return new int3((int)(o1.X / o2.X), (int)(o1.Y / o2.Y), (int)(o1.Z / o2.Z));
+        }
+
+        public static int3 operator *(int3 o1, int3 o2)
+        {
+            return new int3((int)(o1.X * o2.X), (int)(o1.Y * o2.Y), (int)(o1.Z * o2.Z));
+        }
     }
 
     [StructLayout(LayoutKind.Sequential)]

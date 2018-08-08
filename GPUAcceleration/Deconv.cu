@@ -34,7 +34,7 @@ __global__ void DeconvolveCTFKernel(float2* d_inputft, float2* d_outputft, int3 
 	float ctfval = d_GetCTF<false, false>(r / params.pixelsize, atan2(yy, xx), params);
 
 	float highpass = tmin(1, r * 2 / highpassnyquist) * PI;
-	highpass = 1 - cos(highpass);
+	highpass = 1 - (cos(highpass) * 0.5f + 0.5f);
 
 	float snr = exp(-r * 2 * falloff * 100 / params.pixelsize) * pow(10.0f, 3 * strength) * highpass;
 

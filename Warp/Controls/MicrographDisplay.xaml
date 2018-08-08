@@ -6,6 +6,7 @@
              xmlns:m="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro"
              xmlns:local="clr-namespace:Warp.Controls"
              xmlns:s="clr-namespace:Sparta;assembly=WarpControls"
+             xmlns:sys="clr-namespace:System;assembly=mscorlib"
              xmlns:warp="clr-namespace:Warp;assembly=WarpControls"
              xmlns:xctk="http://schemas.xceed.com/wpf/xaml/toolkit"
              mc:Ignorable="d" 
@@ -22,12 +23,22 @@
                 <s:ValueSlider Name="SliderSliceID" Value="{Binding SliceID, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="Slice: {0}" MinValue="1" MaxValue="100" StepSize="1" Margin="0,0,24,0" VerticalAlignment="Center" />
                 
                 <StackPanel Name="PanelDeconvOptions" Orientation="Horizontal" VerticalAlignment="Center">
-                    <CheckBox IsChecked="{Binding DeconvEnabled}" FontSize="13">
-                        <TextBlock Text="Deconvolve, " />
-                    </CheckBox>
-                    <s:ValueSlider Value="{Binding DeconvStrength, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="strength = {0}, " MinValue="-10" MaxValue="10" StepSize="0.01" VerticalAlignment="Center" />
-                    <s:ValueSlider Value="{Binding DeconvFalloff, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="falloff = {0}, " MinValue="0" MaxValue="10" StepSize="0.01" VerticalAlignment="Center" />
-                    <s:ValueSlider Value="{Binding DeconvHighpass, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="high-pass = {0} Å" MinValue="1" MaxValue="100000" StepSize="1" VerticalAlignment="Center" />
+                    <CheckBox IsChecked="{Binding DeconvEnabled}" FontSize="13" />
+                    <warp:DropMenu Name="MenuDeconvMode" SelectedItem="{Binding DeconvMode, Mode=TwoWay}" FontSize="13" VerticalAlignment="Center">
+                        <warp:DropMenu.Items>
+                            <sys:String>Denoise</sys:String>
+                            <sys:String>Deconvolve</sys:String>
+                        </warp:DropMenu.Items>
+                    </warp:DropMenu>
+                    <TextBlock Text=", " />
+                    <StackPanel Name="PanelDeconvCanonicalOptions" Orientation="Horizontal" Visibility="Collapsed">
+                        <s:ValueSlider Value="{Binding DeconvStrength, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="strength = {0}, " MinValue="-10" MaxValue="10" StepSize="0.01" VerticalAlignment="Center" />
+                        <s:ValueSlider Value="{Binding DeconvFalloff, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="falloff = {0}, " MinValue="0" MaxValue="10" StepSize="0.01" VerticalAlignment="Center" />
+                        <s:ValueSlider Value="{Binding DeconvHighpass, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="high-pass = {0} Å" MinValue="1" MaxValue="100000" StepSize="1" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <StackPanel Name="PanelDeconvDenoisingOptions" Orientation="Horizontal">
+                        <Button Name="ButtonDeconvRetrain" Content="RETRAIN ON THIS DATA SET" FontWeight="Medium" Foreground="CornflowerBlue" Margin="0,0,24,0" Style="{StaticResource ChromelessButtonStyle}" Click="ButtonDeconvRetrain_Click" />
+                    </StackPanel>
                 </StackPanel>
             </StackPanel>
             
@@ -72,7 +83,7 @@
                 <Popup Name="PopupParticleCircleColor" Placement="Bottom" StaysOpen="False">
                     <xctk:ColorCanvas SelectedColor="{Binding ParticleCircleBrush, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Focusable="False" />
                 </Popup>
-                <warp:DropMenu Name="MenuParticleCircleStyle" SelectedItem="{Binding ParticleCircleStyle, Mode=TwoWay}" VerticalAlignment="Center" xmlns:sys="clr-namespace:System;assembly=mscorlib">
+                <warp:DropMenu Name="MenuParticleCircleStyle" SelectedItem="{Binding ParticleCircleStyle, Mode=TwoWay}" VerticalAlignment="Center">
                     <warp:DropMenu.Items>
                         <sys:String>Circles</sys:String>
                         <sys:String>Dots</sys:String>
@@ -162,7 +173,12 @@
         <Grid Grid.Row="1" Name="GridNotProcessed" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Visibility="Hidden">
             <TextBlock Text="No motion data available yet." HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="20" Foreground="{DynamicResource GrayBrush2}" />
         </Grid>
-        <m:ProgressRing Name="ProgressImage" Foreground="{DynamicResource GrayBrush5}" Visibility="Hidden" />
-        
+
+        <m:ProgressRing Grid.Row="1" Name="ProgressImage" Foreground="DeepSkyBlue" Visibility="Hidden">
+            <m:ProgressRing.Effect>
+                <DropShadowEffect BlurRadius="8" ShadowDepth="0" Opacity="1" />
+            </m:ProgressRing.Effect>
+        </m:ProgressRing>
+
     </Grid>
 </UserControl>

@@ -179,7 +179,7 @@ namespace Warp
             {
                 ButtonTasksAdjustDefocus,
                 ButtonTasksExportParticles,
-                CheckCTFDoIce,
+                //CheckCTFDoIce,
                 PanelProcessMovement,
                 GridOptionsPicking,
                 GridMovement,
@@ -1287,6 +1287,7 @@ namespace Warp
             {
                 foreach (var item in DisableWhenPreprocessing)
                     item.IsEnabled = false;
+                MicrographDisplayControl.SetProcessingMode(true);
 
                 ButtonStartProcessing.Content = "STOP PROCESSING";
                 ButtonStartProcessing.Foreground = Brushes.Red;
@@ -1344,11 +1345,15 @@ namespace Warp
                     if (Options.ProcessPicking)
                     {
                         ProgressDialogController ProgressDialog = null;
-                        await Dispatcher.Invoke(async () => ProgressDialog = await this.ShowProgressAsync($"Loading {Options.Picking.ModelPath} model...", ""));
-                        ProgressDialog.SetIndeterminate();
 
                         try
                         {
+                            await Dispatcher.Invoke(async () => ProgressDialog = await this.ShowProgressAsync($"Loading {Options.Picking.ModelPath} model...", ""));
+                            ProgressDialog.SetIndeterminate();
+
+                            if (string.IsNullOrEmpty(Options.Picking.ModelPath) || LocatePickingModel(Options.Picking.ModelPath) == null)
+                                throw new Exception("No BoxNet model selected. Please use the options panel to select a model.");
+
                             MicrographDisplayControl.DropBoxNetworks();
                             foreach (var d in UsedDevices)
                                 BoxNetworks[d] = new BoxNet2(LocatePickingModel(Options.Picking.ModelPath), d, 2, false);
@@ -1364,10 +1369,29 @@ namespace Warp
                                 ButtonStartProcessing_OnClick(sender, e);
                             });
 
+                            foreach (int dd in UsedDevices)
+                                ImageGain[dd]?.Dispose();
+
                             await ProgressDialog.CloseAsync();
 
                             return;
                         }
+
+                        await ProgressDialog.CloseAsync();
+                    }
+
+                    #endregion
+
+                    #region Wait until all discovered files have been loaded
+
+                    if (FileDiscoverer.IsIncubating())
+                    {
+                        ProgressDialogController ProgressDialog = null;
+                        await Dispatcher.Invoke(async () => ProgressDialog = await this.ShowProgressAsync($"Waiting for all discovered items to be loaded...", ""));
+                        ProgressDialog.SetIndeterminate();
+
+                        while (FileDiscoverer.IsIncubating())
+                            Thread.Sleep(50);
 
                         await ProgressDialog.CloseAsync();
                     }
@@ -1381,17 +1405,52 @@ namespace Warp
                     Star TableBoxNetAll = null;
                     string PathBoxNetAll = Options.Import.Folder + "allparticles_" + BoxNetSuffix + ".star";
                     string PathBoxNetFiltered = Options.Import.Folder + "goodparticles_" + BoxNetSuffix + ".star";
+                    object TableBoxNetAllWriteLock = new object();
+                    int TableBoxNetConcurrent = 0;
+
+                    // Switch filter suffix to the one used in current processing
+                    //if (Options.ProcessPicking)
+                    //    Dispatcher.Invoke(() => Options.Filter.ParticlesSuffix = "_" + BoxNetSuffix);
+
+                    Dictionary<Movie, List<List<string>>> AllMovieParticleRows = new Dictionary<Movie, List<List<string>>>();
 
                     if (Options.ProcessPicking && Options.Picking.DoExport && !string.IsNullOrEmpty(Options.Picking.ModelPath))
                     {
+                        Movie[] TempMovies = FileDiscoverer.GetImmutableFiles();
+
                         if (File.Exists(PathBoxNetAll))
                         {
+                            ProgressDialogController ProgressDialog = null;
+                            await Dispatcher.Invoke(async () => ProgressDialog = await this.ShowProgressAsync($"Loading particle metadata from previous run...", ""));
+                            ProgressDialog.SetIndeterminate();
+
                             TableBoxNetAll = new Star(PathBoxNetAll);
+
+                            Dictionary<string, Movie> NameMapping = new Dictionary<string, Movie>();
+                            string[] ColumnMicName = TableBoxNetAll.GetColumn("rlnMicrographName");
+                            for (int r = 0; r < ColumnMicName.Length; r++)
+                            {
+                                if (!NameMapping.ContainsKey(ColumnMicName[r]))
+                                {
+                                    var Movie = TempMovies.Where(m => ColumnMicName[r].Contains(m.Name));
+                                    if (Movie.Count() != 1)
+                                        continue;
+
+                                    NameMapping.Add(ColumnMicName[r], Movie.First());
+                                    AllMovieParticleRows.Add(Movie.First(), new List<List<string>>());
+                                }
+
+                                AllMovieParticleRows[NameMapping[ColumnMicName[r]]].Add(TableBoxNetAll.GetRow(r));
+                            }
+
+                            await ProgressDialog.CloseAsync();
                         }
                         else
                         {
                             TableBoxNetAll = new Star(new string[] { });
                         }
+
+                        #region Make sure all columns are there
 
                         if (!TableBoxNetAll.HasColumn("rlnCoordinateX"))
                             TableBoxNetAll.AddColumn("rlnCoordinateX", "0.0");
@@ -1438,6 +1497,66 @@ namespace Warp
 
                         if (!TableBoxNetAll.HasColumn("rlnMicrographName"))
                             TableBoxNetAll.AddColumn("rlnMicrographName", "None");
+
+                        #endregion
+
+                        #region Repair
+
+                        var RepairMovies = TempMovies.Where(m => !AllMovieParticleRows.ContainsKey(m) && m.OptionsBoxNet != null && File.Exists(m.MatchingDir + m.RootName + "_" + BoxNetSuffix + ".star")).ToList();
+                        if (RepairMovies.Count() > 0)
+                        {
+                            ProgressDialogController ProgressDialog = null;
+                            await Dispatcher.Invoke(async () => ProgressDialog = await this.ShowProgressAsync($"Repairing particle metadata...", ""));
+
+                            int NRepaired = 0;
+                            foreach (var item in RepairMovies)
+                            {
+                                float2[] Positions = Star.LoadFloat2(item.MatchingDir + item.RootName + "_" + BoxNetSuffix + ".star",
+                                                                     "rlnCoordinateX",
+                                                                     "rlnCoordinateY");
+
+                                float[] Defoci = new float[Positions.Length];
+                                if (item.GridCTF != null)
+                                    Defoci = item.GridCTF.GetInterpolated(Positions.Select(v => new float3(v.X / (item.OptionsBoxNet.Dimensions.X / (float)item.OptionsBoxNet.BinnedPixelSizeMean),
+                                                                                                           v.Y / (item.OptionsBoxNet.Dimensions.Y / (float)item.OptionsBoxNet.BinnedPixelSizeMean),
+                                                                                                           0.5f)).ToArray());
+                                float Astigmatism = (float)item.CTF.DefocusDelta / 2;
+                                float PhaseShift = item.GridCTFPhase.GetInterpolated(new float3(0.5f)) * 180;
+
+                                List<List<string>> NewRows = new List<List<string>>();
+                                for (int r = 0; r < Positions.Length; r++)
+                                {
+                                    string[] Row = Helper.ArrayOfConstant("0", TableBoxNetAll.ColumnCount);
+
+                                    Row[TableBoxNetAll.GetColumnID("rlnMagnification")] = "10000.0";
+                                    Row[TableBoxNetAll.GetColumnID("rlnDetectorPixelSize")] = item.OptionsBoxNet.BinnedPixelSizeMean.ToString("F5", CultureInfo.InvariantCulture);
+
+                                    Row[TableBoxNetAll.GetColumnID("rlnDefocusU")] = ((Defoci[r] + Astigmatism) * 1e4f).ToString("F1", CultureInfo.InvariantCulture);
+                                    Row[TableBoxNetAll.GetColumnID("rlnDefocusV")] = ((Defoci[r] - Astigmatism) * 1e4f).ToString("F1", CultureInfo.InvariantCulture);
+                                    Row[TableBoxNetAll.GetColumnID("rlnDefocusAngle")] = item.CTF.DefocusAngle.ToString("F1", CultureInfo.InvariantCulture);
+                                    Row[TableBoxNetAll.GetColumnID("rlnVoltage")] = item.CTF.Voltage.ToString("F1", CultureInfo.InvariantCulture);
+                                    Row[TableBoxNetAll.GetColumnID("rlnSphericalAberration")] = item.CTF.Cs.ToString("F4", CultureInfo.InvariantCulture);
+                                    Row[TableBoxNetAll.GetColumnID("rlnAmplitudeContrast")] = item.CTF.Amplitude.ToString("F3", CultureInfo.InvariantCulture);
+                                    Row[TableBoxNetAll.GetColumnID("rlnPhaseShift")] = PhaseShift.ToString("F1", CultureInfo.InvariantCulture);
+                                    Row[TableBoxNetAll.GetColumnID("rlnCtfMaxResolution")] = item.CTFResolutionEstimate.ToString("F1", CultureInfo.InvariantCulture);
+                                    Row[TableBoxNetAll.GetColumnID("rlnCoordinateX")] = Positions[r].X.ToString("F2", CultureInfo.InvariantCulture);
+                                    Row[TableBoxNetAll.GetColumnID("rlnCoordinateY")] = Positions[r].Y.ToString("F2", CultureInfo.InvariantCulture);
+                                    Row[TableBoxNetAll.GetColumnID("rlnImageName")] = (r + 1).ToString("D7") + "@particles/" + item.RootName + "_" + BoxNetSuffix + ".mrcs";
+                                    Row[TableBoxNetAll.GetColumnID("rlnMicrographName")] = item.Name;
+
+                                    NewRows.Add(Row.ToList());
+                                }
+
+                                AllMovieParticleRows.Add(item, NewRows);
+
+                                NRepaired++;
+                                Dispatcher.Invoke(() => ProgressDialog.SetProgress((float)NRepaired / RepairMovies.Count));
+                            }
+
+                            await ProgressDialog.CloseAsync();
+                        }
+
+                        #endregion
                     }
 
                     #endregion
@@ -1563,6 +1682,12 @@ namespace Warp
                                                        CurrentOptionsExport != item.OptionsMovieExport ||
                                                        (CurrentOptionsExport.DoDeconv && NeedsNewCTF));
 
+                                bool NeedsMoreDenoisingExamples = !Directory.Exists(item.DenoiseTrainingDirOdd) || 
+                                                                 Directory.EnumerateFiles(item.DenoiseTrainingDirOdd, "*.mrc").Count() < 128;   // Having more than 128 examples is a waste of space
+                                bool DoesDenoisingExampleExist = File.Exists(item.DenoiseTrainingOddPath);
+                                bool NeedsDenoisingExample = NeedsMoreDenoisingExamples || (DoesDenoisingExampleExist && (NeedsNewCTF || NeedsNewExport));
+                                CurrentOptionsExport.DoDenoise = NeedsDenoisingExample;
+
                                 MapHeader OriginalHeader = null;
                                 decimal ScaleFactor = 1M / (decimal)Math.Pow(2, (double)Options.Import.BinTimes);
 
@@ -1669,6 +1794,7 @@ namespace Warp
                                     var TimerOutput = BenchmarkOutput.Start();
 
                                     Image StackAverage = OriginalStack.AsReducedAlongZ();
+                                    OriginalStack.FreeDevice();
                                     //Task.Run(() =>
                                     {
                                         StackAverage.WriteMRC(item.AveragePath, (float)Options.BinnedPixelSizeMean, true);
@@ -1746,8 +1872,8 @@ namespace Warp
                                         float Astigmatism = (float)item.CTF.DefocusDelta / 2;
                                         float PhaseShift = item.GridCTFPhase.GetInterpolated(new float3(0.5f)) * 180;
 
-                                        string[][] NewRows = new string[Positions.Length][];
-                                        for (int r = 0; r < NewRows.Length; r++)
+                                        List<List<string>> NewRows = new List<List<string>>();
+                                        for (int r = 0; r < Positions.Length; r++)
                                         {
                                             string[] Row = Helper.ArrayOfConstant("0", TableBoxNetAll.ColumnCount);
 
@@ -1767,31 +1893,78 @@ namespace Warp
                                             Row[TableBoxNetAll.GetColumnID("rlnImageName")] = (r + 1).ToString("D7") + "@particles/" + item.RootName + "_" + BoxNetSuffix + ".mrcs";
                                             Row[TableBoxNetAll.GetColumnID("rlnMicrographName")] = item.Name;
 
-                                            NewRows[r] = Row;
+                                            NewRows.Add(Row.ToList());
                                         }
 
-                                        lock (TableBoxNetAll)
+                                        List<List<string>> RowsAll = new List<List<string>>();
+                                        List<List<string>> RowsGood = new List<List<string>>();
+
+                                        lock (AllMovieParticleRows)
                                         {
-                                            TableBoxNetAll.RemoveRows(Helper.IndicesOf(TableBoxNetAll.GetColumn("rlnImageName"), s => s.Contains(item.RootName)));
+                                            if (!AllMovieParticleRows.ContainsKey(item))
+                                                AllMovieParticleRows.Add(item, NewRows);
+                                            else
+                                                AllMovieParticleRows[item] = NewRows;
 
-                                            foreach (var row in NewRows)
-                                                TableBoxNetAll.AddRow(row.ToList());
-
-                                            HashSet<string> NamesFiltered = new HashSet<string>(ImmutableItems.Where(m => !(m.UnselectFilter || (m.UnselectManual != null && m.UnselectManual.Value))).Select(m => m.Name).ToArray());
-                                            string[] ColumnMicName = TableBoxNetAll.GetColumn("rlnMicrographName");
-                                            int[] RowsFiltered = Helper.ArrayOfSequence(0, TableBoxNetAll.RowCount, 1).Where(i => NamesFiltered.Contains(ColumnMicName[i])).ToArray();
-
-                                            Star TableBoxNetFiltered = TableBoxNetAll.CreateSubset(RowsFiltered);
-
-                                            try
+                                            foreach (var pair in AllMovieParticleRows)
                                             {
-                                                TableBoxNetAll.Save(PathBoxNetAll);
-                                                TableBoxNetFiltered.Save(PathBoxNetFiltered);
-                                            }
-                                            catch
-                                            {
+                                                RowsAll.AddRange(pair.Value);
+                                                if (!(pair.Key.UnselectFilter || (pair.Key.UnselectManual != null && pair.Key.UnselectManual.Value)))
+                                                    RowsGood.AddRange(pair.Value);
                                             }
                                         }
+
+                                        while (TableBoxNetConcurrent > UsedDevices.Count)
+                                            Thread.Sleep(50);
+
+                                        lock (TableBoxNetAllWriteLock)
+                                            TableBoxNetConcurrent++;
+
+                                        Task.Run(() =>
+                                        {
+                                            Star TempTableAll = new Star(TableBoxNetAll.GetColumnNames());
+                                            TempTableAll.AddRow(RowsAll);
+
+                                            bool SuccessAll = false;
+                                            while (!SuccessAll)
+                                            {
+                                                try
+                                                {
+                                                    TempTableAll.Save(PathBoxNetAll + "_" + item.RootName);
+                                                    lock (TableBoxNetAllWriteLock)
+                                                    {
+                                                        if (File.Exists(PathBoxNetAll))
+                                                            File.Delete(PathBoxNetAll);
+                                                        File.Move(PathBoxNetAll + "_" + item.RootName, PathBoxNetAll);
+                                                    }
+                                                    SuccessAll = true;
+                                                }
+                                                catch { }
+                                            }
+
+                                            Star TempTableGood = new Star(TableBoxNetAll.GetColumnNames());
+                                            TempTableGood.AddRow(RowsGood);
+
+                                            bool SuccessGood = false;
+                                            while (!SuccessGood)
+                                            {
+                                                try
+                                                {
+                                                    TempTableGood.Save(PathBoxNetFiltered + "_" + item.RootName);
+                                                    lock (TableBoxNetAllWriteLock)
+                                                    {
+                                                        if (File.Exists(PathBoxNetFiltered))
+                                                            File.Delete(PathBoxNetFiltered);
+                                                        File.Move(PathBoxNetFiltered + "_" + item.RootName, PathBoxNetFiltered);
+                                                    }
+                                                    SuccessGood = true;
+                                                }
+                                                catch { }
+                                            }
+
+                                            lock (TableBoxNetAllWriteLock)
+                                                TableBoxNetConcurrent--;
+                                        });
                                     }
                                     else
                                     {
@@ -1862,6 +2035,69 @@ namespace Warp
                         ImageGain[d]?.Dispose();
                         BoxNetworks[d]?.Dispose();
                     }
+
+                    #region Make sure all particle tables are written out in their most recent form
+
+                    if (Options.ProcessPicking && Options.Picking.DoExport && !string.IsNullOrEmpty(Options.Picking.ModelPath))
+                    {
+                        List<List<string>> RowsAll = new List<List<string>>();
+                        List<List<string>> RowsGood = new List<List<string>>();
+
+                        lock (AllMovieParticleRows)
+                        {
+                            foreach (var pair in AllMovieParticleRows)
+                            {
+                                RowsAll.AddRange(pair.Value);
+                                if (!(pair.Key.UnselectFilter || (pair.Key.UnselectManual != null && pair.Key.UnselectManual.Value)))
+                                    RowsGood.AddRange(pair.Value);
+                            }
+                        }
+
+                        while (TableBoxNetConcurrent > 0)
+                            Thread.Sleep(50);
+                        
+                        Star TempTableAll = new Star(TableBoxNetAll.GetColumnNames());
+                        TempTableAll.AddRow(RowsAll);
+
+                        bool SuccessAll = false;
+                        while (!SuccessAll)
+                        {
+                            try
+                            {
+                                TempTableAll.Save(PathBoxNetAll + "_temp");
+                                lock (TableBoxNetAllWriteLock)
+                                {
+                                    if (File.Exists(PathBoxNetAll))
+                                        File.Delete(PathBoxNetAll);
+                                    File.Move(PathBoxNetAll + "_temp", PathBoxNetAll);
+                                }
+                                SuccessAll = true;
+                            }
+                            catch { }
+                        }
+
+                        Star TempTableGood = new Star(TableBoxNetAll.GetColumnNames());
+                        TempTableGood.AddRow(RowsGood);
+
+                        bool SuccessGood = false;
+                        while (!SuccessGood)
+                        {
+                            try
+                            {
+                                TempTableGood.Save(PathBoxNetFiltered + "_temp");
+                                lock (TableBoxNetAllWriteLock)
+                                {
+                                    if (File.Exists(PathBoxNetFiltered))
+                                        File.Delete(PathBoxNetFiltered);
+                                    File.Move(PathBoxNetFiltered + "_temp", PathBoxNetFiltered);
+                                }
+                                SuccessGood = true;
+                            }
+                            catch { }
+                        }
+                    }
+
+                    #endregion
                 });
             }
             else
@@ -1878,6 +2114,7 @@ namespace Warp
 
                 foreach (var item in DisableWhenPreprocessing)
                     item.IsEnabled = true;
+                MicrographDisplayControl.SetProcessingMode(false);
                 
                 #region Timers
 
@@ -2284,7 +2521,7 @@ namespace Warp
                 StatsAstigmatismEllipseSigma.Width = AstigmatismStd * StatsAstigmatismZoom * (float)Options.Filter.AstigmatismMax / AstigmatismMax * 256;
                 StatsAstigmatismEllipseSigma.Height = AstigmatismStd * StatsAstigmatismZoom * (float)Options.Filter.AstigmatismMax / AstigmatismMax * 256;
                 Canvas.SetLeft(StatsAstigmatismEllipseSigma, AstigmatismMean.X / AstigmatismMax * 128 * StatsAstigmatismZoom + 128 - StatsAstigmatismEllipseSigma.Width / 2);
-                Canvas.SetTop(StatsAstigmatismEllipseSigma, -AstigmatismMean.Y / AstigmatismMax * 128 * StatsAstigmatismZoom + 128 - StatsAstigmatismEllipseSigma.Height / 2);
+                Canvas.SetTop(StatsAstigmatismEllipseSigma, AstigmatismMean.Y / AstigmatismMax * 128 * StatsAstigmatismZoom + 128 - StatsAstigmatismEllipseSigma.Height / 2);
             });
 
             lock (Options)
@@ -2308,22 +2545,6 @@ namespace Warp
                 PanelStatsResolution.Visibility = HaveCTF ? Visibility.Visible : Visibility.Collapsed;
                 PanelStatsMotion.Visibility = HaveMovement ? Visibility.Visible : Visibility.Collapsed;
                 PanelStatsParticles.Visibility = HaveParticles ? Visibility.Visible : Visibility.Collapsed;
-
-                //StatsDefocusSectionConsider.Value = (double)Options.Filter.DefocusMin;
-                //StatsDefocusSectionConsider.SectionWidth = (double)(Options.Filter.DefocusMax - Options.Filter.DefocusMin);
-
-                //StatsPhaseSectionConsider.Value = (double)Options.Filter.PhaseMin;
-                //StatsPhaseSectionConsider.SectionWidth = (double)(Options.Filter.PhaseMax - Options.Filter.DefocusMin);
-
-                //StatsResolutionAxisY.MinValue = (double)Options.BinnedPixelSizeMean * 2;
-                //StatsResolutionSectionConsider.Value = (double)Options.BinnedPixelSizeMean * 2;
-                //StatsResolutionSectionConsider.SectionWidth = (double)Options.Filter.ResolutionMax - StatsResolutionSectionConsider.Value;
-
-                //StatsMotionSectionConsider.Value = 0;
-                //StatsMotionSectionConsider.SectionWidth = (double)Options.Filter.MotionMax;
-
-                //StatsParticlesSectionConsider.Value = 0;
-                //StatsParticlesSectionConsider.SectionWidth = Options.Filter.ParticlesMin;
             });
         }
 
@@ -2352,7 +2573,8 @@ namespace Warp
 
                     FilterStatus &= item.CTFResolutionEstimate <= Options.Filter.ResolutionMax;
 
-                    FilterStatus &= item.CTF.PhaseShift >= Options.Filter.PhaseMin && item.CTF.PhaseShift <= Options.Filter.PhaseMax;
+                    if (Options.CTF.DoPhase)
+                        FilterStatus &= item.CTF.PhaseShift >= Options.Filter.PhaseMin && item.CTF.PhaseShift <= Options.Filter.PhaseMax;
                 }
 
                 if (item.OptionsMovement != null)
@@ -2371,6 +2593,59 @@ namespace Warp
 
                 item.UnselectFilter = !FilterStatus;
             }
+
+            // Calculate average CTF
+            Task.Run(() =>
+            {
+                try
+                {
+                    CTF[] AllCTFs = Items.Where(m => m.OptionsCTF != null && !m.UnselectFilter).Select(m => m.CTF.GetCopy()).ToArray();
+                    decimal PixelSize = Options.BinnedPixelSizeMean;
+
+                    Dispatcher.Invoke(() => StatsDefocusAverageCTFFrequencyLabel.Text = $"1/{PixelSize:F1} Å");
+
+                    float[] AverageCTFValues = new float[192];
+                    foreach (var ctf in AllCTFs)
+                    {
+                        ctf.PixelSize = PixelSize;
+                        float[] Simulated = ctf.Get1D(AverageCTFValues.Length, true);
+
+                        for (int i = 0; i < Simulated.Length; i++)
+                            AverageCTFValues[i] += Simulated[i];
+                    }
+
+                    if (AllCTFs.Length > 1)
+                        for (int i = 0; i < AverageCTFValues.Length; i++)
+                            AverageCTFValues[i] /= AllCTFs.Length;
+
+                    float MinAverage = MathHelper.Min(AverageCTFValues);
+
+                    Dispatcher.Invoke(() =>
+                    {
+                        IEnumerable<Point> TrackPoints = AverageCTFValues.Select((v, i) => new Point(i, 24 - 1 - (24 * v)));
+
+                        System.Windows.Shapes.Path TrackPath = new System.Windows.Shapes.Path()
+                        {
+                            Stroke = StatsDefocusAverageCTFFrequencyLabel.Foreground,
+                            StrokeThickness = 1,
+                            StrokeLineJoin = PenLineJoin.Bevel,
+                            IsHitTestVisible = false
+                        };
+                        PolyLineSegment PlotSegment = new PolyLineSegment(TrackPoints, true);
+                        PathFigure PlotFigure = new PathFigure
+                        {
+                            Segments = new PathSegmentCollection { PlotSegment },
+                            StartPoint = TrackPoints.First()
+                        };
+                        TrackPath.Data = new PathGeometry { Figures = new PathFigureCollection { PlotFigure } };
+
+                        StatsDefocusAverageCTFCanvas.Children.Clear();
+                        StatsDefocusAverageCTFCanvas.Children.Add(TrackPath);
+                        Canvas.SetBottom(TrackPath, 24 * MinAverage);
+                    });
+                }
+                catch { }
+            });
         }
 
         public void UpdateFilterSuffixMenu()

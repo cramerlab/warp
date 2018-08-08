@@ -23,6 +23,13 @@ namespace Warp.Tools
 {
     public static class TFHelper
     {
+        public static readonly object[] DeviceSync = { new object(), new object(), new object(), new object(),
+                                                       new object(), new object(), new object(), new object(),
+                                                       new object(), new object(), new object(), new object(),
+                                                       new object(), new object(), new object(), new object(),
+                                                       new object(), new object(), new object(), new object(),
+                                                       new object(), new object(), new object(), new object()};
+
         public static TFSessionOptions CreateOptions()
         {
             TFSessionOptions Options = new TFSessionOptions();
@@ -98,5 +105,8 @@ namespace Warp.Tools
             }
             return null;
         }
+
+        [DllImport(NativeBinding.TensorFlowLibrary)]
+        public static extern unsafe void TF_FreeAllMemory();
     }
 }

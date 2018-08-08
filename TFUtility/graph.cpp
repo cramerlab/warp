@@ -1,3 +1,4 @@
+#define _CRT_SECURE_NO_WARNINGS
 #include "Functions.h"
 
 using tensorflow::AllocationDescription;
@@ -359,6 +360,15 @@ __declspec(dllexport) TF_Session* __stdcall TF_LoadSessionFromSavedModelOnDevice
         return nullptr;
     }
 
+    {
+        const char* debug_allocator_str = std::getenv("TF_GPU_ALLOCATOR");
+        if (debug_allocator_str != nullptr &&
+            strcmp(debug_allocator_str, "cuda_malloc") == 0)
+            LOG(INFO) << "cuda_malloc";
+        else
+            LOG(INFO) << "not cuda_malloc";
+    }
+
     RunOptions run_options_proto;
     if (run_options != nullptr && !run_options_proto.ParseFromArray(run_options->data, run_options->length)) 
     {
@@ -401,4 +411,9 @@ __declspec(dllexport) TF_Session* __stdcall TF_LoadSessionFromSavedModelOnDevice
     graph->sessions[session] = Status::OK();
     session->last_num_graph_nodes = graph->graph.num_node_ids();
     return session;
+}
+
+__declspec(dllexport) void __stdcall TF_FreeAllMemory()
+{
+	tensorflow::ProcessState::singleton()->~ProcessState();
 }

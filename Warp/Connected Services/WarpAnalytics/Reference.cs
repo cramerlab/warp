@@ -144,6 +144,12 @@ namespace Warp.WarpAnalytics {
         
         [System.ServiceModel.OperationContractAttribute(Action="http://tempuri.org/IWarpAnalytics/LogEnvironment", ReplyAction="http://tempuri.org/IWarpAnalytics/LogEnvironmentResponse")]
         System.Threading.Tasks.Task<string> LogEnvironmentAsync(System.Guid secret, string dateTime, string version, int cpuCores, int cpuClock, int cpuMemory, int gpuCores, int gpuMemory, string gpuName);
+        
+        [System.ServiceModel.OperationContractAttribute(Action="http://tempuri.org/IWarpAnalytics/LogCrash", ReplyAction="http://tempuri.org/IWarpAnalytics/LogCrashResponse")]
+        string LogCrash(System.Guid secret, string dateTime, string version, int cpuCores, int cpuClock, int cpuMemory, int gpuCores, int gpuMemory, string gpuName, string exception);
+        
+        [System.ServiceModel.OperationContractAttribute(Action="http://tempuri.org/IWarpAnalytics/LogCrash", ReplyAction="http://tempuri.org/IWarpAnalytics/LogCrashResponse")]
+        System.Threading.Tasks.Task<string> LogCrashAsync(System.Guid secret, string dateTime, string version, int cpuCores, int cpuClock, int cpuMemory, int gpuCores, int gpuMemory, string gpuName, string exception);
     }
     
     [System.CodeDom.Compiler.GeneratedCodeAttribute("System.ServiceModel", "4.0.0.0")]
@@ -311,6 +317,14 @@ namespace Warp.WarpAnalytics {
         
         public System.Threading.Tasks.Task<string> LogEnvironmentAsync(System.Guid secret, string dateTime, string version, int cpuCores, int cpuClock, int cpuMemory, int gpuCores, int gpuMemory, string gpuName) {
             return base.Channel.LogEnvironmentAsync(secret, dateTime, version, cpuCores, cpuClock, cpuMemory, gpuCores, gpuMemory, gpuName);
+        }
+        
+        public string LogCrash(System.Guid secret, string dateTime, string version, int cpuCores, int cpuClock, int cpuMemory, int gpuCores, int gpuMemory, string gpuName, string exception) {
+            return base.Channel.LogCrash(secret, dateTime, version, cpuCores, cpuClock, cpuMemory, gpuCores, gpuMemory, gpuName, exception);
+        }
+        
+        public System.Threading.Tasks.Task<string> LogCrashAsync(System.Guid secret, string dateTime, string version, int cpuCores, int cpuClock, int cpuMemory, int gpuCores, int gpuMemory, string gpuName, string exception) {
+            return base.Channel.LogCrashAsync(secret, dateTime, version, cpuCores, cpuClock, cpuMemory, gpuCores, gpuMemory, gpuName, exception);
         }
     }
 }

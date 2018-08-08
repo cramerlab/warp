@@ -215,6 +215,49 @@ namespace Warp
             });
         }
 
+        public void LogCrash(Exception exception)
+        {
+            if (!AllowCollection)
+                return;
+
+            try
+            {
+                int CPUCores = Environment.ProcessorCount;
+
+                ulong CPUMemory = 0;
+                ManagementObjectSearcher searcher = new ManagementObjectSearcher("SELECT Capacity FROM Win32_PhysicalMemory");
+                foreach (ManagementObject WniPART in searcher.Get())
+                    CPUMemory += Convert.ToUInt64(WniPART.Properties["Capacity"].Value);
+                CPUMemory >>= 20;
+
+                int CPUClock = 0;
+                using (ManagementObject Mo = new ManagementObject("Win32_Processor.DeviceID='CPU0'"))
+                    CPUClock = (int)(uint)(Mo["MaxClockSpeed"]);
+
+                int GPUCores = GPU.GetDeviceCount();
+                int GPUMemory = (int)GPU.GetTotalMemory(0);
+                IntPtr NamePtr = GPU.GetDeviceName(0);
+                string GPUName = new string(Marshal.PtrToStringAnsi(NamePtr).Take(48).ToArray());
+                CPU.HostFree(NamePtr);
+
+                Version Version = Assembly.GetExecutingAssembly().GetName().Version;
+
+                new WarpAnalyticsClient().LogCrash(Secret,
+                                                    DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff"),
+                                                    Version.ToString(),
+                                                    CPUCores,
+                                                    CPUClock,
+                                                    (int)CPUMemory,
+                                                    GPUCores,
+                                                    GPUMemory,
+                                                    GPUName,
+                                                    exception.ToString());
+            }
+            catch
+            {
+            }
+        }
+
         public void Load(string path)
         {
             try

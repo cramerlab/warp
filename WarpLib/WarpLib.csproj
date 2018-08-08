@@ -83,6 +83,8 @@
     <Compile Include="GPUQueue.cs" />
     <Compile Include="Headers\DM4.cs" />
     <Compile Include="Movie.cs" />
+    <Compile Include="NoiseNet2D.cs" />
+    <Compile Include="NoiseNet3D.cs" />
     <Compile Include="Sociology\DataSource.cs" />
     <Compile Include="Sociology\Particle.cs" />
     <Compile Include="ProcessingOptions.cs" />
