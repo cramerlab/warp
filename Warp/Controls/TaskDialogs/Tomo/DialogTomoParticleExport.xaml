@@ -23,6 +23,9 @@
                 <RowDefinition Height="15" />
                 <RowDefinition Height="30" />
                 <RowDefinition Height="30" />
+                <RowDefinition Height="15" />
+                <RowDefinition Height="30" />
+                <RowDefinition Height="30" />
                 <RowDefinition Height="30" />
                 <RowDefinition Height="15" />
                 <RowDefinition Height="30" />
@@ -39,18 +42,26 @@
             <s:ValueSlider Name="SliderBoxSize" Grid.Row="5" Value="{Binding Tasks.TomoSubReconstructBox, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="Box size is {0} px" MinValue="2" MaxValue="10000" StepSize="2" FontSize="18" />
             <s:ValueSlider Name="SliderParticleDiameter" Grid.Row="6" Value="{Binding Tasks.TomoSubReconstructDiameter, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="Particle diameter is {0} Å" MinValue="2" MaxValue="10000" StepSize="1" FontSize="18" />
 
-            <CheckBox Name="CheckPrerotate" Grid.Row="8" IsChecked="{Binding Tasks.TomoSubReconstructPrerotated}" Content="Pre-rotate particles" FontSize="18" />
+            <StackPanel Grid.Row="8" Orientation="Horizontal">
+                <RadioButton Name="RadioVolume" GroupName="VolumeSeries" IsChecked="{Binding Tasks.TomoSubReconstructVolume}" Content="Volumes" FontSize="18" />
+                <RadioButton Name="RadioSeries" GroupName="VolumeSeries" IsChecked="{Binding Tasks.TomoSubReconstructSeries}" Content="Image series" FontSize="18" Margin="16,0,0,0" />
+            </StackPanel>
 
-            <CheckBox Name="CheckInvert" Grid.Row="10" IsChecked="{Binding Tasks.InputInvert}" Content="Invert contrast" FontSize="18" />
-            <CheckBox Name="CheckNormalize" Grid.Row="11" IsChecked="{Binding Tasks.InputNormalize}" Content="Normalize input images" FontSize="18" />
-            <CheckBox Name="CheckPreflip" Grid.Row="12" IsChecked="{Binding Tasks.OutputNormalize}" Content="Normalize output volumes" FontSize="18" />
+            <CheckBox Name="CheckPrerotate" Grid.Row="10" IsChecked="{Binding Tasks.TomoSubReconstructPrerotated}" Content="Pre-rotate particles" FontSize="18" />
+            <CheckBox Name="CheckLimitDose" Grid.Row="11" IsChecked="{Binding Tasks.TomoSubReconstructDoLimitDose}" FontSize="18">
+                <s:ValueSlider Name="SliderNTilts" Value="{Binding Tasks.TomoSubReconstructNTilts, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="Limit dose to first {0} tilts" MinValue="1" MaxValue="10000" StepSize="1" FontSize="18" />
+            </CheckBox>
 
-            <CheckBox Name="CheckRelative" Grid.Row="14" IsChecked="{Binding Tasks.UseRelativePaths}" Content="Make paths relative to STAR" FontSize="18" />
+            <CheckBox Name="CheckInvert" Grid.Row="13" IsChecked="{Binding Tasks.InputInvert}" Content="Invert contrast" FontSize="18" />
+            <CheckBox Name="CheckNormalize" Grid.Row="14" IsChecked="{Binding Tasks.InputNormalize}" Content="Normalize input images" FontSize="18" />
+            <CheckBox Name="CheckPreflip" Grid.Row="15" IsChecked="{Binding Tasks.OutputNormalize}" Content="Normalize output volumes" FontSize="18" />
 
-            <CheckBox Name="CheckFilter" Grid.Row="16" IsChecked="{Binding Tasks.IncludeFilteredOut}" Content="Include items outside of filter ranges" FontSize="18" />
-            <CheckBox Name="CheckManual" Grid.Row="17" IsChecked="{Binding Tasks.IncludeUnselected}" Content="Include manually excluded items" FontSize="18" />
+            <CheckBox Name="CheckRelative" Grid.Row="17" IsChecked="{Binding Tasks.UseRelativePaths}" Content="Make paths relative to STAR" FontSize="18" />
 
-            <StackPanel Grid.Row="18" Orientation="Vertical">
+            <CheckBox Name="CheckFilter" Grid.Row="19" IsChecked="{Binding Tasks.IncludeFilteredOut}" Content="Include items outside of filter ranges" FontSize="18" />
+            <CheckBox Name="CheckManual" Grid.Row="20" IsChecked="{Binding Tasks.IncludeUnselected}" Content="Include manually excluded items" FontSize="18" />
+
+            <StackPanel Grid.Row="21" Orientation="Vertical">
                 <local:NyanBar x:Name="ProgressWrite" VerticalAlignment="Top" HorizontalAlignment="Stretch" Margin="0,12,0,8" Visibility="Collapsed" />
 
                 <StackPanel Name="PanelButtons" Orientation="Horizontal" HorizontalAlignment="Right" Height="50">

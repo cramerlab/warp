@@ -53,10 +53,13 @@ namespace Warp
             Warp.MainWindow.Analytics.LogCrash(exception);
 
             var Result = MessageBox.Show("Damn, Warp just crashed!\n" +
-                                         $"Details are available in {Environment.CurrentDirectory}\\lastcrash.txt.\n" +
+                                         $"Here are the details that were also saved in {Environment.CurrentDirectory}\\lastcrash.txt.\n" +
+                                         "\n" +
+                                         exception.ToString() +
+                                         "\n" +
                                          "Please consider reporting the issue in https://groups.google.com/forum/#!forum/warp-em.\n" +
                                          "Would you like to be taken there now?",
-                                         "Something went very wrong",
+                                         "OH NOES!",
                                          MessageBoxButton.YesNo,
                                          MessageBoxImage.Error);
 

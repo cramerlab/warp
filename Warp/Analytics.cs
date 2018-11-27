@@ -55,6 +55,14 @@ namespace Warp
             set { if (value != _ShowBoxNetReminder) { _ShowBoxNetReminder = value; OnPropertyChanged(); } }
         }
 
+        private bool _ShowTiffReminder = true;
+        [WarpSerializable]
+        public bool ShowTiffReminder
+        {
+            get { return _ShowTiffReminder; }
+            set { if (value != _ShowTiffReminder) { _ShowTiffReminder = value; OnPropertyChanged(); } }
+        }
+
         public Version GetLatestVersion()
         {
             return new WarpAnalyticsClient().GetLatestVersion();

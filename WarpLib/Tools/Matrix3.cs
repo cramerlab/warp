@@ -140,6 +140,21 @@ namespace Warp.Tools
             V = new Matrix3(Decomp.RightSingularVectors);
         }
 
+        public float RadiansX()
+        {
+            return (float)(Math.Atan2(M32, M22) + Math.Atan2(-M23, M33)) * 0.5f;
+        }
+
+        public float RadiansY()
+        {
+            return (float)(Math.Atan2(-M31, M11) + Math.Atan2(M13, M33)) * 0.5f;
+        }
+
+        public float RadiansZ()
+        {
+            return (float)(Math.Atan2(M21, M11) + Math.Atan2(-M12, M22)) * 0.5f;
+        }
+
         public float[] ToArray()
         {
             return new[] { M11, M21, M31, M12, M22, M32, M31, M32, M33 };

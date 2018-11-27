@@ -354,7 +354,8 @@ extern "C" __declspec(dllexport) void CreateShift(float* d_frame,
 													int2 dimsregion,
 													size_t* h_mask,
 													uint masklength,
-                                                    float2* d_outputall);
+                                                    float2* d_outputall,
+													float* d_sigma);
 
 extern "C" __declspec(dllexport) void ShiftGetAverage(float2* d_individual,
                                                         float2* d_average,
@@ -499,44 +500,55 @@ extern "C" __declspec(dllexport) void SparseEigen(int* sparsei, int* sparsej, do
 
 
 // TomoRefine.cu:
-extern "C" __declspec(dllexport) void TomoRefineGetDiff(float2* d_experimental,
-                                                        float2* d_reference,
-                                                        float2* d_shiftfactors,
-                                                        float* d_ctf,
-                                                        float* d_weights,
-                                                        int2 dims,
-                                                        float2* h_shifts,
-                                                        float* h_diff,
-                                                        uint nparticles);
+extern "C" __declspec(dllexport) void MultiParticleDiff(float* hp_result,
+														float2** hp_experimental,
+														int dimdata,
+														float2* h_shifts,
+														float3* h_angles,
+														float* h_defoci,
+														float* d_weights,
+														gtom::CTFParams* h_ctfparams,
+														uint64_t* h_volumeRe,
+														uint64_t* h_volumeIm,
+														int dimprojector,
+														int* d_subsets,
+														float* h_relativeweights,
+														int nparticles,
+														int ntilts);
 
-extern "C" __declspec(dllexport) void TomoRealspaceCorrelate(float* d_projections, 
-                                                            int2 dims, 
-                                                            uint nprojections, 
-                                                            uint ntilts, 
-                                                            float* d_experimental, 
-                                                            float* d_ctf, 
-                                                            float* d_mask, 
-                                                            float* d_weights, 
-                                                            float* h_shifts, 
-                                                            float* h_result);
+extern "C" __declspec(dllexport) void MultiParticleSimulate(float* d_result,
+															int2 dimsmic,
+															int dimdata,
+															float2* h_positions,
+															float2* h_shifts,
+															float3* h_angles,
+															float* h_defoci,
+															float* d_weights,
+															gtom::CTFParams* h_ctfparams,
+															uint64_t* h_volumeRe,
+															uint64_t* h_volumeIm,
+															int dimprojector,
+															int* d_subsets,
+															int nparticles,
+															int ntilts);
 
-extern "C" __declspec(dllexport) void TomoGlobalAlign(float2* d_experimental,
-                                                        float2* d_shiftfactors,
-                                                        float* d_ctf,
-                                                        float* d_weights,
-                                                        int2 dims,
-                                                        float2* d_ref,
-                                                        int3 dimsref,
-                                                        int refsupersample,
-                                                        float3* h_angles,
-                                                        uint nangles,
-                                                        float2* h_shifts,
-                                                        uint nshifts,
-                                                        uint nparticles,
-                                                        uint ntilts,
-                                                        int* h_bestangles,
-                                                        int* h_bestshifts,
-                                                        float* h_bestscores);
+extern "C" __declspec(dllexport) void MultiParticleCorr2D(float* d_resultab,
+															float* d_resulta2,
+															float* d_resultb2,
+															float2** hp_experimental,
+															int dimdata,
+															float2* h_shifts,
+															float3* h_angles,
+															float* h_defoci,
+															float* d_weights,
+															gtom::CTFParams* h_ctfparams,
+															uint64_t* h_volumeRe,
+															uint64_t* h_volumeIm,
+															int dimprojector,
+															int* d_subsets,
+															int nparticles,
+															int ntilts,
+															bool getdivisor);
 
 // Tools.cu:
 
@@ -615,7 +627,11 @@ extern "C" __declspec(dllexport) void Pad(float* d_input, float* d_output, int3 
 
 extern "C" __declspec(dllexport) void PadFT(float2* d_input, float2* d_output, int3 olddims, int3 newdims, uint batch);
 
+extern "C" __declspec(dllexport) void PadFTFull(float* d_input, float* d_output, int3 olddims, int3 newdims, uint batch);
+
 extern "C" __declspec(dllexport) void CropFT(float2* d_input, float2* d_output, int3 olddims, int3 newdims, uint batch);
+
+extern "C" __declspec(dllexport) void CropFTFull(float* d_input, float* d_output, int3 olddims, int3 newdims, uint batch);
 
 extern "C" __declspec(dllexport) void RemapToFTComplex(float2* d_input, float2* d_output, int3 dims, uint batch);
 
@@ -693,7 +709,7 @@ extern "C" __declspec(dllexport) void ProjectForward3DTex(uint64_t t_inputRe, ui
 
 extern "C" __declspec(dllexport) void ProjectForward3DShiftedTex(uint64_t t_inputRe, uint64_t t_inputIm, float2* d_outputft, int3 dimsinput, int3 dimsoutput, float3* h_angles, float3* h_shifts, float* h_globalweights, float supersample, uint batch);
 
-extern "C" __declspec(dllexport) void ProjectBackward(float2* d_volumeft, float* d_volumeweights, int3 dimsvolume, float2* d_projft, float* d_projweights, int2 dimsproj, int rmax, float3* h_angles, float supersample, uint batch);
+extern "C" __declspec(dllexport) void ProjectBackward(float2* d_volumeft, float* d_volumeweights, int3 dimsvolume, float2* d_projft, float* d_projweights, int2 dimsproj, int rmax, float3* h_angles, float supersample, bool outputdecentered, uint batch);
 
 extern "C" __declspec(dllexport) void ProjectBackwardShifted(float2* d_volumeft, float* d_volumeweights, int3 dimsvolume, float2* d_projft, float* d_projweights, int2 dimsproj, int rmax, float3* h_angles, float3* h_shifts, float* h_globalweights, float supersample, uint batch);
 
@@ -800,6 +816,7 @@ extern "C" __declspec(dllexport) void CreateTexture3DComplex(float2* d_data, int
 extern "C" __declspec(dllexport) void DestroyTexture(uint64_t textureid, uint64_t arrayid);
 
 extern "C" __declspec(dllexport) void ValueFill(float* d_input, size_t elements, float value);
+extern "C" __declspec(dllexport) void ValueFillComplex(float2* d_input, size_t elements, float2 value);
 
 extern "C" __declspec(dllexport) int PeekLastCUDAError();
 
@@ -807,6 +824,8 @@ extern "C" __declspec(dllexport) void DistortImages(float* d_input, int2 dimsinp
 extern "C" __declspec(dllexport) void WarpImage(float* d_input, float* d_output, int2 dims, float* h_warpx, float* h_warpy, int2 dimswarp);
 
 extern "C" __declspec(dllexport) void Rotate3DExtractAt(uint64_t t_volume, int3 dimsvolume, float* d_proj, int3 dimsproj, float3* h_angles, float3* h_positions, uint batch);
+
+extern "C" __declspec(dllexport) void BackProjectTomo(float2* d_volumeft, int3 dimsvolume, float2* d_projft, float* d_projweights, int3 dimsproj, uint rmax, float3* h_angles, uint batch);
 
 
 // WeightOptimization.cpp:

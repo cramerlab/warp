@@ -33,7 +33,11 @@ namespace Warp
             get { return (Image)GetValue(VolumeProperty); }
             set { SetValue(VolumeProperty, value); }
         }
-        public static readonly DependencyProperty VolumeProperty = DependencyProperty.Register("Volume", typeof (Image), typeof (VolumeRenderer), new PropertyMetadata(null, (o, args) => ((VolumeRenderer)o).RenderDataChanged(args)));
+        public static readonly DependencyProperty VolumeProperty = DependencyProperty.Register("Volume", typeof (Image), typeof (VolumeRenderer), new PropertyMetadata(null, (o, args) =>
+        {
+            ((VolumeRenderer)o).SetAutoThreshold();
+            ((VolumeRenderer)o).RenderDataChanged(args);
+        }));
 
         public Image Coloring
         {
@@ -91,6 +95,12 @@ namespace Warp
             Camera = new VolumeRendererCamera();
             PopupControls.DataContext = this;
             Camera.PropertyChanged += Camera_PropertyChanged;
+            SizeChanged += VolumeRenderer_SizeChanged;
+        }
+
+        private void VolumeRenderer_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            UpdateRendering();
         }
 
         private void RenderDataChanged(DependencyPropertyChangedEventArgs args)
@@ -229,9 +239,21 @@ namespace Warp
             }
         }
 
+        public void SetAutoThreshold()
+        {
+            if (Volume != null && Camera != null)
+            {
+                float2 MeanStd = MathHelper.MeanAndStd(Volume.GetHostContinuousCopy());
+                Camera.SurfaceThreshold = (decimal)(MeanStd.X + MeanStd.Y * 4);
+            }
+        }
+
         public void UpdateRendering()
         {
             if (!RenderingEnabled)
+                return;
+
+            if (ActualWidth <= 1 || ActualHeight <= 1)
                 return;
 
             bool WasOnDevice = IsOnDevice();

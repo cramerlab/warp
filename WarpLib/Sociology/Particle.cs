@@ -151,6 +151,26 @@ namespace Warp.Sociology
             TimeStepAngles = NewTimeStepAngles;
         }
 
+        public float3[] GetCoordinateSeries(float[] interpolationSteps)
+        {
+            if (Coordinates.Length == 1)
+                return Helper.ArrayOfConstant(Coordinates[0], interpolationSteps.Length);
+            else
+                return Helper.Zip(GetSplineCoordinateX().Interp(interpolationSteps),
+                                  GetSplineCoordinateY().Interp(interpolationSteps),
+                                  GetSplineCoordinateZ().Interp(interpolationSteps));
+        }
+
+        public float3[] GetAngleSeries(float[] interpolationSteps)
+        {
+            if (Angles.Length == 1)
+                return Helper.ArrayOfConstant(Angles[0], interpolationSteps.Length);
+            else
+                return Helper.Zip(GetSplineAngleX().Interp(interpolationSteps),
+                                  GetSplineAngleY().Interp(interpolationSteps),
+                                  GetSplineAngleZ().Interp(interpolationSteps));
+        }
+
         public Particle GetCopy()
         {
             return new Particle(Coordinates.ToArray(), Angles.ToArray(), RandomSubset, SourceName, SourceHash);

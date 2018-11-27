@@ -31,7 +31,7 @@
                        EditCompleted="ValueBlock_OnEditCompleted">
                 </l:EditableTextBlock>
                 <Canvas>
-                    <Line Name="LineDashes" StrokeThickness="1" X2="{Binding ElementName=ValueBlock, Path=ActualWidth}" Stroke="CornflowerBlue" SnapsToDevicePixels="True" RenderOptions.EdgeMode="Aliased" />
+                    <Line Name="LineDashes" StrokeThickness="1" X2="{Binding ElementName=ValueBlock, Path=ActualWidth}" Stroke="{Binding ElementName=MainControl, Path=UnderlineColor}" SnapsToDevicePixels="True" RenderOptions.EdgeMode="Aliased" />
                 </Canvas>
             </StackPanel>
             <TextBlock Text="{Binding ElementName=MainControl, Path=TextFormat, Converter={StaticResource rightPartFormatConverter}}" FontSize="{Binding ElementName=MainControl, Path=FontSize}" Foreground="{Binding ElementName=MainControl, Path=Foreground}" Margin="0" VerticalAlignment="Top" />

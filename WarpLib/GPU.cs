@@ -387,7 +387,8 @@ namespace Warp
                                               int2 dimsregion,
                                               long[] h_mask,
                                               uint masklength,
-                                              IntPtr d_outputall);
+                                              IntPtr d_outputall,
+                                              IntPtr d_sigma);
 
         [DllImport("GPUAcceleration.dll", CharSet = CharSet.Ansi, SetLastError = true, CallingConvention = CallingConvention.StdCall, EntryPoint = "ShiftGetAverage")]
         public static extern void ShiftGetAverage(IntPtr d_individual,
@@ -506,47 +507,58 @@ namespace Warp
                                                    uint nframes);
 
         // TomoRefine.cu:
-        [DllImport("GPUAcceleration.dll", CharSet = CharSet.Ansi, SetLastError = true, CallingConvention = CallingConvention.StdCall, EntryPoint = "TomoRefineGetDiff")]
-        public static extern void TomoRefineGetDiff(IntPtr d_experimental,
-                                                    IntPtr d_reference,
-                                                    IntPtr d_shiftfactors,
-                                                    IntPtr d_ctf,
-                                                    IntPtr d_weights,
-                                                    int2 dims,
+        [DllImport("GPUAcceleration.dll", CharSet = CharSet.Ansi, SetLastError = true, CallingConvention = CallingConvention.StdCall, EntryPoint = "MultiParticleDiff")]
+        public static extern void MultiParticleDiff(IntPtr hp_result,
+                                                    IntPtr[] hp_experimental,
+                                                    int dimdata,
                                                     float[] h_shifts,
-                                                    float[] h_diff,
-                                                    uint nparticles);
+                                                    float[] h_angles,
+                                                    float[] h_defoci,
+                                                    IntPtr d_weights,
+                                                    CTFStruct[] h_ctfparams,
+                                                    ulong[] h_volumeRe,
+                                                    ulong[] h_volumeIm,
+                                                    int dimprojector,
+                                                    IntPtr d_subsets,
+                                                    float[] h_relativeweights,
+                                                    int nparticles,
+                                                    int ntilts);
 
-        [DllImport("GPUAcceleration.dll", CharSet = CharSet.Ansi, SetLastError = true, CallingConvention = CallingConvention.StdCall, EntryPoint = "TomoRealspaceCorrelate")]
-        public static extern void TomoRealspaceCorrelate(IntPtr d_projectionsft,
-                                                         int2 dims,
-                                                         uint nprojections,
-                                                         uint ntilts,
-                                                         IntPtr d_experimental,
-                                                         IntPtr d_ctf,
-                                                         IntPtr d_mask,
-                                                         IntPtr d_weights,
-                                                         float[] h_shifts,
-                                                         float[] h_result);
+        [DllImport("GPUAcceleration.dll", CharSet = CharSet.Ansi, SetLastError = true, CallingConvention = CallingConvention.StdCall, EntryPoint = "MultiParticleSimulate")]
+        public static extern void MultiParticleSimulate(IntPtr d_result,
+                                                        int2 dimsmic,
+                                                        int dimdata,
+                                                        float[] h_positions,
+                                                        float[] h_shifts,
+                                                        float[] h_angles,
+                                                        float[] h_defoci,
+                                                        IntPtr d_weights,
+                                                        CTFStruct[] h_ctfparams,
+                                                        ulong[] h_volumeRe,
+                                                        ulong[] h_volumeIm,
+                                                        int dimprojector,
+                                                        IntPtr d_subsets,
+                                                        int nparticles,
+                                                        int ntilts);
 
-        [DllImport("GPUAcceleration.dll", CharSet = CharSet.Ansi, SetLastError = true, CallingConvention = CallingConvention.StdCall, EntryPoint = "TomoGlobalAlign")]
-        public static extern void TomoGlobalAlign(IntPtr d_experimental,
-                                                  IntPtr d_shiftfactors,
-                                                  IntPtr d_ctf,
-                                                  IntPtr d_weights,
-                                                  int2 dims,
-                                                  IntPtr d_ref,
-                                                  int3 dimsref,
-                                                  int refsupersample,
-                                                  float[] h_angles,
-                                                  uint nangles,
-                                                  float[] h_shifts,
-                                                  uint nshifts,
-                                                  uint nparticles,
-                                                  uint ntilts,
-                                                  int[] h_bestangles,
-                                                  int[] h_bestshifts,
-                                                  float[] h_bestscores);
+        [DllImport("GPUAcceleration.dll", CharSet = CharSet.Ansi, SetLastError = true, CallingConvention = CallingConvention.StdCall, EntryPoint = "MultiParticleCorr2D")]
+        public static extern void MultiParticleCorr2D(IntPtr d_resultab,
+                                                      IntPtr d_resulta2,
+                                                      IntPtr d_resultb2,
+                                                      IntPtr[] hp_experimental,
+                                                      int dimdata,
+                                                      float[] h_shifts,
+                                                      float[] h_angles,
+                                                      float[] h_defoci,
+                                                      IntPtr d_weights,
+                                                      CTFStruct[] h_ctfparams,
+                                                      ulong[] h_volumeRe,
+                                                      ulong[] h_volumeIm,
+                                                      int dimprojector,
+                                                      IntPtr d_subsets,
+                                                      int nparticles,
+                                                      int ntilts,
+                                                      bool getdivisor);
 
         // Tools.cu:
 
@@ -562,8 +574,14 @@ namespace Warp
         [DllImport("GPUAcceleration.dll", CharSet = CharSet.Ansi, SetLastError = true, CallingConvention = CallingConvention.StdCall, EntryPoint = "PadFT")]
         public static extern void PadFT(IntPtr d_input, IntPtr d_output, int3 olddims, int3 newdims, uint batch);
 
+        [DllImport("GPUAcceleration.dll", CharSet = CharSet.Ansi, SetLastError = true, CallingConvention = CallingConvention.StdCall, EntryPoint = "PadFTFull")]
+        public static extern void PadFTFull(IntPtr d_input, IntPtr d_output, int3 olddims, int3 newdims, uint batch);
+
         [DllImport("GPUAcceleration.dll", CharSet = CharSet.Ansi, SetLastError = true, CallingConvention = CallingConvention.StdCall, EntryPoint = "CropFT")]
         public static extern void CropFT(IntPtr d_input, IntPtr d_output, int3 olddims, int3 newdims, uint batch);
+
+        [DllImport("GPUAcceleration.dll", CharSet = CharSet.Ansi, SetLastError = true, CallingConvention = CallingConvention.StdCall, EntryPoint = "CropFTFull")]
+        public static extern void CropFTFull(IntPtr d_input, IntPtr d_output, int3 olddims, int3 newdims, uint batch);
 
         [DllImport("GPUAcceleration.dll", CharSet = CharSet.Ansi, SetLastError = true, CallingConvention = CallingConvention.StdCall, EntryPoint = "RemapToFTComplex")]
         public static extern void RemapToFTComplex(IntPtr d_input, IntPtr d_output, int3 dims, uint batch);
@@ -757,7 +775,7 @@ namespace Warp
         public static extern void ProjectForward3DShiftedTex(ulong t_inputRe, ulong t_inputIm, IntPtr d_outputft, int3 dimsinput, int3 dimsoutput, float[] h_angles, float[] h_shifts, float[] h_globalweights, float supersample, uint batch);
 
         [DllImport("GPUAcceleration.dll", CharSet = CharSet.Ansi, SetLastError = true, CallingConvention = CallingConvention.StdCall, EntryPoint = "ProjectBackward")]
-        public static extern void ProjectBackward(IntPtr d_volumeft, IntPtr d_volumeweights, int3 dimsvolume, IntPtr d_projft, IntPtr d_projweights, int2 dimsproj, int rmax, float[] h_angles, float supersample, uint batch);
+        public static extern void ProjectBackward(IntPtr d_volumeft, IntPtr d_volumeweights, int3 dimsvolume, IntPtr d_projft, IntPtr d_projweights, int2 dimsproj, int rmax, float[] h_angles, float supersample, bool outputdecentered, uint batch);
 
         [DllImport("GPUAcceleration.dll", CharSet = CharSet.Ansi, SetLastError = true, CallingConvention = CallingConvention.StdCall, EntryPoint = "ProjectBackwardShifted")]
         public static extern void ProjectBackwardShifted(IntPtr d_volumeft, IntPtr d_volumeweights, int3 dimsvolume, IntPtr d_projft, IntPtr d_projweights, int2 dimsproj, int rmax, float[] h_angles, float[] h_shifts, float[] h_globalweights, float supersample, uint batch);
@@ -893,6 +911,9 @@ namespace Warp
         [DllImport("GPUAcceleration.dll", CharSet = CharSet.Ansi, SetLastError = true, CallingConvention = CallingConvention.StdCall, EntryPoint = "ValueFill")]
         public static extern void ValueFill(IntPtr d_input, long elements, float value);
 
+        [DllImport("GPUAcceleration.dll", CharSet = CharSet.Ansi, SetLastError = true, CallingConvention = CallingConvention.StdCall, EntryPoint = "ValueFillComplex")]
+        public static extern void ValueFillComplex(IntPtr d_input, long elements, float2 value);
+
         [DllImport("GPUAcceleration.dll", CharSet = CharSet.Ansi, SetLastError = true, CallingConvention = CallingConvention.StdCall, EntryPoint = "SymmetrizeFT")]
         public static extern void SymmetrizeFT(IntPtr d_data, int3 dims, string c_symmetry);
 
@@ -904,6 +925,9 @@ namespace Warp
 
         [DllImport("GPUAcceleration.dll", CharSet = CharSet.Ansi, SetLastError = true, CallingConvention = CallingConvention.StdCall, EntryPoint = "Rotate3DExtractAt")]
         public static extern void Rotate3DExtractAt(ulong t_volume, int3 dimsvolume, IntPtr d_proj, int3 dimsproj, float[] h_angles, float[] h_positions, uint batch);
+
+        [DllImport("GPUAcceleration.dll", CharSet = CharSet.Ansi, SetLastError = true, CallingConvention = CallingConvention.StdCall, EntryPoint = "BackProjectTomo")]
+        public static extern void BackProjectTomo(IntPtr d_volumeft, int3 dimsvolume, IntPtr d_projft, IntPtr d_projweights, int3 dimsproj, uint rmax, float[] h_angles, uint batch);
 
         [DllImport("GPUAcceleration.dll", CharSet = CharSet.Ansi, SetLastError = true, CallingConvention = CallingConvention.StdCall, EntryPoint = "PeekLastCUDAError")]
         public static extern int PeekLastCUDAError();

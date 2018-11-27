@@ -284,13 +284,14 @@ namespace Warp
                 {
                     IsDisposed = true;
 
-                    foreach (var tensor in TensorSource)
-                        tensor.Dispose();
+                    if (TensorSource != null)
+                        foreach (var tensor in TensorSource)
+                            tensor.Dispose();
                     if (TensorTarget != null)
                         foreach (var tensor in TensorTarget)
                             tensor.Dispose();
 
-                    Session.DeleteSession();
+                    Session?.DeleteSession();
                 }
             }
         }

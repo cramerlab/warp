@@ -27,7 +27,6 @@ using MahApps.Metro;
 using MahApps.Metro.Controls;
 using MahApps.Metro.Controls.Dialogs;
 using Warp.Controls;
-using Warp.Controls.Sociology.Dialogs;
 using Warp.Controls.TaskDialogs.Tomo;
 using Warp.Controls.TaskDialogs.TwoD;
 using Warp.Headers;
@@ -157,7 +156,6 @@ namespace Warp
                 ButtonOptionsLoad,
                 ButtonOptionsAdopt,
                 ButtonProcessOneItemCTF,
-                TabPopulation,
                 SwitchProcessCTF,
                 SwitchProcessMovement,
                 SwitchProcessPicking,
@@ -284,6 +282,23 @@ namespace Warp
             #endregion
 
             #region Show prompt on first run
+
+            if (Analytics.ShowTiffReminder)
+                Dispatcher.InvokeAsync(async () =>
+                {
+                    var DialogResult = await this.ShowMessageAsync("Careful there!",
+                                                                   "As of v1.0.6, Warp handles TIFF files differently. Find out more at http://www.warpem.com/warp/?page_id=361.\n" +
+                                                                   "Go there now?", MessageDialogStyle.AffirmativeAndNegative);
+                    if (DialogResult == MessageDialogResult.Affirmative)
+                    {
+                        Process.Start("http://www.warpem.com/warp/?page_id=361");
+                    }
+                    else
+                    {
+                        Analytics.ShowTiffReminder = false;
+                        Analytics.Save(DefaultAnalyticsName);
+                    }
+                }, DispatcherPriority.ApplicationIdle);
 
             if (!Analytics.PromptShown)
                 Dispatcher.InvokeAsync(async () =>
@@ -655,12 +670,6 @@ namespace Warp
                 /*CubicGrid WiggleGrid = new CubicGrid(new int3(2, 2, 1));
                 float[][] WiggleWeights = WiggleGrid.GetWiggleWeights(new int3(3, 3, 1));*/
             }
-            #endregion
-
-            #region TEMP
-
-            PanelPopulationLanding.Visibility = Visibility.Visible;
-            PanelPopulationMain.Visibility = Visibility.Hidden;
 
             #endregion
         }
@@ -720,11 +729,8 @@ namespace Warp
             {
                 return new ActionCommand(() =>
                 {
-                    if (TabRawData.IsSelected)
-                    {
-                        if (TabProcessingCTF.IsSelected || TabProcessingMovement.IsSelected || TabProcessingCTFAndMovement.IsSelected)
-                            ProcessingStatusBar.MoveToOtherItem(-1);
-                    }
+                    if (TabProcessingCTF.IsSelected || TabProcessingMovement.IsSelected || TabProcessingCTFAndMovement.IsSelected)
+                        ProcessingStatusBar.MoveToOtherItem(-1);
                 });
             }
         }
@@ -735,11 +741,8 @@ namespace Warp
             {
                 return new ActionCommand(() =>
                 {
-                    if (TabRawData.IsSelected)
-                    {
-                        if (TabProcessingCTF.IsSelected || TabProcessingMovement.IsSelected || TabProcessingCTFAndMovement.IsSelected)
-                            ProcessingStatusBar.MoveToOtherItem(1);
-                    }
+                    if (TabProcessingCTF.IsSelected || TabProcessingMovement.IsSelected || TabProcessingCTFAndMovement.IsSelected)
+                        ProcessingStatusBar.MoveToOtherItem(1);
                 });
             }
         }
@@ -750,10 +753,7 @@ namespace Warp
             {
                 return new ActionCommand(() =>
                 {
-                    if (TabRawData.IsSelected)
-                    {
-                        TabProcessingOverview.IsSelected = true;
-                    }
+                    TabProcessingOverview.IsSelected = true;
                 });
             }
         }
@@ -764,13 +764,10 @@ namespace Warp
             {
                 return new ActionCommand(() =>
                 {
-                    if (TabRawData.IsSelected)
-                    {
-                        if (IsPreprocessingCollapsed)
-                            TabProcessingCTFAndMovement.IsSelected = true;
-                        else
-                            TabProcessingCTF.IsSelected = true;
-                    }
+                    if (IsPreprocessingCollapsed)
+                        TabProcessingCTFAndMovement.IsSelected = true;
+                    else
+                        TabProcessingCTF.IsSelected = true;
                 });
             }
         }
@@ -781,13 +778,10 @@ namespace Warp
             {
                 return new ActionCommand(() =>
                 {
-                    if (TabRawData.IsSelected)
-                    {
-                        if (IsPreprocessingCollapsed)
-                            TabProcessingCTFAndMovement.IsSelected = true;
-                        else
-                            TabProcessingMovement.IsSelected = true;
-                    }
+                    if (IsPreprocessingCollapsed)
+                        TabProcessingCTFAndMovement.IsSelected = true;
+                    else
+                        TabProcessingMovement.IsSelected = true;
                 });
             }
         }
@@ -798,18 +792,15 @@ namespace Warp
             {
                 return new ActionCommand(() =>
                 {
-                    if (TabRawData.IsSelected)
-                    {
-                        if (TabProcessingCTF.IsSelected || TabProcessingMovement.IsSelected || TabProcessingCTFAndMovement.IsSelected)
-                            if (Options.Runtime.DisplayedMovie != null)
-                            {
-                                if (Options.Runtime.DisplayedMovie.UnselectManual == null || !(bool)Options.Runtime.DisplayedMovie.UnselectManual)
-                                    Options.Runtime.DisplayedMovie.UnselectManual = true;
-                                else
-                                    Options.Runtime.DisplayedMovie.UnselectManual = false;
-                                //ProcessingStatusBar.UpdateElements();
-                            }
-                    }
+                    if (TabProcessingCTF.IsSelected || TabProcessingMovement.IsSelected || TabProcessingCTFAndMovement.IsSelected)
+                        if (Options.Runtime.DisplayedMovie != null)
+                        {
+                            if (Options.Runtime.DisplayedMovie.UnselectManual == null || !(bool)Options.Runtime.DisplayedMovie.UnselectManual)
+                                Options.Runtime.DisplayedMovie.UnselectManual = true;
+                            else
+                                Options.Runtime.DisplayedMovie.UnselectManual = false;
+                            //ProcessingStatusBar.UpdateElements();
+                        }
                 });
             }
         }
@@ -1356,7 +1347,7 @@ namespace Warp
 
                             MicrographDisplayControl.DropBoxNetworks();
                             foreach (var d in UsedDevices)
-                                BoxNetworks[d] = new BoxNet2(LocatePickingModel(Options.Picking.ModelPath), d, 2, false);
+                                BoxNetworks[d] = new BoxNet2(LocatePickingModel(Options.Picking.ModelPath), d, 2, 1, false);
                         }
                         catch (Exception exc)
                         {
@@ -1382,7 +1373,7 @@ namespace Warp
 
                     #endregion
 
-                    #region Wait until all discovered files have been loaded
+                    /*#region Wait until all discovered files have been loaded
 
                     if (FileDiscoverer.IsIncubating())
                     {
@@ -1396,7 +1387,7 @@ namespace Warp
                         await ProgressDialog.CloseAsync();
                     }
 
-                    #endregion
+                    #endregion*/
 
                     #region Load or create STAR table for BoxNet output, if needed
 
@@ -1404,7 +1395,9 @@ namespace Warp
 
                     Star TableBoxNetAll = null;
                     string PathBoxNetAll = Options.Import.Folder + "allparticles_" + BoxNetSuffix + ".star";
+                    string PathBoxNetAllSubset = Options.Import.Folder + "allparticles_last" + Options.Picking.RunningWindowLength + "_" + BoxNetSuffix + ".star";
                     string PathBoxNetFiltered = Options.Import.Folder + "goodparticles_" + BoxNetSuffix + ".star";
+                    string PathBoxNetFilteredSubset = Options.Import.Folder + "goodparticles_last" + Options.Picking.RunningWindowLength + "_" + BoxNetSuffix + ".star";
                     object TableBoxNetAllWriteLock = new object();
                     int TableBoxNetConcurrent = 0;
 
@@ -1722,7 +1715,7 @@ namespace Warp
                                 {
                                     ((TiltSeries)item).LoadMovieSizes(CurrentOptionsCTF);
 
-                                    float3 StackDims = new float3(((TiltSeries)item).ImageDimensions[0], ((TiltSeries)item).NTilts);
+                                    float3 StackDims = new float3(((TiltSeries)item).ImageDimensionsPhysical[0], ((TiltSeries)item).NTilts);
                                     CurrentOptionsCTF.Dimensions = StackDims;
                                     CurrentOptionsMovement.Dimensions = StackDims;
                                     CurrentOptionsExport.Dimensions = StackDims;
@@ -1739,23 +1732,6 @@ namespace Warp
                                     return true;
                                 } // These checks are needed to abort the processing faster
 
-                                if (DoMovement && NeedsNewMotion && item.GetType() != typeof(TiltSeries))
-                                {
-                                    var TimerMotion = BenchmarkMotion.Start();
-
-                                    item.ProcessShift(OriginalStack, CurrentOptionsMovement);
-
-                                    BenchmarkMotion.Finish(TimerMotion);
-                                    Analytics.LogProcessingMovement(CurrentOptionsMovement, (float)item.MeanFrameMovement);
-                                }
-
-                                if (!IsPreprocessing)
-                                {
-                                    OriginalStack?.Dispose();
-                                    SemaphoresProcessing[gpuID].Release();
-                                    return true;
-                                }
-
                                 if (DoCTF && NeedsNewCTF)
                                 {
                                     var TimerCTF = BenchmarkCTF.Start();
@@ -1767,6 +1743,22 @@ namespace Warp
 
                                     BenchmarkCTF.Finish(TimerCTF);
                                     Analytics.LogProcessingCTF(CurrentOptionsCTF, item.CTF, (float)item.CTFResolutionEstimate);
+                                }
+                                if (!IsPreprocessing)
+                                {
+                                    OriginalStack?.Dispose();
+                                    SemaphoresProcessing[gpuID].Release();
+                                    return true;
+                                }
+
+                                if (DoMovement && NeedsNewMotion && item.GetType() != typeof(TiltSeries))
+                                {
+                                    var TimerMotion = BenchmarkMotion.Start();
+
+                                    item.ProcessShift(OriginalStack, CurrentOptionsMovement);
+
+                                    BenchmarkMotion.Finish(TimerMotion);
+                                    Analytics.LogProcessingMovement(CurrentOptionsMovement, (float)item.MeanFrameMovement);
                                 }
                                 if (!IsPreprocessing)
                                 {
@@ -1914,57 +1906,71 @@ namespace Warp
                                             }
                                         }
 
-                                        while (TableBoxNetConcurrent > UsedDevices.Count)
-                                            Thread.Sleep(50);
-
-                                        lock (TableBoxNetAllWriteLock)
-                                            TableBoxNetConcurrent++;
-
-                                        Task.Run(() =>
+                                        if (TableBoxNetConcurrent == 0)
                                         {
-                                            Star TempTableAll = new Star(TableBoxNetAll.GetColumnNames());
-                                            TempTableAll.AddRow(RowsAll);
-
-                                            bool SuccessAll = false;
-                                            while (!SuccessAll)
-                                            {
-                                                try
-                                                {
-                                                    TempTableAll.Save(PathBoxNetAll + "_" + item.RootName);
-                                                    lock (TableBoxNetAllWriteLock)
-                                                    {
-                                                        if (File.Exists(PathBoxNetAll))
-                                                            File.Delete(PathBoxNetAll);
-                                                        File.Move(PathBoxNetAll + "_" + item.RootName, PathBoxNetAll);
-                                                    }
-                                                    SuccessAll = true;
-                                                }
-                                                catch { }
-                                            }
-
-                                            Star TempTableGood = new Star(TableBoxNetAll.GetColumnNames());
-                                            TempTableGood.AddRow(RowsGood);
-
-                                            bool SuccessGood = false;
-                                            while (!SuccessGood)
-                                            {
-                                                try
-                                                {
-                                                    TempTableGood.Save(PathBoxNetFiltered + "_" + item.RootName);
-                                                    lock (TableBoxNetAllWriteLock)
-                                                    {
-                                                        if (File.Exists(PathBoxNetFiltered))
-                                                            File.Delete(PathBoxNetFiltered);
-                                                        File.Move(PathBoxNetFiltered + "_" + item.RootName, PathBoxNetFiltered);
-                                                    }
-                                                    SuccessGood = true;
-                                                }
-                                                catch { }
-                                            }
-
                                             lock (TableBoxNetAllWriteLock)
-                                                TableBoxNetConcurrent--;
-                                        });
+                                                TableBoxNetConcurrent++;
+
+                                            Task.Run(() =>
+                                            {
+                                                Star TempTableAll = new Star(TableBoxNetAll.GetColumnNames());
+                                                TempTableAll.AddRow(RowsAll);
+
+                                                bool SuccessAll = false;
+                                                while (!SuccessAll)
+                                                {
+                                                    try
+                                                    {
+                                                        TempTableAll.Save(PathBoxNetAll + "_" + item.RootName);
+                                                        lock (TableBoxNetAllWriteLock)
+                                                        {
+                                                            if (File.Exists(PathBoxNetAll))
+                                                                File.Delete(PathBoxNetAll);
+                                                            File.Move(PathBoxNetAll + "_" + item.RootName, PathBoxNetAll);
+
+                                                            if (Options.Picking.DoRunningWindow && TempTableAll.RowCount > 0)
+                                                            {
+                                                                TempTableAll.CreateSubset(Helper.ArrayOfSequence(Math.Max(0, TempTableAll.RowCount - Options.Picking.RunningWindowLength), 
+                                                                                                                 TempTableAll.RowCount - 1, 
+                                                                                                                 1)).Save(PathBoxNetAllSubset);
+                                                            }
+                                                        }
+                                                        SuccessAll = true;
+                                                    }
+                                                    catch { }
+                                                }
+
+                                                Star TempTableGood = new Star(TableBoxNetAll.GetColumnNames());
+                                                TempTableGood.AddRow(RowsGood);
+
+                                                bool SuccessGood = false;
+                                                while (!SuccessGood)
+                                                {
+                                                    try
+                                                    {
+                                                        TempTableGood.Save(PathBoxNetFiltered + "_" + item.RootName);
+                                                        lock (TableBoxNetAllWriteLock)
+                                                        {
+                                                            if (File.Exists(PathBoxNetFiltered))
+                                                                File.Delete(PathBoxNetFiltered);
+                                                            File.Move(PathBoxNetFiltered + "_" + item.RootName, PathBoxNetFiltered);
+
+                                                            if (Options.Picking.DoRunningWindow && TempTableGood.RowCount > 0)
+                                                            {
+                                                                TempTableGood.CreateSubset(Helper.ArrayOfSequence(Math.Max(0, TempTableGood.RowCount - Options.Picking.RunningWindowLength),
+                                                                                                                  TempTableGood.RowCount - 1,
+                                                                                                                  1)).Save(PathBoxNetFilteredSubset);
+                                                            }
+                                                        }
+                                                        SuccessGood = true;
+                                                    }
+                                                    catch { }
+                                                }
+
+                                                lock (TableBoxNetAllWriteLock)
+                                                    TableBoxNetConcurrent--;
+                                            });
+                                        }
                                     }
                                     else
                                     {
@@ -1992,6 +1998,7 @@ namespace Warp
                                     if (Options.Runtime.DisplayedMovie == item)
                                         UpdateButtonOptionsAdopt();
 
+                                    ProcessingStatusBar.ApplyFilter();
                                     ProcessingStatusBar.UpdateElements();
                                 });
 
@@ -2006,6 +2013,13 @@ namespace Warp
                                 OriginalStack?.Dispose();
 
                                 item.UnselectManual = true;
+                                UpdateStatsAll();
+
+                                Dispatcher.Invoke(() =>
+                                {
+                                    ProcessingStatusBar.ApplyFilter();
+                                    ProcessingStatusBar.UpdateElements();
+                                });
 
                                 if (AcquiredProcessingSemaphore)
                                     SemaphoresProcessing[gpuID].Release();
@@ -2040,6 +2054,10 @@ namespace Warp
 
                     if (Options.ProcessPicking && Options.Picking.DoExport && !string.IsNullOrEmpty(Options.Picking.ModelPath))
                     {
+                        ProgressDialogController ProgressDialog = null;
+                        await Dispatcher.Invoke(async () => ProgressDialog = await this.ShowProgressAsync($"Waiting for the last particle files to be written out...", ""));
+                        ProgressDialog.SetIndeterminate();
+
                         List<List<string>> RowsAll = new List<List<string>>();
                         List<List<string>> RowsGood = new List<List<string>>();
 
@@ -2095,6 +2113,8 @@ namespace Warp
                             }
                             catch { }
                         }
+
+                        await ProgressDialog.CloseAsync();
                     }
 
                     #endregion
@@ -2979,6 +2999,18 @@ namespace Warp
         #endregion
 
         #region Tomo
+               
+        private void ButtonTasksImportImod_Click(object sender, RoutedEventArgs e)
+        {
+            CustomDialog Dialog = new CustomDialog();
+            Dialog.HorizontalContentAlignment = HorizontalAlignment.Center;
+
+            DialogTomoImportImod DialogContent = new DialogTomoImportImod(Options);
+            DialogContent.Close += () => this.HideMetroDialogAsync(Dialog);
+            Dialog.Content = DialogContent;
+
+            this.ShowMetroDialogAsync(Dialog);
+        }
 
         private void ButtonTasksExportTomograms_OnClick(object sender, RoutedEventArgs e)
         {
@@ -3162,7 +3194,7 @@ namespace Warp
                     {
                         ((TiltSeries)Item).LoadMovieSizes(CurrentOptionsCTF);
 
-                        float3 StackDims = new float3(((TiltSeries)Item).ImageDimensions[0], ((TiltSeries)Item).NTilts);
+                        float3 StackDims = new float3(((TiltSeries)Item).ImageDimensionsPhysical[0], ((TiltSeries)Item).NTilts);
                         CurrentOptionsCTF.Dimensions = StackDims;
                     }
 
@@ -3219,235 +3251,6 @@ namespace Warp
             else
                 ProcessingStatusBar.Visibility = Visibility.Visible;
         }
-
-        #endregion
-
-        #region TAB: POPULATION
-
-        private Population _ActivePopulation = null;
-        public Population ActivePopulation
-        {
-            get
-            {
-                return _ActivePopulation;
-            }
-            set
-            {
-                if (value != _ActivePopulation)
-                {
-                    Population OldValue = _ActivePopulation;
-                    Population NewValue = value;
-
-                    _ActivePopulation = value;
-
-                    if (OldValue != null)
-                    {
-                        NewValue.Sources.CollectionChanged += PopulationSources_CollectionChanged;
-                        NewValue.Species.CollectionChanged += PopulationSpecies_CollectionChanged;
-                    }
-
-                    if (NewValue != null)
-                    {
-                        NewValue.Sources.CollectionChanged += PopulationSources_CollectionChanged;
-                        NewValue.Species.CollectionChanged += PopulationSpecies_CollectionChanged;
-                    }
-
-                    TabPopulation.DataContext = NewValue;
-                    PopulationUpdateSourceStats();
-                }
-            }
-        }
-
-        #region Statistics display
-
-        private void PopulationUpdateSourceStats()
-        {
-            if (ActivePopulation == null)
-                return;
-
-            int NSources = ActivePopulation.Sources.Count;
-            int N2D = 0;
-            int NTilt = 0;
-
-            foreach (var source in ActivePopulation.Sources)
-                foreach (var file in source.Files)
-                    if (file.Value.LastIndexOf(".tomostar") > -1)
-                        NTilt++;
-                    else
-                        N2D++;
-
-            Dispatcher.Invoke(() =>
-            {
-                ButtonPopulationEditSources.Content = NSources > 0 ? $"{NSources} data source{(NSources != 1 ? "s" : "")}" : "Manage data sources";
-                TextPopulationSourcesStats.Text = $" ({NTilt} tilt series, {N2D} micrograph{(N2D != 1 ? "s" : "")})";
-            });
-        }
-
-        #endregion
-
-        #region Population event handling
-
-        private void PopulationSources_CollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
-        {
-            PopulationUpdateSourceStats();
-        }
-
-        private void PopulationSpecies_CollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
-        {
-            
-        }
-
-        #endregion
-
-        #region Button event handling
-
-        private void ButtonPopulationCreateNew_OnClick(object sender, RoutedEventArgs e)
-        {
-            CustomDialog Dialog = new CustomDialog();
-            Dialog.HorizontalContentAlignment = HorizontalAlignment.Center;
-
-            DialogCreatePopulation DialogContent = new DialogCreatePopulation();
-            DialogContent.Close += () => this.HideMetroDialogAsync(Dialog);
-
-            DialogContent.Create += () =>
-            {
-                string PopulationName = Helper.RemoveInvalidChars(DialogContent.TextPopulationName.Text);
-                string PopulationPath = (string)DialogContent.ButtonChangeFolder.Content + PopulationName + ".population";
-
-                Population NewPopulation = new Population(PopulationPath);
-                NewPopulation.Name = DialogContent.TextPopulationName.Text;
-                NewPopulation.Save();
-
-                ActivePopulation = NewPopulation;
-
-                PanelPopulationLanding.Visibility = Visibility.Hidden;
-                PanelPopulationMain.Visibility = Visibility.Visible;
-
-                this.HideMetroDialogAsync(Dialog);
-            };
-
-            Dialog.Content = DialogContent;
-
-            this.ShowMetroDialogAsync(Dialog);
-            Dispatcher.InvokeAsync(() => DialogContent.TextPopulationName.TriggerEdit(), DispatcherPriority.ApplicationIdle);
-        }
-
-        private void ButtonPopulationLoad_OnClick(object sender, RoutedEventArgs e)
-        {
-            System.Windows.Forms.OpenFileDialog Dialog = new System.Windows.Forms.OpenFileDialog
-            {
-                Filter = "Population Files|*.population",
-                Multiselect = false
-            };
-            System.Windows.Forms.DialogResult Result = Dialog.ShowDialog();
-
-            if (Result.ToString() == "OK")
-            {
-                Population LoadedPopulation = new Population(Dialog.FileName);
-                ActivePopulation = LoadedPopulation;
-
-                PanelPopulationLanding.Visibility = Visibility.Hidden;
-                PanelPopulationMain.Visibility = Visibility.Visible;
-            }
-        }
-
-        private void ButtonPopulationEditSources_OnClick(object sender, RoutedEventArgs e)
-        {
-            if (ActivePopulation == null)
-                return;
-
-            CustomDialog Dialog = new CustomDialog();
-            Dialog.HorizontalContentAlignment = HorizontalAlignment.Center;
-
-            DialogDataSources DialogContent = new DialogDataSources(ActivePopulation);
-            DialogContent.MaxHeight = this.ActualHeight - 200;
-            DialogContent.Close += () => this.HideMetroDialogAsync(Dialog);
-            
-            Dialog.Content = DialogContent;
-            this.ShowMetroDialogAsync(Dialog);
-        }
-
-        private async void ButtonPopulationAddSpecies_OnClick(object sender, RoutedEventArgs e)
-        {
-            if (ActivePopulation == null)
-                return;
-
-            CustomDialog AddDialog = new CustomDialog();
-            AddDialog.HorizontalContentAlignment = HorizontalAlignment.Center;
-
-            DialogAddSpecies AddDialogContent = new DialogAddSpecies();
-            AddDialogContent.Close += async () => await this.HideMetroDialogAsync(AddDialog);
-
-            AddDialogContent.Add += async () =>
-            {
-                await this.HideMetroDialogAsync(AddDialog);
-
-                if ((bool)AddDialogContent.RadioLocal.IsChecked)
-                {
-                    
-                }
-                else if ((bool)AddDialogContent.RadioRemote.IsChecked)
-                {
-                    await this.ShowMessageAsync("Oopsie", "This feature is not implemented yet.");
-                }
-                else if ((bool)AddDialogContent.RadioScratch.IsChecked)
-                {
-                    CustomDialog NewDialog = new CustomDialog();
-                    NewDialog.HorizontalContentAlignment = HorizontalAlignment.Center;
-
-                    DialogCreateNewSpecies NewDialogContent = new DialogCreateNewSpecies(ActivePopulation);
-                    NewDialogContent.Close += async () => await this.HideMetroDialogAsync(NewDialog);
-
-                    NewDialogContent.Finish += async () =>
-                    {
-                        await this.HideMetroDialogAsync(NewDialog);
-
-                        var NewSpeciesProgress = await this.ShowProgressAsync("Creating new species...",
-                                                                              "Please wait while various metrics are calculated for the new map. This will take at least a few minutes.");
-                        NewSpeciesProgress.SetIndeterminate();
-
-                        Species NewSpecies = new Species(NewDialogContent.Halfmap1Final, NewDialogContent.Halfmap2Final, NewDialogContent.MaskFinal)
-                        {
-                            Name = NewDialogContent.SpeciesName,
-                            PixelSize = NewDialogContent.HalfmapPixelSize,
-
-                            Symmetry = NewDialogContent.SpeciesSymmetry,
-                            DiameterAngstrom = NewDialogContent.SpeciesDiameter,
-                            MolecularWeightkDa = NewDialogContent.SpeciesWeight,
-
-                            TemporalResolutionMovement = NewDialogContent.TemporalResMov,
-                            TemporalResolutionRotation = NewDialogContent.TemporalResRot,
-
-                            Particles = NewDialogContent.ParticlesFinal
-                        };
-
-                        await Task.Run(() =>
-                        {
-                            NewSpecies.CalculateResolutionAndFilter();
-                            NewSpecies.CalculateParticleStats();
-
-                            NewSpecies.Path = ActivePopulation.SpeciesDir + NewSpecies.GUID + "\\" + NewSpecies.NameSafe + ".species";
-                            Directory.CreateDirectory(NewSpecies.FolderPath);
-
-                            NewSpecies.Commit();
-                            NewSpecies.Save();
-                        });
-
-                        ActivePopulation.Species.Add(NewSpecies);
-
-                        await NewSpeciesProgress.CloseAsync();
-                    };
-
-                    NewDialog.Content = NewDialogContent;
-                    await this.ShowMetroDialogAsync(NewDialog);
-                }
-            };
-
-            AddDialog.Content = AddDialogContent;
-            await this.ShowMetroDialogAsync(AddDialog);
-        }
-
-        #endregion
 
         #endregion
 

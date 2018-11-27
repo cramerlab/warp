@@ -257,6 +257,15 @@ namespace Warp.Tools
             return Zipped;
         }
 
+        public static float5[] Zip(float[] in1, float[] in2, float[] in3, float[] in4, float[] in5)
+        {
+            float5[] Zipped = new float5[in1.Length];
+            for (int i = 0; i < Zipped.Length; i++)
+                Zipped[i] = new float5(in1[i], in2[i], in3[i], in4[i], in5[i]);
+
+            return Zipped;
+        }
+
         public static void Reorder<T>(IList<T> list, int[] indices)
         {
             List<T> OldOrder = new List<T>(list.Count);

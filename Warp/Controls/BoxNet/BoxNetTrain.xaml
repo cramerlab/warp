@@ -22,13 +22,13 @@
                 <TextBlock Name="ButtonSuffixPositiveText" TextTrimming="CharacterEllipsis" FontSize="18">Select per-micrograph STAR files...</TextBlock>
             </Button>
 
-            <TextBlock Text="Extra important locations" FontSize="18" Height="30" Margin="0,10,0,0" />
-            <Button Name="ButtonSuffixFalsePositive" Height="30" Style="{StaticResource HyperlinkLikeButton}" Click="ButtonSuffixFalsePositive_OnClick">
+            <TextBlock Text="Extra important locations" FontSize="18" Height="30" Margin="0,10,0,0" Visibility="Collapsed" />
+            <Button Name="ButtonSuffixFalsePositive" Height="30" Style="{StaticResource HyperlinkLikeButton}" Click="ButtonSuffixFalsePositive_OnClick" Visibility="Collapsed">
                 <TextBlock Name="ButtonSuffixFalsePositiveText" TextTrimming="CharacterEllipsis" FontSize="18">Select per-micrograph STAR files...</TextBlock>
             </Button>
 
-            <TextBlock Text="Uncertain locations" FontSize="18" Height="30" Margin="0,10,0,0" />
-            <Button Name="ButtonSuffixUncertain" Height="30" Style="{StaticResource HyperlinkLikeButton}" Click="ButtonSuffixUncertain_OnClick">
+            <TextBlock Text="Uncertain locations" FontSize="18" Height="30" Margin="0,10,0,0" Visibility="Collapsed" />
+            <Button Name="ButtonSuffixUncertain" Height="30" Style="{StaticResource HyperlinkLikeButton}" Click="ButtonSuffixUncertain_OnClick" Visibility="Collapsed">
                 <TextBlock Name="ButtonSuffixUncertainText" TextTrimming="CharacterEllipsis" FontSize="18">Select per-micrograph STAR files...</TextBlock>
             </Button>
 

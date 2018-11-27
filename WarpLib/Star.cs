@@ -13,8 +13,8 @@ namespace Warp
 {
     public class Star
     {
-        Dictionary<string, int> NameMapping = new Dictionary<string, int>();
-        List<List<string>> Rows = new List<List<string>>();
+        protected Dictionary<string, int> NameMapping = new Dictionary<string, int>();
+        protected List<List<string>> Rows = new List<List<string>>();
 
         public int RowCount => Rows.Count;
         public int ColumnCount => NameMapping.Count;
@@ -124,6 +124,15 @@ namespace Warp
             AddColumn(nameColumn4, values.Select(v => v.W.ToString(CultureInfo.InvariantCulture)).ToArray());
         }
 
+        public Star(float5[] values, string nameColumn1, string nameColumn2, string nameColumn3, string nameColumn4, string nameColumn5)
+        {
+            AddColumn(nameColumn1, values.Select(v => v.X.ToString(CultureInfo.InvariantCulture)).ToArray());
+            AddColumn(nameColumn2, values.Select(v => v.Y.ToString(CultureInfo.InvariantCulture)).ToArray());
+            AddColumn(nameColumn3, values.Select(v => v.Z.ToString(CultureInfo.InvariantCulture)).ToArray());
+            AddColumn(nameColumn4, values.Select(v => v.W.ToString(CultureInfo.InvariantCulture)).ToArray());
+            AddColumn(nameColumn5, values.Select(v => v.V.ToString(CultureInfo.InvariantCulture)).ToArray());
+        }
+
         public Star(string[][] columnValues, params string[] columnNames)
         {
             if (columnValues.Length != columnNames.Length)
@@ -167,20 +176,20 @@ namespace Warp
             }
         }
 
-        public void Save(string path, string name = "", bool append = false)
+        public virtual void Save(string path, string name = "", bool append = false)
         {
             using (TextWriter Writer = append ? File.AppendText(path) : File.CreateText(path))
             {
                 if (append)
-                    Writer.WriteLine("\n\n");
+                    Writer.Write("\n\n\n");
 
-                Writer.WriteLine("");
-                Writer.WriteLine("data_" + name);
-                Writer.WriteLine("");
-                Writer.WriteLine("loop_");
+                Writer.Write("\n");
+                Writer.Write("data_" + name + "\n");
+                Writer.Write("\n");
+                Writer.Write("loop_\n");
 
                 foreach (var pair in NameMapping)
-                    Writer.WriteLine($"_{pair.Key} #{pair.Value + 1}");
+                    Writer.Write($"_{pair.Key} #{pair.Value + 1}\n");
 
                 int[] ColumnWidths = new int[ColumnCount];
                 foreach (var row in Rows)
@@ -192,19 +201,21 @@ namespace Warp
                 Parallel.For(0, Rows.Count, r =>
                 {
                     List<string> row = Rows[r];
-                    StringBuilder RowBuilder = new StringBuilder(RowLength);
+                    StringBuilder RowBuilder = new StringBuilder(RowLength + 1);
                     for (int i = 0; i < row.Count; i++)
                     {
                         RowBuilder.Append(' ', 2 + ColumnWidths[i] - row[i].Length);
                         RowBuilder.Append(row[i]);
                     }
 
+                    RowBuilder.Append('\n');
+
                     ComposedRows[r] = RowBuilder.ToString();
                 });
 
                 foreach (var row in ComposedRows)
                 {
-                    Writer.WriteLine(row);
+                    Writer.Write(row);
                 }
             }
         }
@@ -557,6 +568,18 @@ namespace Warp
             return Helper.Zip(Column1, Column2, Column3, Column4);
         }
 
+        public static float5[] LoadFloat5(string path)
+        {
+            Star TableIn = new Star(path);
+            float[] Column1 = TableIn.GetColumn(0).Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray();
+            float[] Column2 = TableIn.GetColumn(1).Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray();
+            float[] Column3 = TableIn.GetColumn(2).Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray();
+            float[] Column4 = TableIn.GetColumn(3).Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray();
+            float[] Column5 = TableIn.GetColumn(4).Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray();
+
+            return Helper.Zip(Column1, Column2, Column3, Column4, Column5);
+        }
+
         public static float[][] LoadFloatN(string path, int n = -1)
         {
             Star TableIn = new Star(path);
@@ -568,6 +591,48 @@ namespace Warp
                 Result[r] = TableIn.GetRow(r).Take(n).Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray();
 
             return Result;
+        }
+    }
+
+    public class StarParameters : Star
+    {
+        public StarParameters(string[] parameterNames, string[] parameterValues) : 
+            base(parameterValues.Select(v => new string[] { v}).ToArray(), parameterNames)
+        {
+            
+        }
+
+        public override void Save(string path, string name = "", bool append = false)
+        {
+            using (TextWriter Writer = append ? File.AppendText(path) : File.CreateText(path))
+            {
+                if (append)
+                    Writer.Write("\n\n\n");
+
+                Writer.Write("\n");
+                Writer.Write("data_" + name + "\n");
+                Writer.Write("\n");
+
+                int[] ColumnWidths = new int[2];
+
+                foreach (var pair in NameMapping)
+                    ColumnWidths[0] = Math.Max(ColumnWidths[0], pair.Key.Length + 1);
+                foreach (var value in Rows[0])
+                    ColumnWidths[1] = Math.Max(ColumnWidths[1], value.Length);
+
+                foreach (var pair in NameMapping)
+                {
+                    StringBuilder NameBuilder = new StringBuilder();
+                    NameBuilder.Append("_" + pair.Key);
+                    NameBuilder.Append(' ', ColumnWidths[0] - pair.Key.Length);
+
+                    StringBuilder ValueBuilder = new StringBuilder();
+                    ValueBuilder.Append(' ', ColumnWidths[1] - Rows[0][pair.Value].Length);
+                    ValueBuilder.Append(Rows[0][pair.Value]);
+
+                    Writer.Write(NameBuilder + "  " + ValueBuilder + "\n");
+                }
+            }
         }
     }
 }

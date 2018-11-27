@@ -408,7 +408,7 @@ __declspec(dllexport) TF_Session* __stdcall TF_LoadSessionFromSavedModelOnDevice
         }
     }
 
-    graph->sessions[session] = Status::OK();
+    //graph->sessions[session] = Status::OK();
     session->last_num_graph_nodes = graph->graph.num_node_ids();
     return session;
 }

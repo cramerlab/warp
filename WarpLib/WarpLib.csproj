@@ -97,6 +97,7 @@
     <Compile Include="TensorFlowSharp\Variable.cs" />
     <Compile Include="TiltSeries.cs" />
     <Compile Include="Tools\BenchmarkTimer.cs" />
+    <Compile Include="Tools\Quaternion.cs" />
     <Compile Include="Tools\Symmetry.cs" />
     <Compile Include="Tools\TFHelper.cs" />
     <Compile Include="WarpBase.cs" />

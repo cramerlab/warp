@@ -128,6 +128,10 @@ namespace Warp.Controls
             int BoxSize = (int)Options.Tasks.Export2DBoxSize;
             int NormDiameter = (int)Options.Tasks.Export2DParticleDiameter;
 
+            bool DoVolumes = (bool)RadioVolume.IsChecked;
+            if (!DoVolumes)
+                Options.Tasks.TomoSubReconstructPrerotated = true;
+
             ProgressWrite.Visibility = Visibility.Visible;
             ProgressWrite.IsIndeterminate = true;
             PanelButtons.Visibility = Visibility.Collapsed;
@@ -242,6 +246,8 @@ namespace Warp.Controls
 
                 if (!TableIn.HasColumn("rlnCtfImage"))
                     TableIn.AddColumn("rlnCtfImage", "None");
+
+                List<Star> SeriesTablesOut = new List<Star>();
 
                 #endregion
 
@@ -376,7 +382,21 @@ namespace Warp.Controls
                         float3[] TomoPositions = Helper.Combine(GroupRows.Select(r => Helper.ArrayOfConstant(new float3(PosX[r], PosY[r], PosZ[r]), series.NTilts)).ToArray());
                         float3[] TomoAngles = Helper.Combine(GroupRows.Select(r => Helper.ArrayOfConstant(new float3(AngleRot[r], AngleTilt[r], AnglePsi[r]), series.NTilts)).ToArray());
 
-                        series.ReconstructSubtomos(ExportOptions, TomoPositions, TomoAngles);
+                        if (DoVolumes)
+                        {
+                            series.ReconstructSubtomos(ExportOptions, TomoPositions, TomoAngles);
+
+                            lock (MicrographTables)
+                                MicrographTables.Add(series.RootName, MicrographTable);
+                        }
+                        else
+                        {
+                            Star SeriesTable;
+                            series.ReconstructParticleSeries(ExportOptions, TomoPositions, TomoAngles, out SeriesTable);
+
+                            lock (MicrographTables)
+                                MicrographTables.Add(series.RootName, SeriesTable);
+                        }
 
                         #endregion
 
@@ -384,8 +404,6 @@ namespace Warp.Controls
 
                         lock (MicrographTables)
                         {
-                            MicrographTables.Add(series.RootName, MicrographTable);
-
                             Timings.Add(ItemTime.ElapsedMilliseconds / (float)UsedDevices);
 
                             int MsRemaining = (int)(MathHelper.Mean(Timings) * (ValidSeries.Count - MicrographTables.Count));

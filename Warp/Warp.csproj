@@ -73,7 +73,6 @@
     </Reference>
     <Reference Include="BitMiracle.LibTiff.NET, Version=2.4.560.0, Culture=neutral, PublicKeyToken=53879b3e20e7a7d6, processorArchitecture=MSIL">
       <HintPath>..\packages\BitMiracle.LibTiff.NET.2.4.560\lib\net20\BitMiracle.LibTiff.NET.dll</HintPath>
-      <Private>True</Private>
     </Reference>
     <Reference Include="LiveCharts, Version=0.9.7.0, Culture=neutral, PublicKeyToken=0bc1f845d1ebb8df, processorArchitecture=MSIL">
       <HintPath>..\packages\LiveCharts.0.9.7\lib\net45\LiveCharts.dll</HintPath>
@@ -87,16 +86,93 @@
       <HintPath>..\packages\MahApps.Metro.1.5.0\lib\net45\MahApps.Metro.dll</HintPath>
       <Private>True</Private>
     </Reference>
+    <Reference Include="Microsoft.Win32.Primitives, Version=4.0.2.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.Win32.Primitives.4.3.0\lib\net46\Microsoft.Win32.Primitives.dll</HintPath>
+    </Reference>
     <Reference Include="PresentationFramework.Aero2" />
     <Reference Include="System" />
+    <Reference Include="System.AppContext, Version=4.1.1.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.AppContext.4.3.0\lib\net463\System.AppContext.dll</HintPath>
+    </Reference>
+    <Reference Include="System.ComponentModel.Composition" />
+    <Reference Include="System.Console, Version=4.0.1.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Console.4.3.0\lib\net46\System.Console.dll</HintPath>
+    </Reference>
     <Reference Include="System.Data" />
+    <Reference Include="System.Diagnostics.DiagnosticSource, Version=4.0.1.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Diagnostics.DiagnosticSource.4.3.0\lib\net46\System.Diagnostics.DiagnosticSource.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Diagnostics.Tracing, Version=4.1.1.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Diagnostics.Tracing.4.3.0\lib\net462\System.Diagnostics.Tracing.dll</HintPath>
+    </Reference>
     <Reference Include="System.Drawing" />
+    <Reference Include="System.Globalization.Calendars, Version=4.0.2.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Globalization.Calendars.4.3.0\lib\net46\System.Globalization.Calendars.dll</HintPath>
+    </Reference>
+    <Reference Include="System.IO, Version=4.1.1.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.IO.4.3.0\lib\net462\System.IO.dll</HintPath>
+    </Reference>
+    <Reference Include="System.IO.Compression, Version=4.1.2.0, Culture=neutral, PublicKeyToken=b77a5c561934e089, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.IO.Compression.4.3.0\lib\net46\System.IO.Compression.dll</HintPath>
+    </Reference>
+    <Reference Include="System.IO.Compression.FileSystem" />
+    <Reference Include="System.IO.Compression.ZipFile, Version=4.0.2.0, Culture=neutral, PublicKeyToken=b77a5c561934e089, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.IO.Compression.ZipFile.4.3.0\lib\net46\System.IO.Compression.ZipFile.dll</HintPath>
+    </Reference>
+    <Reference Include="System.IO.FileSystem, Version=4.0.2.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.IO.FileSystem.4.3.0\lib\net46\System.IO.FileSystem.dll</HintPath>
+    </Reference>
+    <Reference Include="System.IO.FileSystem.Primitives, Version=4.0.2.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.IO.FileSystem.Primitives.4.3.0\lib\net46\System.IO.FileSystem.Primitives.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Linq, Version=4.1.1.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Linq.4.3.0\lib\net463\System.Linq.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Linq.Expressions, Version=4.1.1.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Linq.Expressions.4.3.0\lib\net463\System.Linq.Expressions.dll</HintPath>
+    </Reference>
     <Reference Include="System.Management" />
+    <Reference Include="System.Net.Http, Version=4.1.1.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Net.Http.4.3.0\lib\net46\System.Net.Http.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Net.Sockets, Version=4.1.1.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Net.Sockets.4.3.0\lib\net46\System.Net.Sockets.dll</HintPath>
+    </Reference>
     <Reference Include="System.Numerics" />
+    <Reference Include="System.Reflection, Version=4.1.1.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Reflection.4.3.0\lib\net462\System.Reflection.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Runtime, Version=4.1.1.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Runtime.4.3.0\lib\net462\System.Runtime.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Runtime.Extensions, Version=4.1.1.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Runtime.Extensions.4.3.0\lib\net462\System.Runtime.Extensions.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Runtime.InteropServices, Version=4.1.1.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Runtime.InteropServices.4.3.0\lib\net463\System.Runtime.InteropServices.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Runtime.InteropServices.RuntimeInformation, Version=4.0.1.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Runtime.InteropServices.RuntimeInformation.4.3.0\lib\net45\System.Runtime.InteropServices.RuntimeInformation.dll</HintPath>
+    </Reference>
     <Reference Include="System.Runtime.Serialization" />
+    <Reference Include="System.Security.Cryptography.Algorithms, Version=4.2.1.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Security.Cryptography.Algorithms.4.3.0\lib\net463\System.Security.Cryptography.Algorithms.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Security.Cryptography.Encoding, Version=4.0.1.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Security.Cryptography.Encoding.4.3.0\lib\net46\System.Security.Cryptography.Encoding.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Security.Cryptography.Primitives, Version=4.0.1.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Security.Cryptography.Primitives.4.3.0\lib\net46\System.Security.Cryptography.Primitives.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Security.Cryptography.X509Certificates, Version=4.1.1.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Security.Cryptography.X509Certificates.4.3.0\lib\net461\System.Security.Cryptography.X509Certificates.dll</HintPath>
+    </Reference>
     <Reference Include="System.ServiceModel" />
-    <Reference Include="System.ValueTuple, Version=4.0.1.1, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
-      <HintPath>..\packages\System.ValueTuple.4.3.1\lib\netstandard1.0\System.ValueTuple.dll</HintPath>
+    <Reference Include="System.Text.RegularExpressions, Version=4.1.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Text.RegularExpressions.4.3.0\lib\net463\System.Text.RegularExpressions.dll</HintPath>
+    </Reference>
+    <Reference Include="System.ValueTuple, Version=4.0.3.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.ValueTuple.4.5.0\lib\net47\System.ValueTuple.dll</HintPath>
     </Reference>
     <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Windows.Interactivity, Version=4.5.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
@@ -110,6 +186,9 @@
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="System.Xaml">
       <RequiredTargetFramework>4.0</RequiredTargetFramework>
+    </Reference>
+    <Reference Include="System.Xml.ReaderWriter, Version=4.1.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Xml.ReaderWriter.4.3.0\lib\net46\System.Xml.ReaderWriter.dll</HintPath>
     </Reference>
     <Reference Include="WindowsBase" />
     <Reference Include="PresentationCore" />
@@ -148,7 +227,7 @@
       <DesignTime>True</DesignTime>
       <DependentUpon>Reference.svcmap</DependentUpon>
     </Compile>
-    <Compile Include="Controls\FirstRunPrompt.xaml.cs">
+    <Compile Include="Controls\MainUI\FirstRunPrompt.xaml.cs">
       <DependentUpon>FirstRunPrompt.xaml</DependentUpon>
     </Compile>
     <Compile Include="Controls\BoxNet\BoxNetExport.xaml.cs">
@@ -160,35 +239,20 @@
     <Compile Include="Controls\BoxNet\BoxNetTrain.xaml.cs">
       <DependentUpon>BoxNetTrain.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Controls\CTFDisplay.xaml.cs">
+    <Compile Include="Controls\MainUI\CTFDisplay.xaml.cs">
       <DependentUpon>CTFDisplay.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Controls\DualAxisScatter.xaml.cs">
+    <Compile Include="Controls\MainUI\DualAxisScatter.xaml.cs">
       <DependentUpon>DualAxisScatter.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Controls\MainUI\StatusBarRow.xaml.cs">
+      <DependentUpon>StatusBarRow.xaml</DependentUpon>
     </Compile>
     <Compile Include="Controls\ProgressIndicators\FlatGridMiniature.xaml.cs">
       <DependentUpon>FlatGridMiniature.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Controls\SingleAxisScatter.xaml.cs">
+    <Compile Include="Controls\MainUI\SingleAxisScatter.xaml.cs">
       <DependentUpon>SingleAxisScatter.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="Controls\Sociology\Dialogs\DialogAddSpecies.xaml.cs">
-      <DependentUpon>DialogAddSpecies.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="Controls\Sociology\Dialogs\DialogCreatePopulation.xaml.cs">
-      <DependentUpon>DialogCreatePopulation.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="Controls\Sociology\Dialogs\DialogCreateSourceFromSettings.xaml.cs">
-      <DependentUpon>DialogCreateSourceFromSettings.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="Controls\Sociology\Dialogs\DialogCreateNewSpecies.xaml.cs">
-      <DependentUpon>DialogCreateNewSpecies.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="Controls\Sociology\Dialogs\DialogDataSources.xaml.cs">
-      <DependentUpon>DialogDataSources.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="Controls\Sociology\SpeciesView.xaml.cs">
-      <DependentUpon>SpeciesView.xaml</DependentUpon>
     </Compile>
     <Compile Include="Controls\TaskDialogs\2D\Dialog2DMatch.xaml.cs">
       <DependentUpon>Dialog2DMatch.xaml</DependentUpon>
@@ -205,6 +269,9 @@
     <Compile Include="Controls\TaskDialogs\2D\Dialog2DParticleImport.xaml.cs">
       <DependentUpon>Dialog2DParticleImport.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Controls\TaskDialogs\Tomo\DialogTomoImportImod.xaml.cs">
+      <DependentUpon>DialogTomoImportImod.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Controls\TaskDialogs\Tomo\DialogTomoParticleExport.xaml.cs">
       <DependentUpon>DialogTomoParticleExport.xaml</DependentUpon>
     </Compile>
@@ -217,16 +284,16 @@
     <Compile Include="Controls\TaskDialogs\Tomo\DialogTomoReconstruction.xaml.cs">
       <DependentUpon>DialogTomoReconstruction.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Controls\GridMiniature.xaml.cs">
+    <Compile Include="Controls\MainUI\GridMiniature.xaml.cs">
       <DependentUpon>GridMiniature.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Controls\LogMessageDisplay.xaml.cs">
+    <Compile Include="Controls\MainUI\LogMessageDisplay.xaml.cs">
       <DependentUpon>LogMessageDisplay.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Controls\LogMessageGroup.xaml.cs">
+    <Compile Include="Controls\MainUI\LogMessageGroup.xaml.cs">
       <DependentUpon>LogMessageGroup.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Controls\MicrographDisplay.xaml.cs">
+    <Compile Include="Controls\MainUI\MicrographDisplay.xaml.cs">
       <DependentUpon>MicrographDisplay.xaml</DependentUpon>
     </Compile>
     <Compile Include="Controls\ProgressIndicators\NyanBar.xaml.cs">
@@ -238,16 +305,16 @@
     <Compile Include="Controls\ProgressIndicators\ReconstructionMiniature.xaml.cs">
       <DependentUpon>ReconstructionMiniature.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Controls\StatusBar.xaml.cs">
+    <Compile Include="Controls\MainUI\StatusBar.xaml.cs">
       <DependentUpon>StatusBar.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Controls\TiltDialItem.xaml.cs">
+    <Compile Include="Controls\MainUI\TiltDialItem.xaml.cs">
       <DependentUpon>TiltDialItem.xaml</DependentUpon>
     </Compile>
     <Compile Include="FileDiscoverer.cs" />
     <Compile Include="IOQueue.cs" />
     <Compile Include="Options.cs" />
-    <Page Include="Controls\FirstRunPrompt.xaml">
+    <Page Include="Controls\MainUI\FirstRunPrompt.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -263,11 +330,15 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="Controls\CTFDisplay.xaml">
+    <Page Include="Controls\MainUI\CTFDisplay.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="Controls\DualAxisScatter.xaml">
+    <Page Include="Controls\MainUI\DualAxisScatter.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Controls\MainUI\StatusBarRow.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -275,31 +346,7 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="Controls\SingleAxisScatter.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-    <Page Include="Controls\Sociology\Dialogs\DialogAddSpecies.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-    <Page Include="Controls\Sociology\Dialogs\DialogCreatePopulation.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-    <Page Include="Controls\Sociology\Dialogs\DialogCreateSourceFromSettings.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-    <Page Include="Controls\Sociology\Dialogs\DialogCreateNewSpecies.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-    <Page Include="Controls\Sociology\Dialogs\DialogDataSources.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-    <Page Include="Controls\Sociology\SpeciesView.xaml">
+    <Page Include="Controls\MainUI\SingleAxisScatter.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -323,6 +370,10 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
+    <Page Include="Controls\TaskDialogs\Tomo\DialogTomoImportImod.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="Controls\TaskDialogs\Tomo\DialogTomoParticleExport.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
@@ -339,19 +390,19 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="Controls\GridMiniature.xaml">
+    <Page Include="Controls\MainUI\GridMiniature.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="Controls\LogMessageDisplay.xaml">
+    <Page Include="Controls\MainUI\LogMessageDisplay.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="Controls\LogMessageGroup.xaml">
+    <Page Include="Controls\MainUI\LogMessageGroup.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="Controls\MicrographDisplay.xaml">
+    <Page Include="Controls\MainUI\MicrographDisplay.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -367,11 +418,11 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="Controls\StatusBar.xaml">
+    <Page Include="Controls\MainUI\StatusBar.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="Controls\TiltDialItem.xaml">
+    <Page Include="Controls\MainUI\TiltDialItem.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

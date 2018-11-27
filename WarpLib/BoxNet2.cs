@@ -45,7 +45,7 @@ namespace Warp
 
         private bool IsDisposed = false;
 
-        public BoxNet2(string modelDir, int deviceID = 0, int nThreads = 1, bool forTraining = false)
+        public BoxNet2(string modelDir, int deviceID = 0, int nThreads = 1, int batchSize = 1, bool forTraining = false)
         {
             lock (TFHelper.DeviceSync[deviceID])
             {
@@ -53,6 +53,7 @@ namespace Warp
                 ForTraining = forTraining;
                 ModelDir = modelDir;
                 MaxThreads = nThreads;
+                BatchSize = batchSize;
 
                 TFSessionOptions SessionOptions = TFHelper.CreateOptions();
                 TFSession Dummy = new TFSession(new TFGraph(), SessionOptions);
@@ -279,12 +280,16 @@ namespace Warp
             //}
 
             Directory.CreateDirectory(newModelDir);
-            if (Directory.Exists(newModelDir + "variables"))
-                Directory.Delete(newModelDir + "variables", true);
-            Directory.CreateDirectory(newModelDir + "variables");
 
-            foreach (var fileName in Directory.EnumerateFiles(ModelDir))
-                File.Copy(fileName, newModelDir + Helper.PathToNameWithExtension(fileName), true);
+            if (new DirectoryInfo(newModelDir).FullName != new DirectoryInfo(ModelDir).FullName)
+            {
+                if (Directory.Exists(newModelDir + "variables"))
+                    Directory.Delete(newModelDir + "variables", true);
+                Directory.CreateDirectory(newModelDir + "variables");
+
+                foreach (var fileName in Directory.EnumerateFiles(ModelDir))
+                    File.Copy(fileName, newModelDir + Helper.PathToNameWithExtension(fileName), true);
+            }
 
             TFTensor TensorPath = TFTensor.CreateString(Encoding.ASCII.GetBytes(newModelDir + "variables/variables"));
             var Runner = Session.GetRunner().AddInput(NodeSaverPath, TensorPath);

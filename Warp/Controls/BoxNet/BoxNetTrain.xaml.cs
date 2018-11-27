@@ -627,7 +627,7 @@ namespace Warp.Controls
                         for (int n = 0; n < N; n++)
                         {
                             float[] Mic = ExampleImage.GetHost(Intent.Read)[n * 3 + 0];
-                            MathHelper.FitAndSubtractPlane(Mic, new int2(ExampleImage.Dims));
+                            MathHelper.FitAndSubtractGrid(Mic, new int2(ExampleImage.Dims), new int2(4));
 
                             AllMicrographs[icorpus].Add(Mic);
                             AllLabels[icorpus].Add(ExampleImage.GetHost(Intent.Read)[n * 3 + 1]);
@@ -677,9 +677,24 @@ namespace Warp.Controls
 
                 int NThreads = 2;
 
-                Options.MainWindow.MicrographDisplayControl.DropBoxNetworks();
-                BoxNet2 NetworkTrain = new BoxNet2(Options.MainWindow.LocatePickingModel(ModelName), GPU.GetDeviceCount() - 1, NThreads, true);
-                BoxNet2 NetworkOld = new BoxNet2(Options.MainWindow.LocatePickingModel(ModelName), (GPU.GetDeviceCount() * 2 - 2) % GPU.GetDeviceCount(), NThreads, false);
+                Dispatcher.Invoke(() =>
+                {
+                    Options.MainWindow.MicrographDisplayControl.DropBoxNetworks();
+                    Options.MainWindow.MicrographDisplayControl.DropNoiseNetworks();
+                });
+
+
+                BoxNet2 NetworkTrain = null;
+                try
+                {
+                    NetworkTrain = new BoxNet2(Options.MainWindow.LocatePickingModel(ModelName), GPU.GetDeviceCount() - 1, NThreads, 8, true);
+                }
+                catch   // It might be an old version of BoxNet that doesn't support batch size != 1
+                {
+                    NetworkTrain = new BoxNet2(Options.MainWindow.LocatePickingModel(ModelName), GPU.GetDeviceCount() - 1, NThreads, 1, true);
+                }
+
+                //BoxNet2 NetworkOld = new BoxNet2(Options.MainWindow.LocatePickingModel(ModelName), (GPU.GetDeviceCount() * 2 - 2) % GPU.GetDeviceCount(), NThreads, 1, false);
 
                 #endregion
 
@@ -738,7 +753,7 @@ namespace Warp.Controls
                 //float[][] h_AugmentedWeights = Helper.ArrayOfFunction(i => new float[DimsAugmented.Elements()], NetworkTrain.MaxThreads);
                 //float[][] LabelsOneHot = Helper.ArrayOfFunction(i => new float[DimsAugmented.Elements() * 3], NetworkTrain.MaxThreads);
 
-                int NIterations = NNewExamples * 200 * AllMicrographs.Length;
+                int NIterations = NNewExamples * 100 * AllMicrographs.Length;
 
                 int NDone = 0;
                 Helper.ForCPU(0, NIterations, NetworkTrain.MaxThreads,
@@ -753,17 +768,18 @@ namespace Warp.Controls
 
                                   float2[] PositionsGround;
 
+                                  for (int ib = 0; ib < BatchSize; ib++)
                                   {
                                       int ExampleID = RG[threadID].Next(AllMicrographs[icorpus].Count);
                                       int2 Dims = AllDims[icorpus][ExampleID];
 
                                       float2[] Translations = Helper.ArrayOfFunction(x => new float2(RG[threadID].Next(Dims.X - Border * 2) + Border - DimsAugmented.X / 2,
-                                                                                                     RG[threadID].Next(Dims.Y - Border * 2) + Border - DimsAugmented.Y / 2), BatchSize);
+                                                                                                     RG[threadID].Next(Dims.Y - Border * 2) + Border - DimsAugmented.Y / 2), 1);
 
-                                      float[] Rotations = Helper.ArrayOfFunction(i => (float)(RG[threadID].NextDouble() * Math.PI * 2), BatchSize);
+                                      float[] Rotations = Helper.ArrayOfFunction(i => (float)(RG[threadID].NextDouble() * Math.PI * 2), 1);
                                       float3[] Scales = Helper.ArrayOfFunction(i => new float3(0.8f + (float)RG[threadID].NextDouble() * 0.4f,
                                                                                                0.8f + (float)RG[threadID].NextDouble() * 0.4f,
-                                                                                               (float)(RG[threadID].NextDouble() * Math.PI * 2)), BatchSize);
+                                                                                               (float)(RG[threadID].NextDouble() * Math.PI * 2)), 1);
                                       float StdDev = (float)Math.Abs(RGN[threadID].NextSingle(0, 0.3f));
 
                                       float[] DataMicrograph = AllMicrographs[icorpus][ExampleID];
@@ -780,9 +796,9 @@ namespace Warp.Controls
                                                          d_OriLabels[threadID],
                                                          d_OriUncertains[threadID],
                                                          Dims,
-                                                         d_AugmentedData[threadID],
-                                                         d_AugmentedLabels[threadID],
-                                                         d_AugmentedWeights[threadID],
+                                                         new IntPtr((long)d_AugmentedData[threadID] + ib * DimsAugmented.Elements() * sizeof(float)),
+                                                         new IntPtr((long)d_AugmentedLabels[threadID] + ib * DimsAugmented.Elements() * 3 * sizeof(float)),
+                                                         new IntPtr((long)d_AugmentedWeights[threadID] + ib * DimsAugmented.Elements() * sizeof(float)),
                                                          DimsAugmented,
                                                          AllLabelWeights[icorpus][ExampleID],
                                                          Helper.ToInterleaved(Translations),
@@ -790,24 +806,14 @@ namespace Warp.Controls
                                                          Helper.ToInterleaved(Scales),
                                                          StdDev,
                                                          RG[threadID].Next(99999),
-                                                         (uint)BatchSize);
-
-                                      GPU.MultiplySlices(d_AugmentedWeights[threadID],
-                                                         d_MaskUncertain,
-                                                         d_AugmentedWeights[threadID],
-                                                         DimsAugmented.Elements(),
-                                                         (uint)BatchSize);
-
-                                      //GPU.CopyDeviceToHost(d_AugmentedData[threadID], h_AugmentedData[threadID], h_AugmentedData[threadID].Length);
-                                      //GPU.CopyDeviceToHost(d_AugmentedWeights[threadID], h_AugmentedWeights[threadID], h_AugmentedWeights[threadID].Length);
-
-                                      //GPU.CopyDeviceToHost(d_AugmentedLabels[threadID], LabelsOneHot[threadID], LabelsOneHot[threadID].Length);
-
-                                      //for (int i = 0; i < h_AugmentedLabels[threadID].Length; i++)
-                                      //    h_AugmentedLabels[threadID][i] = LabelsOneHot[threadID][i * 3 + 2] == 1 ? 2f : (LabelsOneHot[threadID][i * 3 + 1] == 1 ? 1f : 0f);
-
-                                      //PositionsGround = GetCentroids(h_AugmentedLabels[threadID].Select(v => (long)v).ToArray(), DimsAugmented, Border);
+                                                         (uint)1);
                                   }
+
+                                  GPU.MultiplySlices(d_AugmentedWeights[threadID],
+                                                     d_MaskUncertain,
+                                                     d_AugmentedWeights[threadID],
+                                                     DimsAugmented.Elements(),
+                                                     (uint)BatchSize);
 
                                   float LearningRate = 0.00002f;
 
@@ -961,7 +967,9 @@ namespace Warp.Controls
                 }
 
                 NetworkTrain.Dispose();
-                NetworkOld.Dispose();
+                //NetworkOld.Dispose();
+
+                TFHelper.TF_FreeAllMemory();
             });
 
             if (!IsTrainingCanceled)

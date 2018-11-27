@@ -131,6 +131,9 @@ namespace Warp.Headers
 
         public float[][] ReadData(int layer = -1)
         {
+            string FlipYEnvVar = Environment.GetEnvironmentVariable("WARP_DONT_FLIPY");
+            bool DoFlipY = string.IsNullOrEmpty(FlipYEnvVar);
+
             float[][] Slices = new float[layer < 0 ? Dimensions.Z : 1][];
 
             for (int slice = 0; slice < Slices.Length; slice++)
@@ -145,6 +148,7 @@ namespace Warp.Headers
                     int NumberOfStrips = Image.NumberOfStrips();
 
                     float[] ConvertedData = new float[Dimensions.ElementsSlice()];
+                    float[] ConvertedDataFlipY = DoFlipY ? new float[Dimensions.ElementsSlice()] : null;
 
                     Image.SetDirectory(layer < 0 ? (short)slice : (short)layer);
 
@@ -215,10 +219,27 @@ namespace Warp.Headers
                                 for (int i = 0; i < ConvertedData.Length; i++)
                                     ConvertedDataPtr[i] = (float)StripsDataP[i];
                             }
+
+                            // Annoyingly, flip Y axis to adhere to MRC convention
+                            if (DoFlipY)
+                            {
+                                fixed (float* ConvertedDataFlipYPtr = ConvertedDataFlipY)
+                                {
+                                    int Width = Dimensions.X, Height = Dimensions.Y;
+                                    for (int y = 0; y < Height; y++)
+                                    {
+                                        int YOffset = y * Width;
+                                        int YOffsetFlipped = (Height - 1 - y) * Width;
+
+                                        for (int x = 0; x < Width; x++)
+                                            ConvertedDataFlipYPtr[YOffset + x] = ConvertedDataPtr[YOffsetFlipped + x];
+                                    }
+                                }
+                            }
                         }
                     }
 
-                    Slices[slice] = ConvertedData;
+                    Slices[slice] = DoFlipY ? ConvertedDataFlipY : ConvertedData;
                 }
             }
 
@@ -231,6 +252,9 @@ namespace Warp.Headers
 
             if (stream == null)
                 stream = File.OpenRead(Path);
+
+            string FlipYEnvVar = Environment.GetEnvironmentVariable("WARP_DONT_FLIPY");
+            bool DoFlipY = string.IsNullOrEmpty(FlipYEnvVar);
 
             for (int slice = 0; slice < Slices.Length; slice++)
             {
@@ -246,6 +270,7 @@ namespace Warp.Headers
                     int NumberOfStrips = Image.NumberOfStrips();
 
                     float[] ConvertedData = new float[Dimensions.ElementsSlice()];
+                    float[] ConvertedDataFlipY = DoFlipY ? new float[Dimensions.ElementsSlice()] : null;
 
                     Image.SetDirectory(layer < 0 ? (short)slice : (short)layer);
 
@@ -316,10 +341,27 @@ namespace Warp.Headers
                                 for (int i = 0; i < ConvertedData.Length; i++)
                                     ConvertedDataPtr[i] = (float)StripsDataP[i];
                             }
+
+                            // Annoyingly, flip Y axis to adhere to MRC convention
+                            if (DoFlipY)
+                            {
+                                fixed (float* ConvertedDataFlipYPtr = ConvertedDataFlipY)
+                                {
+                                    int Width = Dimensions.X, Height = Dimensions.Y;
+                                    for (int y = 0; y < Height; y++)
+                                    {
+                                        int YOffset = y * Width;
+                                        int YOffsetFlipped = (Height - 1 - y) * Width;
+
+                                        for (int x = 0; x < Width; x++)
+                                            ConvertedDataFlipYPtr[YOffset + x] = ConvertedDataPtr[YOffsetFlipped + x];
+                                    }
+                                }
+                            }
                         }
                     }
 
-                    Slices[slice] = ConvertedData;
+                    Slices[slice] = DoFlipY ? ConvertedDataFlipY : ConvertedData;
                 }
             }
 
@@ -331,10 +373,10 @@ namespace Warp.Headers
 
         private static int readStrip(Tiff image, int stripNumber, byte[] buffer, int offset, bool encoded)
         {
-            if (encoded)
+            //if (encoded)
                 return image.ReadEncodedStrip(stripNumber, buffer, offset, buffer.Length - offset);
-            else
-                return image.ReadRawStrip(stripNumber, buffer, offset, buffer.Length - offset);
+            //else
+            //    return image.ReadRawStrip(stripNumber, buffer, offset, buffer.Length - offset);
         }
 
         public override Type GetValueType()

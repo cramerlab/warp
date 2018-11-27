@@ -275,8 +275,8 @@ namespace Warp
                 }
             });
 
-            averaged1 = VolumeFT1.AsIFFT(true);
-            averaged2 = VolumeFT2.AsIFFT(true);
+            averaged1 = VolumeFT1.AsIFFT(true, -1, true);
+            averaged2 = VolumeFT2.AsIFFT(true, -1, true);
 
             VolumeFT1.Dispose();
             VolumeFT2.Dispose();
@@ -503,12 +503,12 @@ namespace Warp
         }
 
         public static Image GetAnisotropicFSC(Image volume1,
-                                                    Image volume2,
-                                                    Image mask,
-                                                    float pixelsize,
-                                                    float threshold,
-                                                    int healpixOrder,
-                                                    float scaleToGlobalShell)
+                                              Image volume2,
+                                              Image mask,
+                                              float pixelsize,
+                                              float threshold,
+                                              int healpixOrder,
+                                              float scaleToGlobalShell)
         {
             float MaskFraction = mask.GetHostContinuousCopy().Sum() / mask.ElementsReal;
 
@@ -570,7 +570,7 @@ namespace Warp
                     for (int d = 0; d < Directions.Length; d++)
                     {
                         float AngleDiff = (float)Math.Acos(Math.Min(1, Math.Abs(float3.Dot(Directions[d], Direction)))) * Helper.ToDeg;
-                        float Weight = 1 - Math.Min(1, AngleDiff / AngleSpacing);
+                        float Weight = 1 - Math.Min(1, AngleDiff / (AngleSpacing * 2));
                         WeightedShell += ConeShells[d] * Weight;
                         Weights += Weight;
                     }
@@ -580,6 +580,338 @@ namespace Warp
             }
 
             return new Image(PolarValues, new int3(NRot, NTilt, 1));
+        }
+
+        public static Image FilterToAnisotropicResolution(Image volume,
+                                                          Image polarResolution,
+                                                          float pixelsize)
+        {
+            Image VolumeFT = volume.AsFFT(true);
+            float2[][] VolumeFTData = VolumeFT.GetHostComplexCopy();
+            VolumeFT.Dispose();
+
+            float[] ShellData = polarResolution.GetHostContinuousCopy();
+            ShellData = ShellData.Select(v => pixelsize / v * volume.Dims.X).ToArray();
+
+            Helper.ForEachElementFT(volume.Dims, (x, y, z, xx, yy, zz, r) =>
+            {
+                if (r == 0)
+                    return;
+
+                if (zz < 0)
+                {
+                    xx = -xx;
+                    yy = -yy;
+                    zz = -zz;
+                }
+
+                float fx = xx / r;
+                float fy = yy / r;
+                float fz = zz / r;
+
+                float Tilt = (float)(1 - (Math.Asin(fz) * Helper.ToDeg / 90)) * (polarResolution.Dims.Y - 1);
+                float Rot = (float)(((Math.Atan2(fy, fx) + Math.PI * 2) % (Math.PI * 2)) / (Math.PI * 2)) * (polarResolution.Dims.X - 1);
+
+                int x0 = (int)Rot;
+                int x1 = Math.Min(x0 + 1, polarResolution.Dims.X - 1);
+                int y0 = (int)Tilt;
+                int y1 = Math.Min(y0 + 1, polarResolution.Dims.Y - 1);
+
+                float v00 = ShellData[y0 * polarResolution.Dims.X + x0];
+                float v01 = ShellData[y0 * polarResolution.Dims.X + x1];
+                float v10 = ShellData[y1 * polarResolution.Dims.X + x0];
+                float v11 = ShellData[y1 * polarResolution.Dims.X + x1];
+
+                float v0 = MathHelper.Lerp(v00, v01, Rot - x0);
+                float v1 = MathHelper.Lerp(v10, v11, Rot - x0);
+                float v = MathHelper.Lerp(v0, v1, Tilt - y0);
+
+                float Shell = v;
+                float Filter = Math.Min(1, Math.Max(0, 1 - (r - Shell)));
+
+                VolumeFTData[z][y * (volume.Dims.X / 2 + 1) + x] *= Filter;
+            });
+
+            VolumeFT = new Image(VolumeFTData, volume.Dims, true);
+            Image Filtered = VolumeFT.AsIFFT(true, 0, true);
+            VolumeFT.Dispose();
+
+            return Filtered;
+        }
+
+        public static void LocalFSCFilter(Image halfMap1,
+                                          Image halfMap2,
+                                          Image maskSoft,
+                                          float pixelSize,
+                                          int windowSize,
+                                          float fscThreshold,
+                                          float globalResolution,
+                                          float globalBFactor,
+                                          float smoothingSigma,
+                                          bool doSharpen,
+                                          bool doNormalize,
+                                          bool outputHalfMaps,
+                                          out Image filteredMap1,
+                                          out Image filteredMap2,
+                                          out Image localResolution,
+                                          out Image localBFactor)
+        {
+            localResolution = new Image(halfMap1.Dims);
+            localBFactor = new Image(halfMap1.Dims);
+
+            int LocalResolutionWindow = Math.Max(30, (int)Math.Round(globalResolution * 5 / pixelSize / 2) * 2);
+
+            localResolution.Fill(LocalResolutionWindow * pixelSize / 2);
+            localBFactor.Fill(globalBFactor);
+
+            Image MapSum = halfMap1.GetCopyGPU();
+            MapSum.Add(halfMap2);
+            MapSum.Multiply(0.5f);
+
+            #region Mask maps and calculate local resolution as well as average FSC and amplitude curves for each resolution
+
+            Image Half1Masked = halfMap1.GetCopyGPU();
+            halfMap1.FreeDevice();
+            Half1Masked.Multiply(maskSoft);
+            Image Half2Masked = halfMap2.GetCopyGPU();
+            halfMap2.FreeDevice();
+            Half2Masked.Multiply(maskSoft);
+
+            int SpectrumLength = LocalResolutionWindow / 2;
+            int SpectrumOversampling = 2;
+            int NSpectra = SpectrumLength * SpectrumOversampling;
+
+            Image AverageFSC = new Image(new int3(SpectrumLength, 1, NSpectra));
+            Image AverageAmps = new Image(AverageFSC.Dims);
+            Image AverageSamples = new Image(new int3(NSpectra, 1, 1));
+            float[] GlobalLocalFSC = new float[LocalResolutionWindow / 2];
+
+            GPU.LocalFSC(Half1Masked.GetDevice(Intent.Read),
+                         Half2Masked.GetDevice(Intent.Read),
+                         maskSoft.GetDevice(Intent.Read),
+                         halfMap1.Dims,
+                         1,
+                         pixelSize,
+                         localResolution.GetDevice(Intent.Write),
+                         LocalResolutionWindow,
+                         fscThreshold,
+                         AverageFSC.GetDevice(Intent.ReadWrite),
+                         AverageAmps.GetDevice(Intent.ReadWrite),
+                         AverageSamples.GetDevice(Intent.ReadWrite),
+                         SpectrumOversampling,
+                         GlobalLocalFSC);
+
+            Half1Masked.Dispose();
+            Half2Masked.Dispose();
+            AverageFSC.FreeDevice();
+            AverageAmps.FreeDevice();
+            AverageSamples.FreeDevice();
+
+            #endregion
+
+            #region Figure out scaling factor to bring mean local resolution to global value
+
+            float LocalResScale;
+            {
+                Image MapSumAbs = MapSum.GetCopyGPU();
+                MapSumAbs.Abs();
+                MapSumAbs.Multiply(maskSoft);
+                Image MapSumAbsConvolved = MapSumAbs.AsConvolvedRaisedCosine(0, LocalResolutionWindow / 2);
+                MapSumAbsConvolved.Multiply(maskSoft);
+                MapSumAbs.Dispose();
+
+                float[] LocalResData = localResolution.GetHostContinuousCopy();
+                float[] MaskConvolvedData = MapSumAbsConvolved.GetHostContinuousCopy();
+                MapSumAbsConvolved.Dispose();
+
+                double WeightedSum = 0;
+                double Weights = 0;
+                for (int i = 0; i < LocalResData.Length; i++)
+                {
+                    float Freq = 1 / LocalResData[i];
+
+                    // No idea why local power * freq^2 produces good results, but it does!
+                    float Weight = MaskConvolvedData[i] * Freq;
+                    Weight *= Weight;
+
+                    WeightedSum += Freq * Weight;
+                    Weights += Weight;
+                }
+                WeightedSum /= Weights;
+                WeightedSum = 1 / WeightedSum;
+                LocalResScale = globalResolution / (float)WeightedSum;
+            }
+
+            #endregion
+
+            #region Build resolution-dependent B-factor model
+
+            #region Get average 1D amplitude spectra for each local resolution, weight by corresponding average local FSC curve, fit B-factors
+
+            List<float3> ResolutionBFacs = new List<float3>();
+            float[] AverageSamplesData = AverageSamples.GetHostContinuousCopy();
+
+            float[][] AverageFSCData = AverageFSC.GetHost(Intent.Read).Select((a, i) => a.Select(v => v / Math.Max(1e-10f, AverageSamplesData[i])).ToArray()).ToArray();
+            float[][] AverageAmpsData = AverageAmps.GetHost(Intent.Read);
+
+            // Weights are FSC if we're filtering individual half-maps, or sqrt(2 * FSC / (1 + FSC)) if we're filtering their average
+            float[][] FSCWeights = AverageFSCData.Select(a => a.Select(v => outputHalfMaps ? Math.Max(0, v) : (float)Math.Sqrt(Math.Max(0, 2 * v / (1 + v)))).ToArray()).ToArray();
+            AverageAmpsData = AverageAmpsData.Select((a, i) => MathHelper.Mult(a, FSCWeights[i])).ToArray();
+
+            float[] ResInv = Helper.ArrayOfFunction(i => i / (LocalResolutionWindow * pixelSize), SpectrumLength);
+
+            if (doSharpen)
+                for (int i = 0; i < NSpectra; i++)
+                {
+                    if (AverageSamplesData[i] < 100)
+                        continue;
+
+                    float ShellFirst = LocalResolutionWindow * pixelSize / 10f;
+                    float ShellLast = i / (float)SpectrumOversampling * LocalResScale;
+                    if (ShellLast - ShellFirst + 1 < 2.5f)
+                        continue;
+
+                    float[] ShellWeights = Helper.ArrayOfFunction(s =>
+                    {
+                        float WeightFirst = Math.Max(0, Math.Min(1, 1 - (ShellFirst - s)));
+                        float WeightLast = Math.Max(0, Math.Min(1, 1 - (s - ShellLast)));
+                        return Math.Min(WeightFirst, WeightLast);
+                    }, SpectrumLength);
+
+                    float3[] Points = Helper.ArrayOfFunction(s => new float3(ResInv[s] * ResInv[s],
+                                                                             (float)Math.Log(Math.Max(1e-20f, AverageAmpsData[i][s])),
+                                                                             ShellWeights[s]), SpectrumLength);
+
+                    float3 Fit = MathHelper.FitLineWeighted(Points.Skip(1).ToArray());
+                    ResolutionBFacs.Add(new float3(ShellLast, -Fit.X * 4, AverageSamplesData[i]));
+                }
+
+            #endregion
+
+            #region Re-scale per-resolution B-factors to match global average, fit a*freq^b params to fit frequency vs. B-factor plot
+
+            float2 BFactorModel = new float2(0, 0);
+            if (doSharpen)
+            {
+                float WeightedMeanBFac = MathHelper.MeanWeighted(ResolutionBFacs.Select(v => v.Y).ToArray(), ResolutionBFacs.Select(v => v.Z * v.Z * v.X).ToArray());
+                ResolutionBFacs = ResolutionBFacs.Select(v => new float3(v.X, v.Y * -globalBFactor / WeightedMeanBFac, v.Z)).ToList();
+
+                float3[] BFacsLogLog = ResolutionBFacs.Select(v => new float3((float)Math.Log10(v.X), (float)Math.Log10(v.Y), v.Z)).ToArray();
+                float3 LineFit = MathHelper.FitLineWeighted(BFacsLogLog);
+
+                BFactorModel = new float2((float)Math.Pow(10, LineFit.Y), LineFit.X);
+            }
+
+            #endregion
+
+            #region Calculate filter ramps for each local resolution value
+
+            // Filter ramp consists of low-pass filter * FSC-based weighting (Rosenthal 2003) * B-factor correction
+            // Normalized by average ramp value within [0; low-pass shell] to prevent low-resolution regions having lower intensity
+
+            float[][] FilterRampsData = new float[NSpectra][];
+            for (int i = 0; i < NSpectra; i++)
+            {
+                float ShellLast = i / (float)SpectrumOversampling;
+                float[] ShellWeights = Helper.ArrayOfFunction(s => Math.Max(0, Math.Min(1, 1 - (s - ShellLast))), SpectrumLength);
+
+                if (doSharpen)
+                {
+                    float BFac = i == 0 ? 0 : BFactorModel.X * (float)Math.Pow(ShellLast, BFactorModel.Y);
+                    float[] ShellSharps = ResInv.Select(r => (float)Math.Exp(Math.Min(50, r * r * BFac * 0.25))).ToArray();
+
+                    FilterRampsData[i] = MathHelper.Mult(ShellWeights, ShellSharps);
+                }
+                else
+                {
+                    FilterRampsData[i] = ShellWeights;
+                }
+
+                float FilterSum = FilterRampsData[i].Sum() / Math.Max(1, ShellLast);
+
+                if (AverageSamplesData[i] > 10)
+                    FilterRampsData[i] = MathHelper.Mult(FilterRampsData[i], FSCWeights[i]);
+
+                if (doNormalize)
+                    FilterRampsData[i] = FilterRampsData[i].Select(v => v / FilterSum).ToArray();
+            }
+            Image FilterRamps = new Image(FilterRampsData, new int3(SpectrumLength, 1, NSpectra));
+
+            #endregion
+
+            #endregion
+
+            #region Convolve local res with small Gaussian to get rid of local outliers
+            {
+                Image LocalResInv = new Image(IntPtr.Zero, localResolution.Dims);
+                LocalResInv.Fill(pixelSize * LocalResolutionWindow); // Scale mean to global resolution in this step as well
+
+                //localResolution.Multiply(LocalResScale);
+
+                LocalResInv.Divide(localResolution);
+                localResolution.Dispose();
+
+                Image LocalResInvSmooth = LocalResInv.AsConvolvedGaussian(smoothingSigma, true);
+                LocalResInv.Dispose();
+
+                localResolution = new Image(IntPtr.Zero, LocalResInv.Dims);
+                localResolution.Fill(pixelSize * LocalResolutionWindow);
+                localResolution.Divide(LocalResInvSmooth);
+                LocalResInvSmooth.Dispose();
+            }
+            #endregion
+
+            #region Finally, apply filter ramps (low-pass + B-factor) locally
+
+            if (!outputHalfMaps)
+            {
+                Image MapLocallyFiltered = new Image(MapSum.Dims);
+                GPU.LocalFilter(MapSum.GetDevice(Intent.Read),
+                                MapLocallyFiltered.GetDevice(Intent.Write),
+                                MapSum.Dims,
+                                localResolution.GetDevice(Intent.Read),
+                                LocalResolutionWindow,
+                                pixelSize,
+                                FilterRamps.GetDevice(Intent.Read),
+                                SpectrumOversampling);
+
+                filteredMap1 = MapLocallyFiltered;
+                MapLocallyFiltered.FreeDevice();
+
+                filteredMap2 = null;
+            }
+            else
+            {
+                filteredMap1 = halfMap1.GetCopyGPU();
+                GPU.LocalFilter(halfMap1.GetDevice(Intent.Read),
+                                filteredMap1.GetDevice(Intent.Write),
+                                MapSum.Dims,
+                                localResolution.GetDevice(Intent.Read),
+                                LocalResolutionWindow,
+                                pixelSize,
+                                FilterRamps.GetDevice(Intent.Read),
+                                SpectrumOversampling);
+
+                filteredMap2 = halfMap2.GetCopyGPU();
+                GPU.LocalFilter(halfMap2.GetDevice(Intent.Read),
+                                filteredMap2.GetDevice(Intent.Write),
+                                MapSum.Dims,
+                                localResolution.GetDevice(Intent.Read),
+                                LocalResolutionWindow,
+                                pixelSize,
+                                FilterRamps.GetDevice(Intent.Read),
+                                SpectrumOversampling);
+            }
+
+            #endregion
+        }
+
+        public static void Train3DDenoiser(Image halfMap1,
+                                           Image halfMap2,
+                                           NoiseNet3D model,
+                                           int nIterations)
+        {
+
         }
     }
 }

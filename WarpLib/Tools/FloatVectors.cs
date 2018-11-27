@@ -75,7 +75,7 @@ namespace Warp.Tools
 
         public static bool operator ==(float4 o1, float4 o2)
         {
-            return o1.X == o2.X && o1.Y == o2.Y && o1.Z == o2.Z;
+            return o1.X == o2.X && o1.Y == o2.Y && o1.Z == o2.Z && o1.W == o2.W;
         }
 
         public static bool operator !=(float4 o1, float4 o2)
@@ -699,6 +699,149 @@ namespace Warp.Tools
         public static float RMSD(float2[] points)
         {
             float2 Mean = MathHelper.Mean(points);
+            float Result = 0;
+
+            for (int i = 0; i < points.Length; i++)
+                Result += (points[i] - Mean).LengthSq();
+            Result = (float)Math.Sqrt(Result / points.Length);
+
+            return Result;
+        }
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct float5
+    {
+        public float X, Y, Z, W, V;
+
+        public float5(float x, float y, float z, float w, float v)
+        {
+            X = x;
+            Y = y;
+            Z = z;
+            W = w;
+            V = v;
+        }
+
+        public float5(float v)
+        {
+            X = v;
+            Y = v;
+            Z = v;
+            W = v;
+            V = v;
+        }
+
+        public float5(byte[] value)
+        {
+            X = BitConverter.ToSingle(value, 0);
+            Y = BitConverter.ToSingle(value, sizeof(float));
+            Z = BitConverter.ToSingle(value, 2 * sizeof(float));
+            W = BitConverter.ToSingle(value, 3 * sizeof(float));
+            V = BitConverter.ToSingle(value, 4 * sizeof(float));
+        }
+
+        public static implicit operator byte[] (float5 value)
+        {
+            return Helper.Combine(new[]
+            {
+                BitConverter.GetBytes(value.X),
+                BitConverter.GetBytes(value.Y),
+                BitConverter.GetBytes(value.Z),
+                BitConverter.GetBytes(value.W),
+                BitConverter.GetBytes(value.V)
+            });
+        }
+
+        public float Length()
+        {
+            return (float)Math.Sqrt(X * X + Y * Y + Z * Z + W * W + V * V);
+        }
+
+        public float LengthSq()
+        {
+            return X * X + Y * Y + Z * Z + W * W + V * V;
+        }
+
+        public float5 Normalized()
+        {
+            return this / Length();
+        }
+
+        public static readonly float5 UnitX = new float5(1, 0, 0, 0, 0);
+        public static readonly float5 UnitY = new float5(0, 1, 0, 0, 0);
+        public static readonly float5 UnitZ = new float5(0, 0, 1, 0, 0);
+        public static readonly float5 UnitW = new float5(0, 0, 0, 1, 0);
+        public static readonly float5 UnitV = new float5(0, 0, 0, 0, 1);
+
+        public override bool Equals(Object obj)
+        {
+            return obj is float5 && this == (float5)obj;
+        }
+
+        public static bool operator ==(float5 o1, float5 o2)
+        {
+            return o1.X == o2.X && o1.Y == o2.Y && o1.Z == o2.Z && o1.W == o2.W && o1.V == o2.V;
+        }
+
+        public static bool operator !=(float5 o1, float5 o2)
+        {
+            return !(o1 == o2);
+        }
+
+        public static float5 operator +(float5 o1, float5 o2)
+        {
+            return new float5(o1.X + o2.X, o1.Y + o2.Y, o1.Z + o2.Z, o1.W + o2.W, o1.V + o2.V);
+        }
+
+        public static float5 operator -(float5 o1, float5 o2)
+        {
+            return new float5(o1.X - o2.X, o1.Y - o2.Y, o1.Z - o2.Z, o1.W - o2.W, o1.V - o2.V);
+        }
+
+        public static float5 operator -(float5 o1)
+        {
+            return new float5(-o1.X, -o1.Y, -o1.Z, -o1.W, -o1.V);
+        }
+
+        public static float5 operator *(float5 o1, float5 o2)
+        {
+            return new float5(o1.X * o2.X, o1.Y * o2.Y, o1.Z * o2.Z, o1.W * o2.W, o1.V * o2.V);
+        }
+
+        public static float5 operator /(float5 o1, float5 o2)
+        {
+            return new float5(o1.X / o2.X, o1.Y / o2.Y, o1.Z / o2.Z, o1.W / o2.W, o1.V / o2.V);
+        }
+
+        public static float5 operator +(float5 o1, float o2)
+        {
+            return new float5(o1.X + o2, o1.Y + o2, o1.Z + o2, o1.W + o2, o1.V + o2);
+        }
+
+        public static float5 operator -(float5 o1, float o2)
+        {
+            return new float5(o1.X - o2, o1.Y - o2, o1.Z - o2, o1.W - o2, o1.V - o2);
+        }
+
+        public static float5 operator *(float5 o1, float o2)
+        {
+            return new float5(o1.X * o2, o1.Y * o2, o1.Z * o2, o1.W * o2, o1.V * o2);
+        }
+
+        public static float5 operator /(float5 o1, float o2)
+        {
+            return new float5(o1.X / o2, o1.Y / o2, o1.Z / o2, o1.W / o2, o1.V / o2);
+        }
+
+        public override string ToString()
+        {
+            return $"{X}, {Y}, {Z}, {W}, {V}";
+        }
+
+        public static float RMSD(float5[] points)
+        {
+            float5 Mean = MathHelper.Mean(points);
             float Result = 0;
 
             for (int i = 0; i < points.Length; i++)

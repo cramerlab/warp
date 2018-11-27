@@ -7,7 +7,7 @@
 #include "tensorflow/cc/saved_model/loader.h"
 #include "tensorflow/c/c_api_internal.h"
 #include "tensorflow/core/common_runtime/device_mgr.h"
-#include "tensorflow/core/common_runtime/gpu/process_state.h"
+#include "tensorflow/core/common_runtime/gpu/gpu_process_state.h"
 #include "tensorflow/core/common_runtime/shape_refiner.h"
 #include "tensorflow/core/framework/allocation_description.pb.h"
 #include "tensorflow/core/framework/log_memory.h"

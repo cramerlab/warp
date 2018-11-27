@@ -30,9 +30,19 @@ __declspec(dllexport) void PadFT(float2* d_input, float2* d_output, int3 olddims
     d_FFTPad(d_input, d_output, olddims, newdims, batch);
 }
 
+__declspec(dllexport) void PadFTFull(float* d_input, float* d_output, int3 olddims, int3 newdims, uint batch)
+{
+	d_FFTFullPad(d_input, d_output, olddims, newdims, batch);
+}
+
 __declspec(dllexport) void CropFT(float2* d_input, float2* d_output, int3 olddims, int3 newdims, uint batch)
 {
     d_FFTCrop(d_input, d_output, olddims, newdims, batch);
+}
+
+__declspec(dllexport) void CropFTFull(float* d_input, float* d_output, int3 olddims, int3 newdims, uint batch)
+{
+	d_FFTFullCrop(d_input, d_output, olddims, newdims, batch);
 }
 
 __declspec(dllexport) void RemapToFTComplex(float2* d_input, float2* d_output, int3 dims, uint batch)
@@ -310,9 +320,9 @@ __declspec(dllexport) void ProjectForward3DShiftedTex(uint64_t t_inputRe, uint64
     d_rlnProjectShifted(t_inputRe, t_inputIm, dimsinput, d_outputft, dimsoutput, (tfloat3*)h_angles, (tfloat3*)h_shifts, h_globalweights, supersample, batch);
 }
 
-__declspec(dllexport) void ProjectBackward(float2* d_volumeft, float* d_volumeweights, int3 dimsvolume, float2* d_projft, float* d_projweights, int2 dimsproj, int rmax, float3* h_angles, float supersample, uint batch)
+__declspec(dllexport) void ProjectBackward(float2* d_volumeft, float* d_volumeweights, int3 dimsvolume, float2* d_projft, float* d_projweights, int2 dimsproj, int rmax, float3* h_angles, float supersample, bool outputdecentered, uint batch)
 {
-    d_rlnBackproject(d_volumeft, d_volumeweights, dimsvolume, d_projft, d_projweights, toInt3(dimsproj), rmax, (tfloat3*)h_angles, supersample, batch);
+    d_rlnBackproject(d_volumeft, d_volumeweights, dimsvolume, d_projft, d_projweights, toInt3(dimsproj), rmax, (tfloat3*)h_angles, supersample, outputdecentered, batch);
 }
 
 __declspec(dllexport) void ProjectBackwardShifted(float2* d_volumeft, float* d_volumeweights, int3 dimsvolume, float2* d_projft, float* d_projweights, int2 dimsproj, int rmax, float3* h_angles, float3* h_shifts, float* h_globalweights, float supersample, uint batch)
@@ -645,6 +655,11 @@ __declspec(dllexport) void ValueFill(float* d_input, size_t elements, float valu
 	d_ValueFill(d_input, elements, value);
 }
 
+__declspec(dllexport) void ValueFillComplex(float2* d_input, size_t elements, float2 value)
+{
+	d_ValueFill(d_input, elements, value);
+}
+
 __declspec(dllexport) int PeekLastCUDAError()
 {
     cudaDeviceSynchronize();
@@ -674,4 +689,9 @@ __declspec(dllexport) void WarpImage(float* d_input, float* d_output, int2 dims,
 __declspec(dllexport) void Rotate3DExtractAt(uint64_t t_volume, int3 dimsvolume, float* d_proj, int3 dimsproj, float3* h_angles, float3* h_positions, uint batch)
 {
     d_Rotate3DExtractAt((cudaTex)t_volume, dimsvolume, (tfloat*)d_proj, dimsproj, (tfloat3*)h_angles, (tfloat3*)h_positions, T_INTERP_CUBIC, batch);
+}
+
+__declspec(dllexport) void BackProjectTomo(float2* d_volumeft, int3 dimsvolume, float2* d_projft, float* d_projweights, int3 dimsproj, uint rmax, float3* h_angles, uint batch)
+{
+	d_BackprojectTomo(d_volumeft, dimsvolume, d_projft, d_projweights, dimsproj, rmax, (tfloat3*)h_angles, batch);
 }

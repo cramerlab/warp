@@ -9,7 +9,7 @@ __declspec(dllexport) void __stdcall ConicalFSC(float2* volume1ft, float2* volum
 	float conesigma2 = anglestep / 2 / 180 * PI;
 	conesigma2 = 2.0f * conesigma2 * conesigma2;
 
-	float dotcutoff = cos(anglestep * 1.5f / 180.0f * PI);
+	float dotcutoff = cos(anglestep * 1.0f / 180.0f * PI);
 
 	float t = -threshold / (threshold - 1);
 	float4 thresholdparts = make_float4(t,
@@ -60,7 +60,7 @@ __declspec(dllexport) void __stdcall ConicalFSC(float2* volume1ft, float2* volum
 
 					float anglediff = acos(tmin(1, dot));
 
-					float weight = exp(-(anglediff * anglediff) / conesigma2);
+					float weight = 1;// exp(-(anglediff * anglediff) / conesigma2);
 
 					h_nums[a * nshells + ri] += num * weight;
 					h_denoms1[a * nshells + ri] += denom1 * weight;
@@ -78,13 +78,13 @@ __declspec(dllexport) void __stdcall ConicalFSC(float2* volume1ft, float2* volum
 		{
 			int i = a * nshells + s;
 
-			float weightsum = h_weightsums[i] * particlefraction;
+			float weightsum = sqrt(h_weightsums[i] * particlefraction);
 			if (s < minshell || weightsum < 6.0f)
 				h_nums[i] = 1;
 			else
-				h_nums[i] = h_nums[i] / weightsum / sqrt(h_denoms1[i] / weightsum * h_denoms2[i] / weightsum);
+				h_nums[i] = h_nums[i] / sqrt(h_denoms1[i] * h_denoms2[i]);
 
-			float currentthreshold = tmin(0.95f, thresholdparts.x + thresholdparts.y / weightsum / (thresholdparts.z + thresholdparts.w / weightsum));
+			float currentthreshold = tmin(0.95f, (thresholdparts.x + thresholdparts.y / weightsum) / (thresholdparts.z + thresholdparts.w / weightsum));
 			//currentthreshold = threshold;
 
 			if (!foundlimit && h_nums[i] < currentthreshold)

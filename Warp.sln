@@ -19,6 +19,12 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WarpControls", "WarpControl
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TFUtility", "TFUtility\TFUtility.vcxproj", "{E6CCC2DE-6843-483F-BC4C-631FD448DBBD}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "M", "M\M.csproj", "{9CDD05F1-17A5-473E-85DF-4652B6A20EBD}"
+	ProjectSection(ProjectDependencies) = postProject
+		{7976E078-C29C-487D-B354-F9ED8A497178} = {7976E078-C29C-487D-B354-F9ED8A497178}
+		{E6CCC2DE-6843-483F-BC4C-631FD448DBBD} = {E6CCC2DE-6843-483F-BC4C-631FD448DBBD}
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -103,6 +109,22 @@ Global
 		{E6CCC2DE-6843-483F-BC4C-631FD448DBBD}.Release|Win32.ActiveCfg = Release|x64
 		{E6CCC2DE-6843-483F-BC4C-631FD448DBBD}.Release|x64.ActiveCfg = Release|x64
 		{E6CCC2DE-6843-483F-BC4C-631FD448DBBD}.Release|x64.Build.0 = Release|x64
+		{9CDD05F1-17A5-473E-85DF-4652B6A20EBD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9CDD05F1-17A5-473E-85DF-4652B6A20EBD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9CDD05F1-17A5-473E-85DF-4652B6A20EBD}.Debug|Mixed Platforms.ActiveCfg = Debug|Any CPU
+		{9CDD05F1-17A5-473E-85DF-4652B6A20EBD}.Debug|Mixed Platforms.Build.0 = Debug|Any CPU
+		{9CDD05F1-17A5-473E-85DF-4652B6A20EBD}.Debug|Win32.ActiveCfg = Debug|Any CPU
+		{9CDD05F1-17A5-473E-85DF-4652B6A20EBD}.Debug|Win32.Build.0 = Debug|Any CPU
+		{9CDD05F1-17A5-473E-85DF-4652B6A20EBD}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{9CDD05F1-17A5-473E-85DF-4652B6A20EBD}.Debug|x64.Build.0 = Debug|Any CPU
+		{9CDD05F1-17A5-473E-85DF-4652B6A20EBD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9CDD05F1-17A5-473E-85DF-4652B6A20EBD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9CDD05F1-17A5-473E-85DF-4652B6A20EBD}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
+		{9CDD05F1-17A5-473E-85DF-4652B6A20EBD}.Release|Mixed Platforms.Build.0 = Release|Any CPU
+		{9CDD05F1-17A5-473E-85DF-4652B6A20EBD}.Release|Win32.ActiveCfg = Release|Any CPU
+		{9CDD05F1-17A5-473E-85DF-4652B6A20EBD}.Release|Win32.Build.0 = Release|Any CPU
+		{9CDD05F1-17A5-473E-85DF-4652B6A20EBD}.Release|x64.ActiveCfg = Release|Any CPU
+		{9CDD05F1-17A5-473E-85DF-4652B6A20EBD}.Release|x64.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

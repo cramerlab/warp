@@ -163,6 +163,38 @@ namespace Warp.Sociology
 
         #endregion
 
+        private string _GainPath = "";
+        [WarpSerializable]
+        public string GainPath
+        {
+            get { return _GainPath; }
+            set { if (value != _GainPath) { _GainPath = value; OnPropertyChanged(); } }
+        }
+
+        private bool _GainFlipX = false;
+        [WarpSerializable]
+        public bool GainFlipX
+        {
+            get { return _GainFlipX; }
+            set { if (value != _GainFlipX) { _GainFlipX = value; OnPropertyChanged(); } }
+        }
+
+        private bool _GainFlipY = false;
+        [WarpSerializable]
+        public bool GainFlipY
+        {
+            get { return _GainFlipY; }
+            set { if (value != _GainFlipY) { _GainFlipY = value; OnPropertyChanged(); } }
+        }
+
+        private bool _GainTranspose = false;
+        [WarpSerializable]
+        public bool GainTranspose
+        {
+            get { return _GainTranspose; }
+            set { if (value != _GainTranspose) { _GainTranspose = value; OnPropertyChanged(); } }
+        }
+
         public Dictionary<string, string> Files = new Dictionary<string, string>();
 
         public Dictionary<Guid, string> UsedSpecies = new Dictionary<Guid, string>();

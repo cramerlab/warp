@@ -508,19 +508,35 @@ namespace Warp
             }
         }
 
-        public void DiscoverParticleSuffixes()
+        public void DiscoverParticleSuffixes(string[] fileNames = null)
         {
             ParticleCounts.Clear();
 
-            if (Directory.Exists(MatchingDir))
+            if (fileNames != null)
             {
-                foreach (var file in Directory.EnumerateFiles(MatchingDir, RootName + "*.star"))
+                string _RootName = RootName;
+
+                foreach (var name in fileNames.Where(s => s.Contains(_RootName)).ToArray())
                 {
-                    string Suffix = Helper.PathToName(file);
+                    string Suffix = Helper.PathToName(name);
                     Suffix = Suffix.Substring(RootName.Length);
 
                     if (!string.IsNullOrEmpty(Suffix))
                         UpdateParticleCount(Suffix);
+                }
+            }
+            else
+            {
+                if (Directory.Exists(MatchingDir))
+                {
+                    foreach (var file in Directory.EnumerateFiles(MatchingDir, RootName + "*.star"))
+                    {
+                        string Suffix = Helper.PathToName(file);
+                        Suffix = Suffix.Substring(RootName.Length);
+
+                        if (!string.IsNullOrEmpty(Suffix))
+                            UpdateParticleCount(Suffix);
+                    }
                 }
             }
         }
@@ -580,12 +596,12 @@ namespace Warp
         
         #endregion
         
-        public Movie(string path)
+        public Movie(string path, string[] particleFileNames = null)
         {
             Path = path;
 
             LoadMeta();
-            DiscoverParticleSuffixes();
+            DiscoverParticleSuffixes(particleFileNames);
 
             lock (CTFTimers)
             {
@@ -605,7 +621,9 @@ namespace Warp
             if (!File.Exists(XMLPath))
                 return;
 
-            using (Stream SettingsStream = File.OpenRead(XMLPath))
+            byte[] XMLBytes = File.ReadAllBytes(XMLPath);
+
+            using (Stream SettingsStream = new MemoryStream(XMLBytes))
             {
                 XPathDocument Doc = new XPathDocument(SettingsStream);
                 XPathNavigator Reader = Doc.CreateNavigator();
@@ -1112,7 +1130,7 @@ namespace Warp
                                    1,
                                    CTFAverage1D.GetDevice(Intent.Write));
 
-                //CTFAverage1D.WriteMRC("CTFAverage1D.mrc");
+                CTFAverage1D.WriteMRC("d_CTFAverage1D.mrc");
 
                 float[] CTFAverage1DData = CTFAverage1D.GetHost(Intent.Read)[0];
                 float2[] ForPS1D = new float2[DimsRegion.X / 2];
@@ -1759,7 +1777,7 @@ namespace Warp
 
             int NFrames = originalStack.Dims.Z;
             int2 DimsImage = new int2(originalStack.Dims);
-            int2 DimsRegion = new int2(512, 512);
+            int2 DimsRegion = new int2(768, 768);
 
             float OverlapFraction = 0.5f;
             int2 DimsPositionGrid;
@@ -1776,7 +1794,7 @@ namespace Warp
 
             int LocalGridX = Math.Min(DimsPositionGrid.X, options.GridDims.X);
             int LocalGridY = Math.Min(DimsPositionGrid.Y, options.GridDims.Y);
-            int LocalGridZ = LocalGridX * LocalGridY <= 1 ? 1 : 3;//Math.Max(3, (int)Math.Ceiling(options.GridDims.Z / (float)(LocalGridX * LocalGridY)));
+            int LocalGridZ = LocalGridX * LocalGridY <= 1 ? 1 : 4;//Math.Max(3, (int)Math.Ceiling(options.GridDims.Z / (float)(LocalGridX * LocalGridY)));
             GridLocalX = new CubicGrid(new int3(LocalGridX, LocalGridY, LocalGridZ));
             GridLocalY = new CubicGrid(new int3(LocalGridX, LocalGridY, LocalGridZ));
 
@@ -1834,14 +1852,13 @@ namespace Warp
                 Helper.Reorder(Factors, SortedIndices);
                 Helper.Reorder(Freq, SortedIndices);
 
-                float Bfac = (float)options.Bfactor * 0.25f;
-                float[] BfacWeightsData = Freq.Select(v =>
+                float[] CTF2D = Helper.ArrayOfConstant(1f, Freq.Count);
+                if (OptionsCTF != null)
                 {
-                    float r2 = v.X / PixelSize / DimsRegion.X;
-                    r2 *= r2;
-                    return (float)Math.Exp(r2 * Bfac);
-                }).ToArray();
-                Image BfacWeights = new Image(BfacWeightsData);
+                    CTF CTFCopy = CTF.GetCopy();
+                    CTFCopy.PixelSize = (decimal)PixelSize;
+                    CTF2D = CTFCopy.Get2D(Freq.Select(v => new float2(v.X / DimsRegion.X, v.Y)).ToArray(), true);
+                }
 
                 long[] RelevantMask = Positions.ToArray();
                 ShiftFactors = new Image(Helper.ToInterleaved(Factors.ToArray()));
@@ -1855,6 +1872,7 @@ namespace Warp
                 }
 
                 Patches = new Image(IntPtr.Zero, new int3(MaskLength, DimsPositionGrid.X * DimsPositionGrid.Y, NFrames), false, true, false);
+                Image Sigma = new Image(IntPtr.Zero, new int3(DimsRegion), true);
 
                 GPU.CreateShift(originalStack.GetDevice(Intent.Read),
                                 DimsImage,
@@ -1864,9 +1882,30 @@ namespace Warp
                                 DimsRegion,
                                 RelevantMask,
                                 (uint)MaskLength,
-                                Patches.GetDevice(Intent.Write));
+                                Patches.GetDevice(Intent.Write),
+                                Sigma.GetDevice(Intent.Write));
+
+                //Sigma.WriteMRC("d_sigma.mrc", true);
+                float AmpsMean = MathHelper.Mean(Sigma.GetHostContinuousCopy());
+                //float[] Sigma1D = Sigma.AsAmplitudes1D(false);
+                Sigma.Dispose();
+                //Sigma1D[0] = Sigma1D[1];
+                //float Sigma1DMean = MathHelper.Mean(Sigma1D);
+                //Sigma1D = Sigma1D.Select(v => v / Sigma1DMean).ToArray();
+                //Sigma1D = Sigma1D.Select(v => v > 0 ? 1 / v : 0).ToArray();
+                //Sigma1D = Sigma1D.Select(v => 1 / Sigma1DMean).ToArray();
+
+                float Bfac = (float)options.Bfactor * 0.25f;
+                float[] BfacWeightsData = Freq.Select((v, i) =>
+                {
+                    float r2 = v.X / PixelSize / DimsRegion.X;
+                    r2 *= r2;
+                    return (float)Math.Exp(r2 * Bfac) * CTF2D[i];// * Sigma1D[(int)Math.Round(v.X)];
+                }).ToArray();
+                Image BfacWeights = new Image(BfacWeightsData);
 
                 Patches.MultiplyLines(BfacWeights);
+                Patches.Multiply(1 / AmpsMean);
                 BfacWeights.Dispose();
 
                 originalStack.FreeDevice();
@@ -1963,6 +2002,7 @@ namespace Warp
                     Func<double[], double> Eval = input =>
                     {
                         DoAverage(input);
+                        //SetPositions(input);
 
                         float[] Diff = new float[NPositions * NFrames];
                         GPU.ShiftGetDiff(Patches.GetDevice(Intent.Read),
@@ -1978,12 +2018,15 @@ namespace Warp
                         for (int i = 0; i < Diff.Length; i++)
                             Diff[i] = Diff[i];
 
+                        //Debug.WriteLine(Diff.Sum());
+
                         return Diff.Sum();
                     };
 
                     Func<double[], double[]> Grad = input =>
                     {
                         DoAverage(input);
+                        //SetPositions(input);
 
                         float[] GradX = new float[NPositions * NFrames], GradY = new float[NPositions * NFrames];
 
@@ -2464,10 +2507,10 @@ namespace Warp
 
                     AverageOdd = AverageOddFTPadded.AsIFFT(false, PlanDenoiseBack, true);
                     AverageOddFTPadded.Dispose();
-                    AverageOdd.SubtractMeanPlane();
+                    AverageOdd.SubtractMeanGrid(new int2(4));
                     AverageEven = AverageEvenFTPadded.AsIFFT(false, PlanDenoiseBack, true);
                     AverageEvenFTPadded.Dispose();
-                    AverageEven.SubtractMeanPlane();
+                    AverageEven.SubtractMeanGrid(new int2(4));
 
                     if (OptionsCTF != null)
                     {
@@ -2738,6 +2781,9 @@ namespace Warp
                                   new[] { CTFBfac.ToStruct() },
                                   false,
                                   1);
+
+                    //if (z % 2 == 1)
+                    //    Weights.Multiply(0);
 
                     return Weights;
                 }, DimsMovie.Z);
@@ -3677,7 +3723,7 @@ namespace Warp
             int2 DimsBN = (new int2(average.Dims * average.PixelSize / PixelSizeBN) + 1) / 2 * 2;
 
             Image AverageBN = average.AsScaled(DimsBN);
-            AverageBN.SubtractMeanPlane();
+            AverageBN.SubtractMeanGrid(new int2(4));
             GPU.Normalize(AverageBN.GetDevice(Intent.Read),
                           AverageBN.GetDevice(Intent.Write),
                           (uint)AverageBN.ElementsSliceReal,

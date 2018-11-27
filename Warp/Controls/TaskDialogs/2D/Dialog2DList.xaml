@@ -11,15 +11,18 @@
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="30" />
+                <RowDefinition Height="10" />
+                <RowDefinition Height="30" />
                 <RowDefinition Height="30" />
                 <RowDefinition Height="30" />
                 <RowDefinition Height="50" />
             </Grid.RowDefinitions>
-            <CheckBox Name="CheckRelative" Grid.Row="0" IsChecked="{Binding Tasks.UseRelativePaths}" Content="Make paths relative to STAR location" FontSize="18" />
-            <CheckBox Name="CheckFilter" Grid.Row="1" IsChecked="{Binding Tasks.IncludeFilteredOut}" Content="Include items outside of filter ranges" FontSize="18" />
-            <CheckBox Name="CheckManual" Grid.Row="2" IsChecked="{Binding Tasks.IncludeUnselected}" Content="Include manually excluded items" FontSize="18" />
-            <m:MetroProgressBar Name="ProgressWrite" Grid.Row="3" Visibility="Hidden" />
-            <StackPanel Name="PanelButtons" Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right">
+            <CheckBox Name="CheckPolishing" Grid.Row="0" IsChecked="{Binding Tasks.MicListMakePolishing}" Content="Generate files for RELION's polishing" FontSize="18" />
+            <CheckBox Name="CheckRelative" Grid.Row="2" IsChecked="{Binding Tasks.UseRelativePaths}" Content="Make paths relative to STAR location" FontSize="18" />
+            <CheckBox Name="CheckFilter" Grid.Row="3" IsChecked="{Binding Tasks.IncludeFilteredOut}" Content="Include items outside of filter ranges" FontSize="18" />
+            <CheckBox Name="CheckManual" Grid.Row="4" IsChecked="{Binding Tasks.IncludeUnselected}" Content="Include manually excluded items" FontSize="18" />
+            <m:MetroProgressBar Name="ProgressWrite" Grid.Row="5" Visibility="Hidden" />
+            <StackPanel Name="PanelButtons" Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right">
                 <Button Name="ButtonWrite" Content="WRITE LIST" FontSize="20" FontWeight="Medium" Foreground="CornflowerBlue" VerticalAlignment="Bottom" Style="{StaticResource ChromelessButtonStyle}" Click="ButtonWrite_OnClick" />
                 <Button Name="ButtonCancel" Content="CANCEL" FontSize="20" FontWeight="Medium" Foreground="CornflowerBlue" Margin="24,0,0,0" VerticalAlignment="Bottom" Style="{StaticResource ChromelessButtonStyle}" Click="ButtonCancel_OnClick" />
             </StackPanel>

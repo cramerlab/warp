@@ -192,6 +192,14 @@ namespace Sparta
         }
         public static readonly DependencyProperty UpdateTriggerProperty =
             DependencyProperty.Register("UpdateTrigger", typeof(UpdateSourceTrigger), typeof(ValueSlider), new PropertyMetadata(UpdateSourceTrigger.Explicit));
+               
+        public SolidColorBrush UnderlineColor
+        {
+            get { return (SolidColorBrush)GetValue(UnderlineColorProperty); }
+            set { SetValue(UnderlineColorProperty, value); }
+        }
+        public static readonly DependencyProperty UnderlineColorProperty =
+            DependencyProperty.Register("UnderlineColor", typeof(SolidColorBrush), typeof(ValueSlider), new PropertyMetadata(new SolidColorBrush(Colors.CornflowerBlue)));
 
         #endregion
 

@@ -712,7 +712,9 @@ namespace Warp
                 NormalizeInput = Tasks.InputNormalize,
                 NormalizeOutput = Tasks.OutputNormalize,
 
-                PrerotateParticles = Tasks.TomoSubReconstructPrerotated
+                PrerotateParticles = Tasks.TomoSubReconstructPrerotated,
+                DoLimitDose = Tasks.TomoSubReconstructDoLimitDose,
+                NTilts = Tasks.TomoSubReconstructNTilts
             };
         }
 
@@ -1349,6 +1351,22 @@ namespace Warp
             get { return _Normalize; }
             set { if (value != _Normalize) { _Normalize = value; OnPropertyChanged(); } }
         }
+
+        private bool _DoRunningWindow = true;
+        [WarpSerializable]
+        public bool DoRunningWindow
+        {
+            get { return _DoRunningWindow; }
+            set { if (value != _DoRunningWindow) { _DoRunningWindow = value; OnPropertyChanged(); } }
+        }
+
+        private int _RunningWindowLength = 10000;
+        [WarpSerializable]
+        public int RunningWindowLength
+        {
+            get { return _RunningWindowLength; }
+            set { if (value != _RunningWindowLength) { _RunningWindowLength = value; OnPropertyChanged(); } }
+        }
     }
 
     public class OptionsTomo : WarpBase
@@ -1578,6 +1596,14 @@ namespace Warp
 
         #region 2D
 
+        private bool _MicListMakePolishing = false;
+        [WarpSerializable]
+        public bool MicListMakePolishing
+        {
+            get { return _MicListMakePolishing; }
+            set { if (value != _MicListMakePolishing) { _MicListMakePolishing = value; OnPropertyChanged(); } }
+        }
+
         private bool _AdjustDefocusSkipExcluded = true;
         [WarpSerializable]
         public bool AdjustDefocusSkipExcluded
@@ -1756,12 +1782,44 @@ namespace Warp
             set { if (value != _TomoSubReconstructDiameter) { _TomoSubReconstructDiameter = value; OnPropertyChanged(); } }
         }
 
+        private bool _TomoSubReconstructVolume = true;
+        [WarpSerializable]
+        public bool TomoSubReconstructVolume
+        {
+            get { return _TomoSubReconstructVolume; }
+            set { if (value != _TomoSubReconstructVolume) { _TomoSubReconstructVolume = value; OnPropertyChanged(); } }
+        }
+
+        private bool _TomoSubReconstructSeries = false;
+        [WarpSerializable]
+        public bool TomoSubReconstructSeries
+        {
+            get { return _TomoSubReconstructSeries; }
+            set { if (value != _TomoSubReconstructSeries) { _TomoSubReconstructSeries = value; OnPropertyChanged(); } }
+        }
+
         private bool _TomoSubReconstructPrerotated = false;
         [WarpSerializable]
         public bool TomoSubReconstructPrerotated
         {
             get { return _TomoSubReconstructPrerotated; }
             set { if (value != _TomoSubReconstructPrerotated) { _TomoSubReconstructPrerotated = value; OnPropertyChanged(); } }
+        }
+
+        private bool _TomoSubReconstructDoLimitDose = false;
+        [WarpSerializable]
+        public bool TomoSubReconstructDoLimitDose
+        {
+            get { return _TomoSubReconstructDoLimitDose; }
+            set { if (value != _TomoSubReconstructDoLimitDose) { _TomoSubReconstructDoLimitDose = value; OnPropertyChanged(); } }
+        }
+
+        private int _TomoSubReconstructNTilts = 1;
+        [WarpSerializable]
+        public int TomoSubReconstructNTilts
+        {
+            get { return _TomoSubReconstructNTilts; }
+            set { if (value != _TomoSubReconstructNTilts) { _TomoSubReconstructNTilts = value; OnPropertyChanged(); } }
         }
 
         #endregion

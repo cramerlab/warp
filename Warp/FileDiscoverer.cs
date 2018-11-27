@@ -30,6 +30,8 @@ namespace Warp
         public event Action IncubationEnded;
         public event Action FilesChanged;
 
+        Dictionary<string, Task> CreationTasks = new Dictionary<string, Task>();
+
         public FileDiscoverer()
         {
             FileWatcher = new FileSystemWatcher();
@@ -108,6 +110,10 @@ namespace Warp
 
         void WorkLoop(object sender, EventArgs e)
         {
+            string[] ParticleFileNames = null;
+            if (Directory.Exists(Path.Combine(FolderPath, "matching")))
+                ParticleFileNames = Directory.EnumerateFiles(Path.Combine(FolderPath, "matching"), "*.star", SearchOption.TopDirectoryOnly).Select(p => Helper.PathToNameWithExtension(p)).ToArray();
+
             while (true)
             {
                 if (ShouldAbort)
@@ -119,7 +125,7 @@ namespace Warp
 
                 try
                 {
-                    foreach (var fileName in Directory.EnumerateFiles(FolderPath, FileExtension, SearchOption.TopDirectoryOnly))
+                    foreach (var fileName in Directory.EnumerateFiles(FolderPath, FileExtension, SearchOption.TopDirectoryOnly).ToArray())
                     {
                         if (ShouldAbort)
                             return;
@@ -168,19 +174,39 @@ namespace Warp
                                 }
                                 else if (CurrentState.Item2.ElapsedMilliseconds > 1000)
                                 {
-                                    lock (Ripe)
+                                    //lock (Ripe)
                                     {
                                         if (!Ripe.Exists(m => m.Path == fileName))
                                         {
-                                            // Make sure the list is sorted
-                                            int InsertAt = 0;
-                                            while (InsertAt < Ripe.Count && Ripe[InsertAt].Path.CompareTo(fileName) < 0)
-                                                InsertAt++;
+                                            while (CreationTasks.Count > 15)
+                                                Thread.Sleep(1);
 
-                                            if (!fileName.Substring(fileName.Length - 8).ToLower().Contains("tomostar"))
-                                                Ripe.Insert(InsertAt, new Movie(fileName));
-                                            else
-                                                Ripe.Insert(InsertAt, new TiltSeries(fileName));
+                                            Task CreationTask = new Task(() =>
+                                            {
+                                                Movie Created = null;
+                                                if (!fileName.Substring(fileName.Length - 8).ToLower().Contains("tomostar"))
+                                                    Created = new Movie(fileName, ParticleFileNames);
+                                                else
+                                                    Created = new TiltSeries(fileName);
+
+                                                lock (Ripe)
+                                                {
+                                                    // Make sure the list is sorted
+                                                    int InsertAt = 0;
+                                                    while (InsertAt < Ripe.Count && Ripe[InsertAt].Path.CompareTo(fileName) < 0)
+                                                        InsertAt++;
+
+                                                    Ripe.Insert(InsertAt, Created);
+                                                }
+
+                                                lock (CreationTasks)
+                                                    CreationTasks.Remove(fileName);
+                                            });
+
+                                            lock (CreationTasks)
+                                                CreationTasks.Add(fileName, CreationTask);
+
+                                            CreationTask.Start();
                                         }
                                     }
 
@@ -199,6 +225,9 @@ namespace Warp
 
                             if (EventNeedsFiring && Watch.ElapsedMilliseconds > 500)
                             {
+                                //Task.WaitAll(CreationTasks.ToArray());
+                                //CreationTasks.Clear();
+
                                 Watch.Stop();
                                 Watch.Reset();
                                 EventNeedsFiring = false;
@@ -208,19 +237,39 @@ namespace Warp
                         }
                         else
                         {
-                            lock (Ripe)
+                            //lock (Ripe)
                             {
                                 if (!Ripe.Exists(m => m.Path == fileName))
                                 {
-                                    // Make sure the list is sorted
-                                    int InsertAt = 0;
-                                    while (InsertAt < Ripe.Count && Ripe[InsertAt].Path.CompareTo(fileName) < 0)
-                                        InsertAt++;
+                                    while (CreationTasks.Count > 15)
+                                        Thread.Sleep(1);
 
-                                    if (!fileName.Substring(fileName.Length - 8).ToLower().Contains("tomostar"))
-                                        Ripe.Insert(InsertAt, new Movie(fileName));
-                                    else
-                                        Ripe.Insert(InsertAt, new TiltSeries(fileName));
+                                    Task CreationTask = new Task(() =>
+                                    {
+                                        Movie Created = null;
+                                        if (!fileName.Substring(fileName.Length - 8).ToLower().Contains("tomostar"))
+                                            Created = new Movie(fileName, ParticleFileNames);
+                                        else
+                                            Created = new TiltSeries(fileName);
+
+                                        lock (Ripe)
+                                        {
+                                            // Make sure the list is sorted
+                                            int InsertAt = 0;
+                                            while (InsertAt < Ripe.Count && Ripe[InsertAt].Path.CompareTo(fileName) < 0)
+                                                InsertAt++;
+
+                                            Ripe.Insert(InsertAt, Created);
+                                        }
+
+                                        lock (CreationTasks)
+                                            CreationTasks.Remove(fileName);
+                                    });
+
+                                    lock (CreationTasks)
+                                        CreationTasks.Add(fileName, CreationTask);
+
+                                    CreationTask.Start();
                                 }
                             }
 
@@ -230,6 +279,9 @@ namespace Warp
 
                             if (EventNeedsFiring && Watch.ElapsedMilliseconds > 500)
                             {
+                                //Task.WaitAll(CreationTasks.ToArray());
+                                //CreationTasks.Clear();
+
                                 Watch.Stop();
                                 Watch.Reset();
                                 EventNeedsFiring = false;
@@ -253,6 +305,9 @@ namespace Warp
                             ExceptionsLogged++;
                         }
                 }
+
+                while (CreationTasks.Count > 0)
+                    Thread.Sleep(1);
 
                 if (EventNeedsFiring)
                     FilesChanged?.Invoke();

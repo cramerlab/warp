@@ -186,6 +186,26 @@ namespace Warp.Tools
         {
             return new int3((int)(o1.X * o2.X), (int)(o1.Y * o2.Y), (int)(o1.Z * o2.Z));
         }
+
+        public static int3 Max(int3 o1, int o2)
+        {
+            return new int3(Math.Max(o1.X, o2), Math.Max(o1.Y, o2), Math.Max(o1.Z, o2));
+        }
+
+        public static int3 Max(int3 o1, int3 o2)
+        {
+            return new int3(Math.Max(o1.X, o2.X), Math.Max(o1.Y, o2.Y), Math.Max(o1.Z, o2.Z));
+        }
+
+        public static int3 Min(int3 o1, int o2)
+        {
+            return new int3(Math.Min(o1.X, o2), Math.Min(o1.Y, o2), Math.Min(o1.Z, o2));
+        }
+
+        public static int3 Min(int3 o1, int3 o2)
+        {
+            return new int3(Math.Min(o1.X, o2.X), Math.Min(o1.Y, o2.Y), Math.Min(o1.Z, o2.Z));
+        }
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -335,6 +355,26 @@ namespace Warp.Tools
         public override string ToString()
         {
             return X + ", " + Y;
+        }
+
+        public static int2 Max(int2 o1, int o2)
+        {
+            return new int2(Math.Max(o1.X, o2), Math.Max(o1.Y, o2));
+        }
+
+        public static int2 Max(int2 o1, int2 o2)
+        {
+            return new int2(Math.Max(o1.X, o2.X), Math.Max(o1.Y, o2.Y));
+        }
+
+        public static int2 Min(int2 o1, int o2)
+        {
+            return new int2(Math.Min(o1.X, o2), Math.Min(o1.Y, o2));
+        }
+
+        public static int2 Min(int2 o1, int2 o2)
+        {
+            return new int2(Math.Min(o1.X, o2.X), Math.Min(o1.Y, o2.Y));
         }
     }
 }

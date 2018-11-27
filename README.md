@@ -6,11 +6,11 @@ If you just want to use Warp, all tutorials and binaries can be found at http://
 
 ## Prerequisites
 
-[CUDA SDK 9.0](https://developer.nvidia.com/cuda-downloads) with $PATH and $CUDA_PATH_V9_0 environment variables set correctly  
-[cuDNN 7.0](https://developer.nvidia.com/cudnn)  
-[Visual Studio 2017](https://www.visualstudio.com/) with the VC++ 2015 compiler and Windows SDK 10.0 included during installation  
+[CUDA SDK 10.0](https://developer.nvidia.com/cuda-downloads) with $PATH and $CUDA_PATH environment variables set correctly  
+[cuDNN 7.4](https://developer.nvidia.com/cudnn)  
+[Visual Studio 2017](https://www.visualstudio.com/) with the Windows SDK 10.0 included during installation  
 
-[TensorFlow 1.5](https://github.com/tensorflow/tensorflow) source code  
+[TensorFlow 1.10](https://github.com/tensorflow/tensorflow) source code  
 
 [GTOM](https://github.com/dtegunov/gtom)  
 [liblion](https://github.com/dtegunov/liblion)  
@@ -21,7 +21,7 @@ Make sure the Warp, GTOM and liblion folders are located in the same parent fold
 
 Compile GTOM and liblion using the same configuration (Debug/Release) you intend to use for Warp's compilation.  
 
-Compile TensorFlow 1.5. This is a tricky thing to do on Windows, and the exact steps depend highly on your environment. However, some googling has always solved this problem so far. Once compiled, create an environment variable $TENSORFLOW_LIBS that points to TF's 'build' folder. This will be required to configure all paths correctly in Warp's TFUtility project.  
+Compile TensorFlow 1.10. This is a tricky thing to do on Windows, and the exact steps depend highly on your environment. However, some googling has always solved this problem so far. Once compiled, create an environment variable $TENSORFLOW_LIBS that points to TF's 'build' folder. This will be required to configure all paths correctly in Warp's TFUtility project.  
 
 ## Compilation
 

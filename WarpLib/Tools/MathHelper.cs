@@ -60,6 +60,15 @@ namespace Warp.Tools
             return Sum / data.Count();
         }
 
+        public static float5 Mean(IEnumerable<float5> data)
+        {
+            float5 Sum = new float5(0, 0, 0, 0, 0);
+            foreach (var p in data)
+                Sum += p;
+
+            return Sum / data.Count();
+        }
+
         public static float StdDev(IEnumerable<float> data)
         {
             double Sum = 0f, Sum2 = 0f;
@@ -785,6 +794,71 @@ namespace Warp.Tools
             float[] Plane = FitAndGeneratePlane(intensities, dims);
             for (int i = 0; i < intensities.Length; i++)
                 intensities[i] -= Plane[i];
+        }
+
+        public static void FitAndSubtractGrid(float[] intensities, int2 dims, int2 gridDims)
+        {
+            float2 GridSpacing = new float2(dims) / new float2(gridDims + 1);
+            float2[] GridCentroids = Helper.Combine(Helper.ArrayOfFunction(y => 
+                                                    Helper.ArrayOfFunction(x => new float2((x + 1) * GridSpacing.X, 
+                                                                                           (y + 1) * GridSpacing.Y), 
+                                                    gridDims.X), gridDims.Y));
+            float3[] Planes = new float3[gridDims.Elements()];
+
+            Parallel.For(0, gridDims.Elements(), ci =>
+            {
+                float2 Centroid = GridCentroids[ci];
+
+                int2 PositionStart = int2.Max(new int2(Centroid - GridSpacing), 0);
+                int2 PositionEnd = int2.Min(new int2(Centroid + GridSpacing + 1), dims);
+                int2 PatchDims = PositionEnd - PositionStart;
+                float3[] Points = new float3[PatchDims.Elements()];
+
+                for (int y = 0; y < PatchDims.Y; y++)
+                    for (int x = 0; x < PatchDims.X; x++)
+                        Points[y * PatchDims.X + x] = new float3(x - GridSpacing.X,
+                                                                    y - GridSpacing.Y,
+                                                                    intensities[(y + PositionStart.Y) * dims.X + x + PositionStart.X]);
+
+                Planes[ci] = FitPlane(Points);
+            });
+
+            float[] FittedGrid = new float[dims.Elements()];
+
+            Parallel.For(0, dims.Y, y =>
+            {
+                for (int x = 0; x < dims.X; x++)
+                {
+                    int2 Centroid0 = int2.Min(int2.Max(new int2((new float2(x, y) - GridSpacing) / GridSpacing), 0), gridDims - 1);
+                    int CentroidID00 = gridDims.ElementFromPosition(Centroid0);
+                    int CentroidID01 = gridDims.ElementFromPosition(int2.Min(Centroid0 + new int2(1, 0), gridDims - 1));
+                    int CentroidID10 = gridDims.ElementFromPosition(int2.Min(Centroid0 + new int2(0, 1), gridDims - 1));
+                    int CentroidID11 = gridDims.ElementFromPosition(int2.Min(Centroid0 + new int2(1, 1), gridDims - 1));
+
+                    float2 Centroid00 = GridCentroids[CentroidID00];
+                    float2 Centroid01 = GridCentroids[CentroidID01];
+                    float2 Centroid10 = GridCentroids[CentroidID10];
+                    float2 Centroid11 = GridCentroids[CentroidID11];
+
+                    float Interp00 = (x - Centroid00.X) * Planes[CentroidID00].X + (y - Centroid00.Y) * Planes[CentroidID00].Y + Planes[CentroidID00].Z;
+                    float Interp01 = (x - Centroid01.X) * Planes[CentroidID01].X + (y - Centroid01.Y) * Planes[CentroidID01].Y + Planes[CentroidID01].Z;
+                    float Interp10 = (x - Centroid10.X) * Planes[CentroidID10].X + (y - Centroid10.Y) * Planes[CentroidID10].Y + Planes[CentroidID10].Z;
+                    float Interp11 = (x - Centroid11.X) * Planes[CentroidID11].X + (y - Centroid11.Y) * Planes[CentroidID11].Y + Planes[CentroidID11].Z;
+
+                    float fX = Math.Max(0, Math.Min(1, (x - Centroid00.X) / GridSpacing.X));
+                    float fY = Math.Max(0, Math.Min(1, (y - Centroid00.Y) / GridSpacing.Y));
+
+                    float Interp0 = Interp00 * (1 - fX) + Interp01 * fX;
+                    float Interp1 = Interp10 * (1 - fX) + Interp11 * fX;
+
+                    float Interp = Interp0 * (1 - fY) + Interp1 * fY;
+
+                    FittedGrid[y * dims.X + x] = Interp;
+                }
+            });
+
+            for (int i = 0; i < intensities.Length; i++)
+                intensities[i] -= FittedGrid[i];
         }
 
         public static string GetSHA1(byte[] data)

@@ -168,7 +168,7 @@ namespace Warp.Sociology
             set { if (value != _DiameterAngstrom) { _DiameterAngstrom = value; OnPropertyChanged(); } }
         }
 
-        public int Size => (int)Math.Round(DiameterAngstrom / PixelSize * 1.5M / 2M) * 2;
+        public int Size => (int)Math.Round(DiameterAngstrom / PixelSize * 2M / 2M) * 2;
 
         private string _Symmetry = "C1";
         [WarpSerializable]
@@ -207,6 +207,7 @@ namespace Warp.Sociology
         #region Particles
 
         public Particle[] Particles = new Particle[0];
+        public int NParticles => Particles.Length;
 
         public Particle[] DescendantParticles => Children.Count == 0 ? Particles.ToArray() : Helper.Combine(Children.Select(c => c.DescendantParticles));
 
@@ -258,8 +259,8 @@ namespace Warp.Sociology
         public string NameGlobalFSC => NameSafe + SuffixGlobalFSC;
         public string PathGlobalFSC => FolderPath + NameGlobalFSC;
 
-        private float4[] _GlobalFSC = null;
-        public float4[] GlobalFSC
+        private float5[] _GlobalFSC = null;
+        public float5[] GlobalFSC
         {
             get
             {
@@ -267,11 +268,45 @@ namespace Warp.Sociology
                 {
                     if (!File.Exists(PathGlobalFSC))
                         return null;
-                    _GlobalFSC = Star.LoadFloat4(PathGlobalFSC);
+                    _GlobalFSC = Star.LoadFloat5(PathGlobalFSC);
                 }
                 return _GlobalFSC;
             }
             set { if (value != _GlobalFSC) { _GlobalFSC = value; OnPropertyChanged(); } }
+        }
+        public int SizeAtFSC05
+        {
+            get
+            {
+                int Shell = 0;
+                while (++Shell < GlobalFSC.Length)
+                {
+                    if (GlobalFSC[Shell].W < 0.5f)
+                    {
+                        Shell--;
+                        break;
+                    }
+                }
+
+                return (Shell + 1) * 2;
+            }
+        }
+        public float ResolutionAtFSC05
+        {
+            get
+            {
+                int Shell = 0;
+                while (++Shell < GlobalFSC.Length)
+                {
+                    if (GlobalFSC[Shell].W < 0.5f)
+                    {
+                        Shell--;
+                        break;
+                    }
+                }
+
+                return GlobalFSC[Shell].X;
+            }
         }
 
         private const string SuffixLocalResolution = "_localres.mrc";
@@ -537,6 +572,44 @@ namespace Warp.Sociology
             }
         }
 
+        private const string SuffixMapFilteredAnisotropic = "_filtanisotropic.mrc";
+        public string NameMapFilteredAnisotropic => NameSafe + SuffixMapFilteredAnisotropic;
+        public string PathMapFilteredAnisotropic => FolderPath + NameMapFilteredAnisotropic;
+
+        private Image _MapFilteredAnisotropic = null;
+        public Image MapFilteredAnisotropic
+        {
+            get
+            {
+                if (_MapFilteredAnisotropic == null)
+                {
+                    if (!File.Exists(PathMapFilteredAnisotropic))
+                        return null;
+                    _MapFilteredAnisotropic = Image.FromFile(PathMapFilteredAnisotropic);
+                }
+                return _MapFilteredAnisotropic;
+            }
+            set { if (value != _MapFilteredAnisotropic) { _MapFilteredAnisotropic = value; OnPropertyChanged(); } }
+        }
+        public Image MapFilteredAnisotropicAsync
+        {
+            get
+            {
+                if (_MapFilteredAnisotropic == null)
+                {
+                    if (!File.Exists(PathMapFilteredAnisotropic))
+                        return null;
+                    Task.Run(() =>
+                    {
+                        _MapFilteredAnisotropic = Image.FromFile(PathMapFilteredAnisotropic);
+                        OnPropertyChanged(nameof(MapFilteredAnisotropic));
+                    });
+                    return null;
+                }
+                return _MapFilteredAnisotropic;
+            }
+        }
+
         private const string SuffixMapLocallyFiltered = "_filtlocal.mrc";
         public string NameMapLocallyFiltered => NameSafe + SuffixMapLocallyFiltered;
         public string PathMapLocallyFiltered => FolderPath + NameMapLocallyFiltered;
@@ -657,6 +730,13 @@ namespace Warp.Sociology
 
         #region Projectors
 
+        private float _ResolutionRefinement = 1f;
+        public float ResolutionRefinement
+        {
+            get { return _ResolutionRefinement; }
+            set { if (value != _ResolutionRefinement) { _ResolutionRefinement = value; OnPropertyChanged(); } }
+        }
+
         private Projector _HalfMap1Projector = null;
         public Projector HalfMap1Projector
         {
@@ -671,9 +751,23 @@ namespace Warp.Sociology
             set { if (value != _HalfMap2Projector) { _HalfMap2Projector = value; OnPropertyChanged(); } }
         }
 
+        private Projector _SamplingProjector = null;
+        public Projector SamplingProjector
+        {
+            get { return _SamplingProjector; }
+            set { if (value != _SamplingProjector) { _SamplingProjector = value; OnPropertyChanged(); } }
+        }
+
         #endregion
 
         #region Reconstructions
+
+        private float _ResolutionReconstruction = 1f;
+        public float ResolutionReconstruction
+        {
+            get { return _ResolutionReconstruction; }
+            set { if (value != _ResolutionReconstruction) { _ResolutionReconstruction = value; OnPropertyChanged(); } }
+        }
 
         private Projector _HalfMap1Reconstruction = null;
         public Projector HalfMap1Reconstruction
@@ -857,6 +951,19 @@ namespace Warp.Sociology
             return TableOut;
         }
 
+        public Particle[] GetParticles(string sourceHash)
+        {
+            List<Particle> Result = new List<Particle>();
+
+            foreach (var particle in Particles)
+            {
+                if (particle.SourceHash == sourceHash)
+                    Result.Add(particle);
+            }
+
+            return Result.ToArray();
+        }
+
         public static Particle[] ParticlesFromRelionStar(Star tableIn, float pixelSize, Dictionary<string, string> micrographHashes)
         {
             if (!tableIn.HasColumn("rlnCoordinateX") ||
@@ -965,13 +1072,32 @@ namespace Warp.Sociology
             return Mapping.Count;
         }
 
+        public void ResampleParticleTemporalResolution(int movement, int angles)
+        {
+            Parallel.ForEach(Particles, particle =>
+            {
+                particle.ResampleCoordinates(movement);
+                particle.ResampleAngles(angles);
+            });
+
+            TemporalResolutionMovement = movement;
+            TemporalResolutionRotation = angles;
+        }
+
         #endregion
 
         #region Processing
 
         public void CalculateResolutionAndFilter(float fixedResolution = -1)
         {
-            Image MaskSoft = FSC.MakeSoftMask(Mask, 3, 6);
+            Image MaskSoft = FSC.MakeSoftMask(Mask, 3, 3);
+
+            if (MaskSoft.Dims != HalfMap1.Dims)
+            {
+                Image MaskSoftPadded = MaskSoft.AsPadded(HalfMap1.Dims);
+                MaskSoft.Dispose();
+                MaskSoft = MaskSoftPadded;
+            }
 
             _AnisoResolution?.Dispose();
             _MapFiltered?.Dispose();
@@ -1008,10 +1134,11 @@ namespace Warp.Sociology
             }
 
             GlobalResolution = (decimal)((float)PixelSize * HalfMap1.Dims.X / ShellGlobal);
-            GlobalFSC = Helper.ArrayOfFunction(i => new float4(HalfMap1.Dims.X * (float)PixelSize / i,
+            GlobalFSC = Helper.ArrayOfFunction(i => new float5(HalfMap1.Dims.X * (float)PixelSize / i,
                                                                FSCUnmasked[i],
                                                                FSCRandomized[i],
-                                                               FSCCorrected[i]),
+                                                               FSCCorrected[i],
+                                                               FSCMasked[i]),
                                                FSCCorrected.Length);
 
             #endregion
@@ -1024,7 +1151,7 @@ namespace Warp.Sociology
                                                          MaskSoft,
                                                          (float)PixelSize,
                                                          0.143f,
-                                                         3,
+                                                         2,
                                                          ShellGlobal);
             else
                 _AnisoResolution = new Image(Helper.ArrayOfConstant(fixedResolution, 4), new int3(2, 2, 1));
@@ -1046,6 +1173,39 @@ namespace Warp.Sociology
                                      out _MapFilteredSharpened);
 
             GlobalBFactor = (int)BFacGlobal;
+
+            #endregion
+
+            #region Filter map anisotropically
+
+            if (PixelSize < 5)
+            {
+                Image MapSumMasked = MapSum.GetCopy();
+                MapSumMasked.Multiply(MaskSoft);
+
+                float[] Spectrum = MapSumMasked.AsAmplitudes1D(true, 1, MapSumMasked.Dims.X / 2);
+                MapSumMasked.Dispose();
+
+                int i10A = (int)((float)PixelSize * 2 / 10 * Spectrum.Length);
+                float Amp10A = Spectrum[i10A];
+
+                for (int i = 0; i < Spectrum.Length; i++)
+                    Spectrum[i] = i < i10A ? 1 : (Amp10A / Spectrum[i]);
+
+                Image MapSumFlat = MapSum.AsSpectrumMultiplied(true, Spectrum);
+
+                _MapFilteredAnisotropic = FSC.FilterToAnisotropicResolution(MapSumFlat,
+                                                                            _AnisoResolution,
+                                                                            (float)PixelSize);
+                MapSumFlat.Dispose();
+            }
+            else
+            {
+
+                _MapFilteredAnisotropic = FSC.FilterToAnisotropicResolution(MapSum,
+                                                                            _AnisoResolution,
+                                                                            (float)PixelSize);
+            }
 
             #endregion
 
@@ -1122,7 +1282,7 @@ namespace Warp.Sociology
                     double Weights = 0;
                     for (int i = 0; i < LocalResData.Length; i++)
                     {
-                        float Freq = (float)PixelSize * LocalResolutionWindow / LocalResData[i];
+                        float Freq = 1 / LocalResData[i];
 
                         // No idea why local power * freq^2 produces good results, but it does!
                         float Weight = MaskConvolvedData[i] * Freq;
@@ -1132,7 +1292,9 @@ namespace Warp.Sociology
                         Weights += Weight;
                     }
                     WeightedSum /= Weights;
-                    LocalResScale = ((float)PixelSize * LocalResolutionWindow / (float)GlobalResolution) / (float)WeightedSum;
+                    WeightedSum = 1 / WeightedSum;
+                    LocalResScale = (float)GlobalResolution / (float)WeightedSum;
+                    LocalResScale = 1;
                 }
 
                 #endregion
@@ -1184,7 +1346,8 @@ namespace Warp.Sociology
                 float2 BFactorModel;
                 {
                     float WeightedMeanBFac = MathHelper.MeanWeighted(ResolutionBFacs.Select(v => v.Y).ToArray(), ResolutionBFacs.Select(v => v.Z * v.Z * v.X).ToArray());
-                    ResolutionBFacs = ResolutionBFacs.Select(v => new float3(v.X, v.Y * (float)-GlobalBFactor / WeightedMeanBFac, v.Z)).ToList();
+                    //ResolutionBFacs = ResolutionBFacs.Select(v => new float3(v.X, v.Y * (float)-GlobalBFactor / WeightedMeanBFac, v.Z)).ToList();
+                    //ResolutionBFacs = ResolutionBFacs.Select(v => new float3(v.X, v.Y, v.Z)).ToList();
 
                     float3[] BFacsLogLog = ResolutionBFacs.Select(v => new float3((float)Math.Log10(v.X), (float)Math.Log10(v.Y), v.Z)).ToArray();
                     float3 LineFit = MathHelper.FitLineWeighted(BFacsLogLog);
@@ -1380,9 +1543,130 @@ namespace Warp.Sociology
             _AngularDistribution = new Image(PlotData, new int3(DimsPlot));
         }
 
-        public object PrepareRefinementRequisites()
+        public void PrepareRefinementRequisites()
         {
-            return null;
+            int3 DimsCurrent = HalfMap1.Dims;
+            int3 DimsDesired = new int3(Size);
+
+            Image HalfMap1Padded = HalfMap1;
+            Image HalfMap2Padded = HalfMap2;
+            Image MaskPadded = Mask;
+
+            // Pad maps if size isn't 2 * particle diameter
+            if (DimsDesired != HalfMap1.Dims)
+            {
+                HalfMap1Padded = HalfMap1.AsPadded(DimsDesired);
+                HalfMap1.FreeDevice();
+            }
+            if (DimsDesired != HalfMap2.Dims)
+            {
+                HalfMap2Padded = HalfMap2.AsPadded(DimsDesired);
+                HalfMap2.FreeDevice();
+            }
+            if (DimsDesired != Mask.Dims)
+            {
+                MaskPadded = Mask.AsPadded(DimsDesired);
+                Mask.FreeDevice();
+            }
+
+            // Calculate anisotropic resolution at FSC = 0.5
+            //Image MaskSoftFull = FSC.MakeSoftMask(MaskPadded, 3, 6);
+            //Image PolarResolution = FSC.GetAnisotropicFSC(HalfMap1Padded, 
+            //                                              HalfMap2Padded, 
+            //                                              MaskSoftFull, 
+            //                                              (float)PixelSize, 
+            //                                              0.5f, 
+            //                                              1, 
+            //                                              SizeAtFSC05 / 2);
+            //MaskSoftFull.Dispose();
+            //Image HalfMap1Aniso = FSC.FilterToAnisotropicResolution(HalfMap1Padded, PolarResolution, (float)PixelSize);
+            //HalfMap1Padded.Dispose();
+            //Image HalfMap2Aniso = FSC.FilterToAnisotropicResolution(HalfMap2Padded, PolarResolution, (float)PixelSize);
+            //HalfMap2Padded.Dispose();
+
+            Image MaskSoftFull = FSC.MakeSoftMask(MaskPadded, 3, 6);
+            Image LocalFilt1, LocalFilt2, TempRes, TempBfac;
+            FSC.LocalFSCFilter(HalfMap1Padded,
+                               HalfMap2Padded,
+                               MaskSoftFull,
+                               (float)PixelSize,
+                               30,
+                               0.5f,
+                               ResolutionAtFSC05,
+                               0,
+                               ResolutionAtFSC05 / (float)(PixelSize * 2),
+                               false,
+                               false,
+                               true,
+                               out LocalFilt1,
+                               out LocalFilt2,
+                               out TempRes,
+                               out TempBfac);
+            MaskSoftFull.Dispose();
+            TempBfac.Dispose();
+            HalfMap1Padded.FreeDevice();
+            HalfMap2Padded.FreeDevice();
+
+            // Refinement resolution is at FSC = 0.5
+            ResolutionRefinement = MathHelper.Min(TempRes.GetHostContinuousCopy());// MathHelper.Min(PolarResolution.GetHostContinuousCopy());
+            int SizeRefinement = (int)Math.Round((float)PixelSize * 2 / ResolutionRefinement * DimsDesired.X / 2) * 2;
+            ResolutionRefinement = DimsDesired.X / (float)SizeRefinement * (float)PixelSize * 2;
+
+            // Scale down to refinement resolution
+            Image HalfMap1Scaled = LocalFilt1.AsScaled(new int3(SizeRefinement));
+            LocalFilt1.FreeDevice();
+            Image HalfMap2Scaled = LocalFilt2.AsScaled(new int3(SizeRefinement));
+            LocalFilt2.FreeDevice();
+
+            // Filter maps according to SSNR
+            // Weight by the masked, uncorrected FSC to avoid the artifacts near randomization limit
+            //float[] SpectralWeighting = GlobalFSC.Select(v => Math.Max(0, v.V)).Take(SizeRefinement / 2).ToArray();    
+            //Image HalfMap1SSNRFiltered = HalfMap1Scaled.AsSpectrumMultiplied(true, SpectralWeighting);
+            //HalfMap1SSNRFiltered.WriteMRC("d_filt1.mrc", true);
+            //HalfMap1Scaled.FreeDevice();
+            //Image HalfMap2SSNRFiltered = HalfMap2Scaled.AsSpectrumMultiplied(true, SpectralWeighting);
+            //HalfMap2SSNRFiltered.WriteMRC("d_filt2.mrc", true);
+            //HalfMap2Scaled.FreeDevice();
+
+            // Average halves up to 40 A
+            Image HalfMap1Averaged, HalfMap2Averaged;
+            int Shell40A = (int)Math.Round((float)PixelSize / 40 * Size);
+            FSC.AverageLowFrequencies(HalfMap1Scaled, HalfMap2Scaled, Shell40A, out HalfMap1Averaged, out HalfMap2Averaged);
+            HalfMap1Scaled.Dispose();
+            HalfMap2Scaled.Dispose();
+
+            // Scale mask to refinement size and make it soft
+            Image MaskScaled = MaskPadded.AsScaled(new int3(SizeRefinement));
+            MaskPadded.FreeDevice();
+            MaskScaled.Binarize(0.25f);
+            Image MaskSoft = FSC.MakeSoftMask(MaskScaled, 3, 4);
+            MaskScaled.Dispose();
+
+            // Multiply half-maps with mask
+            HalfMap1Averaged.Multiply(MaskSoft);
+            HalfMap2Averaged.Multiply(MaskSoft);
+            MaskSoft.Dispose();
+
+            // Create reference projectors for refinement
+            HalfMap1Projector = new Projector(HalfMap1Averaged, 1);
+            HalfMap1Averaged.Dispose();
+            HalfMap2Projector = new Projector(HalfMap2Averaged, 1);
+            HalfMap2Averaged.Dispose();
+
+            // Initialize reconstructions at full Nyquist
+            ResolutionReconstruction = (float)PixelSize * 2;
+            int SizeReconstruction = DimsDesired.X;
+
+            HalfMap1Reconstruction = new Projector(new int3(SizeReconstruction), 1);
+            HalfMap2Reconstruction = new Projector(new int3(SizeReconstruction), 1);
+        }
+
+        public void FinishRefinement()
+        {
+            HalfMap1 = HalfMap1Reconstruction.ReconstructCPU(false, Symmetry);
+            HalfMap2 = HalfMap2Reconstruction.ReconstructCPU(false, Symmetry);
+
+            CalculateResolutionAndFilter();
         }
 
         #endregion
@@ -1414,6 +1698,9 @@ namespace Warp.Sociology
 
             _MapFilteredSharpened?.Dispose();
             _MapFilteredSharpened = null;
+
+            _MapFilteredAnisotropic?.Dispose();
+            _MapFilteredAnisotropic = null;
 
             _MapLocallyFiltered?.Dispose();
             _MapLocallyFiltered = null;
@@ -1486,6 +1773,7 @@ namespace Warp.Sociology
             
             _MapFiltered?.WriteMRC(PathMapFiltered, (float)PixelSize, true);
             _MapFilteredSharpened?.WriteMRC(PathMapFilteredSharpened, (float)PixelSize, true);
+            _MapFilteredAnisotropic?.WriteMRC(PathMapFilteredAnisotropic, (float)PixelSize, true);
             _MapLocallyFiltered?.WriteMRC(PathMapLocallyFiltered, (float)PixelSize, true);
             
             _AnisoResolution?.WriteMRC(PathAnisoResolution, true);
@@ -1496,7 +1784,7 @@ namespace Warp.Sociology
 
             // Save curves to STAR tables
             if (_GlobalFSC != null)
-                new Star(_GlobalFSC, "wrpResolution", "wrpFSCUnmasked", "wrpFSCRandomized", "wrpFSCCorrected").Save(PathGlobalFSC);
+                new Star(_GlobalFSC, "wrpResolution", "wrpFSCUnmasked", "wrpFSCRandomized", "wrpFSCCorrected", "wrpFSCMasked").Save(PathGlobalFSC);
             if (_ResolutionHistogram != null)
                 new Star(_ResolutionHistogram, "wrpResolution", "wrpSamples").Save(PathResolutionHistogram);
         }

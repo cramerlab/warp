@@ -512,6 +512,9 @@ namespace Warp
 
         public void WriteTIFF(string path, float pixelSize, Type dataType)
         {
+            string FlipYEnvVar = Environment.GetEnvironmentVariable("WARP_DONT_FLIPY");
+            bool DoFlipY = string.IsNullOrEmpty(FlipYEnvVar);
+
             int Width = Dims.X;
             int Height = Dims.Y;
             int SamplesPerPixel = 1;
@@ -540,84 +543,108 @@ namespace Warp
 
             int BytesPerSample = BitsPerSample / 8;
 
-            byte[][] BytesData = Helper.ArrayOfFunction(i => new byte[Dims.ElementsSlice() * BytesPerSample], Dims.Z);
             float[][] Data = GetHost(Intent.Read);
             int PageLength = Data[0].Length;
             unsafe
             {
-                for (int z = 0; z < Dims.Z; z++)
+                using (Tiff output = Tiff.Open(path, "w"))
                 {
-                    fixed (byte* BytesPtr = BytesData[z])
-                    fixed (float* DataPtr = Data[z])
+                    float[] DataFlipped = DoFlipY ? new float[Data[0].Length] : null;
+                    byte[] BytesData = new byte[Dims.ElementsSlice() * BytesPerSample];
+
+                    for (int z = 0; z < Dims.Z; z++)
                     {
-                        if (dataType == typeof(byte))
+                        if (DoFlipY)
                         {
-                            for (int i = 0; i < PageLength; i++)
-                                BytesPtr[i] = (byte)Math.Max(0, Math.Min(byte.MaxValue, (int)DataPtr[i]));
+                            // Annoyingly, flip Y axis to adhere to MRC convention
+
+                            fixed (float* DataFlippedPtr = DataFlipped)
+                            fixed (float* DataPtr = Data[z])
+                            {
+                                for (int y = 0; y < Height; y++)
+                                {
+                                    int YOffset = y * Width;
+                                    int YOffsetFlipped = (Height - 1 - y) * Width;
+
+                                    for (int x = 0; x < Width; x++)
+                                        DataFlippedPtr[YOffset + x] = DataPtr[YOffsetFlipped + x];
+                                }
+                            }
                         }
-                        else if (dataType == typeof(short))
+                        else
                         {
-                            short* ConvPtr = (short*)BytesPtr;
-                            for (int i = 0; i < PageLength; i++)
-                                ConvPtr[i] = (short)Math.Max(short.MinValue, Math.Min(short.MaxValue, (int)DataPtr[i]));
+                            DataFlipped = Data[z];
                         }
-                        else if (dataType == typeof(int))
+
+                        fixed (byte* BytesPtr = BytesData)
+                        fixed (float* DataPtr = DataFlipped)
                         {
-                            int* ConvPtr = (int*)BytesPtr;
-                            for (int i = 0; i < PageLength; i++)
-                                ConvPtr[i] = (int)Math.Max(int.MinValue, Math.Min(int.MaxValue, (int)DataPtr[i]));
+                            if (dataType == typeof(byte))
+                            {
+                                for (int i = 0; i < PageLength; i++)
+                                    BytesPtr[i] = (byte)Math.Max(0, Math.Min(byte.MaxValue, (int)DataPtr[i]));
+                            }
+                            else if (dataType == typeof(short))
+                            {
+                                short* ConvPtr = (short*)BytesPtr;
+                                for (int i = 0; i < PageLength; i++)
+                                    ConvPtr[i] = (short)Math.Max(short.MinValue, Math.Min(short.MaxValue, (int)DataPtr[i]));
+                            }
+                            else if (dataType == typeof(int))
+                            {
+                                int* ConvPtr = (int*)BytesPtr;
+                                for (int i = 0; i < PageLength; i++)
+                                    ConvPtr[i] = (int)Math.Max(int.MinValue, Math.Min(int.MaxValue, (int)DataPtr[i]));
+                            }
+                            else if (dataType == typeof(long))
+                            {
+                                long* ConvPtr = (long*)BytesPtr;
+                                for (int i = 0; i < PageLength; i++)
+                                    ConvPtr[i] = (long)Math.Max(long.MinValue, Math.Min(long.MaxValue, (long)DataPtr[i]));
+                            }
+                            else if (dataType == typeof(float))
+                            {
+                                float* ConvPtr = (float*)BytesPtr;
+                                for (int i = 0; i < PageLength; i++)
+                                    ConvPtr[i] = DataPtr[i];
+                            }
+                            else if (dataType == typeof(double))
+                            {
+                                double* ConvPtr = (double*)BytesPtr;
+                                for (int i = 0; i < PageLength; i++)
+                                    ConvPtr[i] = DataPtr[i];
+                            }
                         }
-                        else if (dataType == typeof(long))
+
+                        int page = z;
                         {
-                            long* ConvPtr = (long*)BytesPtr;
-                            for (int i = 0; i < PageLength; i++)
-                                ConvPtr[i] = (long)Math.Max(long.MinValue, Math.Min(long.MaxValue, (long)DataPtr[i]));
-                        }
-                        else if (dataType == typeof(float))
-                        {
-                            float* ConvPtr = (float*)BytesPtr;
-                            for (int i = 0; i < PageLength; i++)
-                                ConvPtr[i] = DataPtr[i];
-                        }
-                        else if (dataType == typeof(double))
-                        {
-                            double* ConvPtr = (double*)BytesPtr;
-                            for (int i = 0; i < PageLength; i++)
-                                ConvPtr[i] = DataPtr[i];
+                            output.SetField(TiffTag.IMAGEWIDTH, Width / SamplesPerPixel);
+                            output.SetField(TiffTag.IMAGELENGTH, Height);
+                            output.SetField(TiffTag.SAMPLESPERPIXEL, SamplesPerPixel);
+                            output.SetField(TiffTag.SAMPLEFORMAT, Format);
+                            output.SetField(TiffTag.BITSPERSAMPLE, BitsPerSample);
+                            output.SetField(TiffTag.ORIENTATION, Orientation.BOTLEFT);
+                            output.SetField(TiffTag.PLANARCONFIG, PlanarConfig.CONTIG);
+
+                            output.SetField(TiffTag.COMPRESSION, Compression.LZW);
+
+                            output.SetField(TiffTag.ROWSPERSTRIP, output.DefaultStripSize(0));
+                            output.SetField(TiffTag.XRESOLUTION, 100.0);
+                            output.SetField(TiffTag.YRESOLUTION, 100.0);
+                            output.SetField(TiffTag.RESOLUTIONUNIT, ResUnit.INCH);
+
+                            // specify that it's a page within the multipage file
+                            output.SetField(TiffTag.SUBFILETYPE, FileType.PAGE);
+                            // specify the page number
+                            output.SetField(TiffTag.PAGENUMBER, page, Dims.Z);
+
+                            for (int j = 0; j < Height; j++)
+                                output.WriteScanline(Helper.Subset(BytesData, j * Width * BytesPerSample, (j + 1) * Width * BytesPerSample), j);
+
+                            output.WriteDirectory();
+                            output.FlushData();
                         }
                     }
-                }
-            }
-
-            using (Tiff output = Tiff.Open(path, "w"))
-            {
-                for (int page = 0; page < Dims.Z; page++)
-                {
-                    output.SetField(TiffTag.IMAGEWIDTH, Width / SamplesPerPixel);
-                    output.SetField(TiffTag.IMAGELENGTH, Height);
-                    output.SetField(TiffTag.SAMPLESPERPIXEL, SamplesPerPixel);
-                    output.SetField(TiffTag.SAMPLEFORMAT, Format);
-                    output.SetField(TiffTag.BITSPERSAMPLE, BitsPerSample);
-                    output.SetField(TiffTag.ORIENTATION, Orientation.BOTLEFT);
-                    output.SetField(TiffTag.PLANARCONFIG, PlanarConfig.CONTIG);
-
-                    output.SetField(TiffTag.COMPRESSION, Compression.LZW);
-
-                    output.SetField(TiffTag.ROWSPERSTRIP, output.DefaultStripSize(0));
-                    output.SetField(TiffTag.XRESOLUTION, 100.0);
-                    output.SetField(TiffTag.YRESOLUTION, 100.0);
-                    output.SetField(TiffTag.RESOLUTIONUNIT, ResUnit.INCH);
-
-                    // specify that it's a page within the multipage file
-                    output.SetField(TiffTag.SUBFILETYPE, FileType.PAGE);
-                    // specify the page number
-                    output.SetField(TiffTag.PAGENUMBER, page, Dims.Z);
-
-                    for (int j = 0; j < Height; j++)
-                        output.WriteScanline(Helper.Subset(BytesData[page], j * Width * BytesPerSample, (j + 1) * Width * BytesPerSample), j);
-
-                    output.WriteDirectory();
-                    output.FlushData();
                 }
             }
         }
@@ -700,10 +727,11 @@ namespace Warp
         public void TransformValues(Func<int, int, int, float, float> f)
         {
             float[][] Data = GetHost(Intent.ReadWrite);
+            int Width = IsFT ? Dims.X / 2 + 1 : Dims.X;
             for (int z = 0; z < Dims.Z; z++)
                 for (int y = 0; y < Dims.Y; y++)
-                    for (int x = 0; x < Dims.X; x++)
-                        Data[z][y * Dims.X + x] = f(x, y, z, Data[z][y * Dims.X + x]);
+                    for (int x = 0; x < Width; x++)
+                        Data[z][y * Width + x] = f(x, y, z, Data[z][y * Width + x]);
         }
 
         public Image AsHalf()
@@ -818,7 +846,7 @@ namespace Warp
             return new Image(Region, dimensions, IsFT, IsComplex, IsHalf);
         }
 
-        public Image AsPadded(int2 dimensions)
+        public Image AsPadded(int2 dimensions, bool isDecentered = false)
         {
             if (IsHalf)
                 throw new Exception("Half precision not supported for padding.");
@@ -837,7 +865,19 @@ namespace Warp
             if (!IsComplex && !IsFT)
             {
                 Padded = new Image(IntPtr.Zero, new int3(dimensions.X, dimensions.Y, Dims.Z), false, false, false);
-                GPU.Pad(GetDevice(Intent.Read), Padded.GetDevice(Intent.Write), Dims.Slice(), new int3(dimensions), (uint)Dims.Z);
+                if (isDecentered)
+                {
+                    if (dimensions.X > Dims.X && dimensions.Y > Dims.Y)
+                        GPU.PadFTFull(GetDevice(Intent.Read), Padded.GetDevice(Intent.Write), Dims.Slice(), new int3(dimensions), (uint)Dims.Z);
+                    else if (dimensions.X < Dims.X && dimensions.Y < Dims.Y)
+                        GPU.CropFTFull(GetDevice(Intent.Read), Padded.GetDevice(Intent.Write), Dims.Slice(), new int3(dimensions), (uint)Dims.Z);
+                    else
+                        throw new Exception("All new dimensions must be either bigger or smaller than old ones.");
+                }
+                else
+                {
+                    GPU.Pad(GetDevice(Intent.Read), Padded.GetDevice(Intent.Write), Dims.Slice(), new int3(dimensions), (uint)Dims.Z);
+                }
             }
             else if (IsComplex && IsFT)
             {
@@ -1483,15 +1523,16 @@ namespace Warp
 
         public float[] AsAmplitudes1D(bool isVolume = true, float nyquistLowpass = 1f, int spectrumLength = -1)
         {
-            if (IsComplex || IsHalf)
-                throw new Exception("Not implemented for complex or half data.");
-            if (IsFT)
-                throw new DimensionMismatchException();
+            if (IsHalf)
+                throw new Exception("Not implemented for half data.");
+            //if (IsFT)
+            //    throw new DimensionMismatchException();
 
-            Image FT = isVolume ? AsFFT_CPU() : AsFFT(false);
-            Image FTAmp = FT.AsAmplitudes();
+            Image FT = IsFT ? this : (isVolume ? AsFFT_CPU() : AsFFT(false));
+            Image FTAmp = (IsFT && !IsComplex) ? this : FT.AsAmplitudes();
             FTAmp.FreeDevice();
-            FT.Dispose();
+            if (!IsFT)
+                FT.Dispose();
 
             int SpectrumLength = Math.Min(Dims.X, Dims.Z > 1 ? Math.Min(Dims.Y, Dims.Z) : Dims.Y) / 2;
             if (spectrumLength > 0)
@@ -1548,14 +1589,12 @@ namespace Warp
             for (int i = 0; i < Spectrum.Length; i++)
                 Spectrum[i] = Spectrum[i] / Math.Max(1e-5f, Samples[i]);
 
-            FTAmp.Dispose();
-
             return Spectrum;
         }
 
         public Image AsSpectrumMultiplied(bool isVolume, float[] spectrumMultiplicators)
         {
-            Image FT = isVolume ? AsFFT_CPU() : AsFFT(false);
+            Image FT = AsFFT(isVolume);
             Image FTAmp = FT.AsAmplitudes();
             float[][] FTAmpData = FTAmp.GetHost(Intent.ReadWrite);
 
@@ -1602,7 +1641,7 @@ namespace Warp
             FT.Multiply(FTAmp);
             FTAmp.Dispose();
 
-            Image IFT = isVolume ? FT.AsIFFT_CPU() : FT.AsIFFT(false);
+            Image IFT = FT.AsIFFT(isVolume, 0, true);
             FT.Dispose();
 
             return IFT;
@@ -1786,32 +1825,45 @@ namespace Warp
             return BinaryExpanded;
         }
 
+        public Image AsComplex()
+        {
+            Image Result = new Image(Dims, IsFT, true);
+            Result.Fill(new float2(1, 0));
+            Result.Multiply(this);
+
+            return Result;
+        }
+
         public Image AsSliceXY(int z)
         {
-            Image Slice = new Image(GetHost(Intent.Read)[z], new int3(Dims.X, Dims.Y, 1));
+            Image Slice = new Image(GetHost(Intent.Read)[z], new int3(Dims.X, Dims.Y, 1), IsFT, IsComplex);
             return Slice;
         }
 
         public Image AsSliceXZ(int y)
         {
-            Image Slice = new Image(new int3(Dims.X, Dims.Z, 1));
+            int Width = IsFT ? Dims.X / 2 + 1 : Dims.X;
+
+            Image Slice = new Image(new int3(Width, Dims.Z, 1));
             float[] SliceData = Slice.GetHost(Intent.Write)[0];
             float[][] Data = GetHost(Intent.Read);
             for (int z = 0; z < Dims.Z; z++)
-                for (int x = 0; x < Dims.X; x++)
-                    SliceData[z * Dims.X + x] = Data[z][y * Dims.X + x];
+                for (int x = 0; x < Width; x++)
+                    SliceData[z * Width + x] = Data[z][y * Width + x];
 
             return Slice;
         }
 
         public Image AsSliceYZ(int x)
         {
+            int Width = IsFT ? Dims.X / 2 + 1 : Dims.X;
+
             Image Slice = new Image(new int3(Dims.Y, Dims.Z, 1));
             float[] SliceData = Slice.GetHost(Intent.Write)[0];
             float[][] Data = GetHost(Intent.Read);
             for (int z = 0; z < Dims.Z; z++)
-                for (int y = 0; y < Dims.X; y++)
-                    SliceData[z * Dims.Y + y] = Data[z][y * Dims.X + x];
+                for (int y = 0; y < Dims.Y; y++)
+                    SliceData[z * Dims.Y + y] = Data[z][y * Width + x];
 
             return Slice;
         }
@@ -1880,6 +1932,11 @@ namespace Warp
         public void Fill(float val)
         {
             GPU.ValueFill(GetDevice(Intent.Write), ElementsReal, val);
+        }
+
+        public void Fill(float2 val)
+        {
+            GPU.ValueFillComplex(GetDevice(Intent.Write), ElementsComplex, val);
         }
 
         public void Sign()
@@ -2289,15 +2346,16 @@ namespace Warp
                     slice[i] = slice[i] >= threshold ? 1 : 0;
         }
 
-        public void SubtractMeanPlane()
+        public void SubtractMeanGrid(int2 gridDims)
         {
             if (Dims.Z > 1)
                 throw new Exception("Does not work for volumes or stacks.");
 
             float[] MicData = GetHost(Intent.ReadWrite)[0];
-            float[] MicPlane = MathHelper.FitAndGeneratePlane(MicData, DimsSlice);
-            for (int i = 0; i < MicData.Length; i++)
-                MicData[i] -= MicPlane[i];
+            if (gridDims.Elements() <= 1)
+                MathHelper.FitAndSubtractPlane(MicData, DimsSlice);
+            else
+                MathHelper.FitAndSubtractGrid(MicData, DimsSlice, gridDims);
         }
 
         public bool IsSameAs(Image other, float error = 0.001f)
