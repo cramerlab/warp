@@ -52,6 +52,20 @@ namespace Warp.Tools
             }
         }
 
+        public Matrix3[] GetRotationMatrices()
+        {
+            int NMatrices = CPU.SymmetryGetNumberOfMatrices(this.ToString());
+            float[] Values = new float[NMatrices * 9];
+
+            CPU.SymmetryGetMatrices(this.ToString(), Values);
+
+            Matrix3[] Result = new Matrix3[NMatrices];
+            for (int i = 0; i < NMatrices; i++)
+                Result[i] = new Matrix3(Values.Skip(i * 9).Take(9).ToArray()).Transposed();
+
+            return Result;
+        }
+
         public override string ToString()
         {
             switch (Type)

@@ -161,6 +161,16 @@ namespace Warp.Sociology
                                   GetSplineCoordinateZ().Interp(interpolationSteps));
         }
 
+        public float3 GetCoordinatesAt(float interpolationStep)
+        {
+            if (Coordinates.Length == 1)
+                return Coordinates[0];
+            else
+                return new float3(GetSplineCoordinateX().Interp(interpolationStep),
+                                  GetSplineCoordinateY().Interp(interpolationStep),
+                                  GetSplineCoordinateZ().Interp(interpolationStep));
+        }
+
         public float3[] GetAngleSeries(float[] interpolationSteps)
         {
             if (Angles.Length == 1)
@@ -169,6 +179,16 @@ namespace Warp.Sociology
                 return Helper.Zip(GetSplineAngleX().Interp(interpolationSteps),
                                   GetSplineAngleY().Interp(interpolationSteps),
                                   GetSplineAngleZ().Interp(interpolationSteps));
+        }
+
+        public float3 GetAnglesAt(float interpolationStep)
+        {
+            if (Angles.Length == 1)
+                return Angles[0];
+            else
+                return new float3(GetSplineAngleX().Interp(interpolationStep),
+                                  GetSplineAngleY().Interp(interpolationStep),
+                                  GetSplineAngleZ().Interp(interpolationStep));
         }
 
         public Particle GetCopy()

@@ -7,7 +7,7 @@
                xmlns:lvc="clr-namespace:LiveCharts.Wpf;assembly=LiveCharts.Wpf"
                xmlns:PresentationOptions="http://schemas.microsoft.com/winfx/2006/xaml/presentation/options"
                xmlns:Dialogs="clr-namespace:MahApps.Metro.Controls.Dialogs;assembly=MahApps.Metro"
-               Title="Durchlichtelektronenmikroskopiemultipartikelanalysewerkzeug 1.0.6"
+               Title="Durchlichtelektronenmikroskopiemultipartikelanalysewerkzeug 1.0.7 beta"
                UseLayoutRounding="True" 
                ShowTitleBar="True" 
                SnapsToDevicePixels="False" 
@@ -33,8 +33,8 @@
     </m:MetroWindow.RightWindowCommands>
     <Grid Name="GridPopulation" Margin="12,0">
         <StackPanel Name="PanelPopulationLanding" Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,0,0,90" Visibility="Collapsed">
-            <Button Name="ButtonPopulationCreateNew" Content="CREATE NEW POPULATION" FontSize="36" Foreground="#7ec730" HorizontalAlignment="Center" Style="{StaticResource ChromelessButtonStyle}" Click="ButtonPopulationCreateNew_OnClick" />
-            <Button Name="ButtonPopulationLoad" Content="LOAD EXISTING FROM FILE" FontSize="36" Margin="0,30,0,0" Foreground="#7ec730" HorizontalAlignment="Center" Style="{StaticResource ChromelessButtonStyle}" Click="ButtonPopulationLoad_OnClick" />
+            <Button Name="ButtonPopulationCreateNew" Content="CREATE NEW POPULATION" FontSize="36" HorizontalAlignment="Center" Click="ButtonPopulationCreateNew_OnClick" />
+            <Button Name="ButtonPopulationLoad" Content="LOAD EXISTING FROM FILE" FontSize="36" Margin="0,30,0,0" HorizontalAlignment="Center" Click="ButtonPopulationLoad_OnClick" />
         </StackPanel>
         <StackPanel Name="PanelPopulationMain" Orientation="Vertical" VerticalAlignment="Stretch" Margin="4,0">
             <Grid Margin="0,12,0,0">
@@ -58,7 +58,7 @@
                 <!--<Button Name="ButtonPopulationSwitchSpeciesView" Content="DISPLAY AS TREE" FontSize="18" Margin="20,0,0,0" Foreground="CornflowerBlue" HorizontalAlignment="Left" Style="{StaticResource ChromelessButtonStyle}" />-->
             </StackPanel>
             <ScrollViewer HorizontalAlignment="Stretch" VerticalAlignment="Stretch" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Auto">
-                <WrapPanel Name="PanelAllSpecies" Orientation="Horizontal">
+                <WrapPanel Name="PanelAllSpecies" Orientation="Horizontal" MaxWidth="{Binding ActualWidth, ElementName=PanelPopulationMain}">
                     <Button Name="ButtonPopulationAddSpecies" Content="➕" FontSize="100" Width="256" Height="384" VerticalAlignment="Center" HorizontalAlignment="Center" Foreground="#7ec730" Style="{StaticResource ChromelessButtonStyle}" Click="ButtonPopulationAddSpecies_OnClick" />
                 </WrapPanel>
             </ScrollViewer>

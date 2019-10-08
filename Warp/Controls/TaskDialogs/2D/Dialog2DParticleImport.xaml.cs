@@ -64,6 +64,8 @@ namespace Warp.Controls
             ProgressWrite.Visibility = Visibility.Visible;
             PanelButtons.Visibility = Visibility.Hidden;
 
+            this.IsEnabled = false;
+
             await Task.Run(async () =>
             {
                 Star TableIn = new Star(ImportPath);

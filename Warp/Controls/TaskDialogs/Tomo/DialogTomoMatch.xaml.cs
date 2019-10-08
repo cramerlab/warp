@@ -113,7 +113,7 @@ namespace Warp.Controls.TaskDialogs.Tomo
 
             #region Set up progress displays
 
-            NParallel = 1;// Math.Min(ValidSeries.Count, GPU.GetDeviceCount());
+            NParallel = Math.Min(ValidSeries.Count, GPU.GetDeviceCount());
             GridSizes = Helper.ArrayOfConstant(new int3(1), NParallel);
             GridProgress = new int[NParallel];
             GridNames = new string[NParallel];

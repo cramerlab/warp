@@ -19,6 +19,7 @@ using MahApps.Metro.Controls.Dialogs;
 using Warp.Sociology;
 using Warp;
 using Warp.Tools;
+using Warp.Headers;
 
 namespace M.Controls.Sociology.Dialogs
 {
@@ -472,6 +473,16 @@ namespace M.Controls.Sociology.Dialogs
 
                     #endregion
 
+                    #region Figure out how many frames/tilts there are to use
+
+                    int UsableFrames = 1;
+                    if (Items[0].GetType() == typeof(Movie))
+                        UsableFrames = MapHeader.ReadFromFile(Items[0].Path).Dimensions.Z;
+                    else
+                        UsableFrames = ((TiltSeries)Items[0]).NTilts;
+
+                    #endregion
+
                     #region Show dialog
 
                     CustomDialog Dialog = new CustomDialog();
@@ -482,6 +493,8 @@ namespace M.Controls.Sociology.Dialogs
                     DialogContent.StatsSeriesStatusProcessed.Values = new ChartValues<ObservableValue> { new ObservableValue(ItemsProcessed.Count) };
                     DialogContent.StatsSeriesStatusUnfiltered.Values = new ChartValues<ObservableValue> { new ObservableValue(ItemsFilteredOut.Count) };
                     DialogContent.StatsSeriesStatusUnselected.Values = new ChartValues<ObservableValue> { new ObservableValue(ItemsUnselected.Count) };
+                    DialogContent.SliderFrames.Value = UsableFrames;
+                    DialogContent.SliderFrames.MaxValue = UsableFrames;
 
                     DialogContent.Close += () =>
                     {
@@ -501,11 +514,14 @@ namespace M.Controls.Sociology.Dialogs
                             DimensionsX = Options.Tomo.DimensionsX,
                             DimensionsY = Options.Tomo.DimensionsY,
                             DimensionsZ = Options.Tomo.DimensionsZ,
+                            FrameLimit = (int)DialogContent.SliderFrames.Value,
 
-                            GainPath = Options.Import.GainPath,
+                            GainPath = Options.Import.CorrectGain ? Options.Import.GainPath : "",
                             GainFlipX = Options.Import.GainFlipX,
                             GainFlipY = Options.Import.GainFlipY,
                             GainTranspose = Options.Import.GainTranspose,
+
+                            DosePerAngstromFrame = Options.Import.DosePerAngstromFrame,
 
                             Name = DialogContent.TextSourceName.Text,
                             Path = Info.DirectoryName + "\\" + Helper.RemoveInvalidChars(DialogContent.TextSourceName.Text) + ".source"

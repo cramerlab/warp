@@ -5,10 +5,11 @@
                xmlns:s="clr-namespace:Sparta;assembly=WarpControls"
                xmlns:wc="clr-namespace:Warp;assembly=WarpControls"
                xmlns:w="clr-namespace:Warp.Controls"
+               xmlns:l="clr-namespace:Warp"
                xmlns:lvc="clr-namespace:LiveCharts.Wpf;assembly=LiveCharts.Wpf"
                xmlns:PresentationOptions="http://schemas.microsoft.com/winfx/2006/xaml/presentation/options"
                xmlns:Dialogs="clr-namespace:MahApps.Metro.Controls.Dialogs;assembly=MahApps.Metro"
-               Title="Durchlichtelektronenmikroskopiebilddatenentzerrungswerkzeug 1.0.6"
+               Title="Durchlichtelektronenmikroskopiebilddatenentzerrungswerkzeug 1.0.7 beta"
                UseLayoutRounding="True" 
                ShowTitleBar="True" 
                SnapsToDevicePixels="False" 
@@ -22,6 +23,9 @@
                Width="1536"
                Height="1150">
     <Window.Resources>
+        <ResourceDictionary>
+            <l:NyquistAngstromConverter x:Key="nyquistAngstromConverter" />
+        </ResourceDictionary>
     </Window.Resources>
     <m:MetroWindow.RightWindowCommands>
         <m:WindowCommands>
@@ -80,12 +84,13 @@
                                     <TextBlock Text=" — " />
                                     <Button Name="ButtonInputExtension" Content="{Binding Import.Extension}" Style="{StaticResource HyperlinkLikeButton}" Click="ButtonInputExtension_OnClick" />
                                     <Popup Name="PopupInputExtension" PlacementTarget="{Binding ElementName=ButtonInputExtension}" IsOpen="False" StaysOpen="False" PopupAnimation="Fade">
-                                        <Border Background="White" BorderBrush="Black" BorderThickness="0.5">
+                                        <Border Background="{DynamicResource WhiteBrush}" BorderBrush="{DynamicResource BlackBrush}" BorderThickness="0.5">
                                             <StackPanel Orientation="Vertical" Margin="6">
                                                 <RadioButton GroupName="InFormatOptions" VerticalAlignment="Center" Margin="0,3,0,0" Content="MRC" IsChecked="{Binding Path=Import.ExtensionMRC, Mode=TwoWay}" FontSize="13" />
                                                 <RadioButton GroupName="InFormatOptions" VerticalAlignment="Center" Margin="0,3,0,0" Content="MRCS" IsChecked="{Binding Path=Import.ExtensionMRCS, Mode=TwoWay}" FontSize="13" />
                                                 <RadioButton GroupName="InFormatOptions" VerticalAlignment="Center" Margin="0,3,0,0" Content="EM" IsChecked="{Binding Path=Import.ExtensionEM, Mode=TwoWay}" FontSize="13" />
-                                                <RadioButton GroupName="InFormatOptions" VerticalAlignment="Center" Margin="0,3,0,0" Content="TIFF" IsChecked="{Binding Path=Import.ExtensionTIFF, Mode=TwoWay}" FontSize="13" />
+                                                <RadioButton GroupName="InFormatOptions" VerticalAlignment="Center" Margin="0,3,0,0" Content="TIF" IsChecked="{Binding Path=Import.ExtensionTIFF, Mode=TwoWay}" FontSize="13" />
+                                                <RadioButton GroupName="InFormatOptions" VerticalAlignment="Center" Margin="0,3,0,0" Content="TIFF" IsChecked="{Binding Path=Import.ExtensionTIFFF, Mode=TwoWay}" FontSize="13" />
                                                 <RadioButton GroupName="InFormatOptions" VerticalAlignment="Center" Margin="0,3,0,0" Content="TomoSTAR" IsChecked="{Binding Path=Import.ExtensionTomoSTAR, Mode=TwoWay}" FontSize="13" />
                                                 <RadioButton GroupName="InFormatOptions" VerticalAlignment="Center" Margin="0,3,0,0" Content="DAT" IsChecked="{Binding Path=Import.ExtensionDAT, Mode=TwoWay}" FontSize="13" />
                                                 <StackPanel Orientation="Horizontal" Margin="26,3,0,0">
@@ -177,17 +182,24 @@
                                         <RowDefinition Height="28" />
                                         <RowDefinition Height="28" />
                                         <RowDefinition Height="28" />
-                                        <RowDefinition Height="28" />
                                     </Grid.RowDefinitions>
                                     <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal">
                                         <s:ValueSlider Value="{Binding CTF.Window, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="Window: {0} px" MinValue="128" MaxValue="2048" StepSize="128" />
                                     </StackPanel>
                                     <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal">
                                         <TextBlock Text="Range: " />
-                                        <s:ValueSlider Value="{Binding CTF.RangeMin, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="{}{0}" MinValue="0" MaxValue="0.99" StepSize="0.01" />
+                                        <s:ValueSlider Value="{Binding CTF.RangeMin, Mode=TwoWay, Converter={StaticResource nyquistAngstromConverter}}" UpdateTrigger="PropertyChanged" TextFormat="{}{0}" MinValue="1" MaxValue="999" StepSize="0.1">
+                                            <s:ValueSlider.ToolTip>
+                                                <s:FormattedTextBlock Value="{Binding CTF.RangeMin}" TextFormat="{}{0:F2} Ny" />
+                                            </s:ValueSlider.ToolTip>
+                                        </s:ValueSlider>
                                         <TextBlock Text="–" />
-                                        <s:ValueSlider Value="{Binding CTF.RangeMax, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="{}{0}" MinValue="0.01" MaxValue="1.00" StepSize="0.01" />
-                                        <TextBlock Text=" Ny" />
+                                        <s:ValueSlider Value="{Binding CTF.RangeMax, Mode=TwoWay, Converter={StaticResource nyquistAngstromConverter}}" UpdateTrigger="PropertyChanged" TextFormat="{}{0}" MinValue="1" MaxValue="999" StepSize="0.1">
+                                            <s:ValueSlider.ToolTip>
+                                                <s:FormattedTextBlock Value="{Binding CTF.RangeMax}" TextFormat="{}{0:F2} Ny" />
+                                            </s:ValueSlider.ToolTip>
+                                        </s:ValueSlider>
+                                        <TextBlock Text=" Å" />
                                     </StackPanel>
                                     <CheckBox Grid.Row="0" Grid.Column="2" IsChecked="{Binding CTF.UseMovieSum}" Content="Use Movie Sum"  FontSize="13" VerticalAlignment="Top"/>
                                     <StackPanel Grid.Row="1" Grid.Column="0" Orientation="Horizontal">
@@ -199,31 +211,23 @@
                                         </TextBlock>
                                         <s:ValueSlider Value="{Binding CTF.Cs, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat=": {0} mm" MinValue="0.00" MaxValue="10" StepSize="0.01" />
                                     </StackPanel>
+                                    <CheckBox Grid.Row="1" Grid.Column="2" IsChecked="{Binding CTF.DoPhase}" Content="Phase Shift" FontSize="13" VerticalAlignment="Top" />
                                     <StackPanel Grid.Row="1" Grid.Column="2" Orientation="Horizontal">
-                                        <TextBlock>
-                                            C<Run BaselineAlignment="Subscript" FontSize="9">C</Run>
-                                        </TextBlock>
-                                        <s:ValueSlider Value="{Binding CTF.Cc, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat=": {0} mm" MinValue="0.00" MaxValue="10" StepSize="0.01" />
                                     </StackPanel>
                                     <StackPanel Grid.Row="2" Grid.Column="0" Orientation="Horizontal">
                                         <s:ValueSlider Value="{Binding CTF.Amplitude, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="Amplitude: {0}" MinValue="0" MaxValue="1" StepSize="0.01" />
                                     </StackPanel>
                                     <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal">
-                                        <s:ValueSlider Value="{Binding CTF.IllAperture, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="Ill. Aperture: {0} µrad" MinValue="0" MaxValue="1000" StepSize="1" />
-                                    </StackPanel>
-                                    <StackPanel Grid.Row="2" Grid.Column="2" Orientation="Horizontal">
-                                        <s:ValueSlider Value="{Binding CTF.DeltaE, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="ΔE: {0} eV" MinValue="0" MaxValue="100" StepSize="0.01" />
-                                    </StackPanel>
-                                    <StackPanel Grid.Row="3" Grid.Column="0" Orientation="Horizontal">
                                         <TextBlock Text="Defocus: " />
                                         <s:ValueSlider Value="{Binding CTF.ZMin, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="{}{0}" MinValue="-1000" MaxValue="1000" StepSize="0.1" />
                                         <TextBlock Text="–" />
                                         <s:ValueSlider Value="{Binding CTF.ZMax, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="{}{0}" MinValue="-1000" MaxValue="1000" StepSize="0.1" />
                                         <TextBlock Text=" μm" />
                                     </StackPanel>
-                                    <CheckBox Grid.Row="3" Grid.Column="1" IsChecked="{Binding CTF.DoPhase}" Content="Phase Shift" FontSize="13" VerticalAlignment="Top" />
-                                    <!--<CheckBox Name="CheckCTFDoIce"  Grid.Row="3" Grid.Column="2" IsChecked="{Binding CTF.DoIce}" Content="Model Ice Ring" FontSize="13" VerticalAlignment="Top" />-->
-                                    <CheckBox Name="CheckCTFSimultaneous" Grid.Row="3" Grid.Column="2" IsChecked="{Binding CTF.DoSimultaneous}" Content="All Tilts at Once" FontSize="13" VerticalAlignment="Top" />
+                                    <StackPanel Grid.Row="2" Grid.Column="2" Orientation="Horizontal">
+                                    </StackPanel>
+                                    <StackPanel Grid.Row="3" Grid.Column="0" Orientation="Horizontal">
+                                    </StackPanel>
                                 </Grid>
                             </StackPanel>
                             <StackPanel Name="PanelProcessMovement"  Orientation="Horizontal">
@@ -233,10 +237,18 @@
                             <StackPanel Name="GridOptionsMovement" IsEnabled="{Binding ProcessMovement}" Margin="6,0" Orientation="Vertical">
                                 <StackPanel Orientation="Horizontal" Height="20">
                                     <TextBlock Text="Consider " />
-                                    <s:ValueSlider Value="{Binding Movement.RangeMin, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="{}{0}" MinValue="0" MaxValue="0.99" StepSize="0.01" />
+                                    <s:ValueSlider Value="{Binding Movement.RangeMin, Mode=TwoWay, Converter={StaticResource nyquistAngstromConverter}}" UpdateTrigger="PropertyChanged" TextFormat="{}{0}" MinValue="1" MaxValue="999" StepSize="0.1">
+                                        <s:ValueSlider.ToolTip>
+                                            <s:FormattedTextBlock Value="{Binding Movement.RangeMin}" TextFormat="{}{0:F2} Ny" />
+                                        </s:ValueSlider.ToolTip>
+                                    </s:ValueSlider>
                                     <TextBlock Text="–" />
-                                    <s:ValueSlider Value="{Binding Movement.RangeMax, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="{}{0}" MinValue="0.01" MaxValue="1" StepSize="0.01" />
-                                    <TextBlock Text=" Ny, weight with B = " />
+                                    <s:ValueSlider Value="{Binding Movement.RangeMax, Mode=TwoWay, Converter={StaticResource nyquistAngstromConverter}}" UpdateTrigger="PropertyChanged" TextFormat="{}{0}" MinValue="1" MaxValue="999" StepSize="0.1">
+                                        <s:ValueSlider.ToolTip>
+                                            <s:FormattedTextBlock Value="{Binding Movement.RangeMax}" TextFormat="{}{0:F2} Ny" />
+                                        </s:ValueSlider.ToolTip>
+                                    </s:ValueSlider>
+                                    <TextBlock Text=" Å, weight with B = " />
                                     <s:ValueSlider Value="{Binding Movement.Bfactor, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="{}{0} Å²" MinValue="-10000" MaxValue="0" StepSize="10" />
                                 </StackPanel>
                             </StackPanel>
@@ -270,7 +282,7 @@
                                 </StackPanel>
                             </Grid>
                                 
-                            <StackPanel Orientation="Horizontal">
+                            <StackPanel Name="PanelProcessPicking" Orientation="Horizontal">
                                 <CheckBox Name="SwitchProcessPicking" IsChecked="{Binding ProcessPicking, Mode=TwoWay}" VerticalAlignment="Bottom" Margin="6,0,0,7" />
                                 <Label Content="Pick Particles" FontSize="18" Margin="0,18,0,0" />
                             </StackPanel>
@@ -506,7 +518,7 @@
                                                 <Canvas Name="StatsDefocusAverageCTFCanvas" Grid.Column="2" VerticalAlignment="Stretch" HorizontalAlignment="Stretch" />
                                             </Grid>
                                         </StackPanel>
-                                        <w:SingleAxisScatter x:Name="PlotStatsDefocus" Height="100" AxisMin="0" RangeHighlightMin="{Binding Filter.DefocusMin}" RangeHighlightMax="{Binding Filter.DefocusMax}" PointClicked="PlotStatsDefocus_OnPointClicked" HighlightID="{Binding Runtime.OverviewPlotHighlightID, Mode=TwoWay}">
+                                        <w:SingleAxisScatter x:Name="PlotStatsDefocus" Height="100" RangeHighlightMin="{Binding Filter.DefocusMin}" RangeHighlightMax="{Binding Filter.DefocusMax}" PointClicked="PlotStatsDefocus_OnPointClicked" HighlightID="{Binding Runtime.OverviewPlotHighlightID, Mode=TwoWay}">
                                             <w:SingleAxisScatter.PointColors>
                                                 <Color>#77cd77</Color>
                                                 <Color>#ffc456</Color>
@@ -620,7 +632,10 @@
                                                 MinHeight="768"
                                                 HorizontalAlignment="Center"
                                                 VerticalAlignment="Center" />
-                                <Button Name="ButtonProcessOneItemCTF" Content="PROCESS ONLY THIS ITEM'S CTF" FontWeight="Medium" Foreground="CornflowerBlue" Margin="0,8" HorizontalAlignment="Left" VerticalAlignment="Top" Style="{StaticResource ChromelessButtonStyle}" Click="ButtonProcessOneItemCTF_OnClick" />
+                                <StackPanel Orientation="Horizontal">
+                                    <Button Name="ButtonProcessOneItemCTF" Content="PROCESS ONLY THIS ITEM'S CTF" FontWeight="Medium" Foreground="CornflowerBlue" Margin="0,8" HorizontalAlignment="Left" VerticalAlignment="Top" Style="{StaticResource ChromelessButtonStyle}" Click="ButtonProcessOneItemCTF_OnClick" />
+                                    <Button Name="ButtonProcessOneItemTiltHandedness" Content="CHECK TILT HANDEDNESS" FontWeight="Medium" Foreground="CornflowerBlue" Margin="20,8,0,8" HorizontalAlignment="Left" VerticalAlignment="Top" Style="{StaticResource ChromelessButtonStyle}" Click="ButtonProcessOneItemTiltHandedness_Click" />
+                                </StackPanel>
                             </Grid>
                         </TabItem>
                         <TabItem Name="TabProcessingMovement"  Header="Real Space" Style="{DynamicResource MenuLevel2}">

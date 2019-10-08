@@ -5,6 +5,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -39,7 +40,7 @@ namespace Warp.Controls
 
         List<float> Timings = new List<float>();
 
-        public DialogTomoParticleExport(TiltSeries[] series, string importPath, string exportPath, Options options)
+        public DialogTomoParticleExport(TiltSeries[] series, string importPath, Options options)
         {
             InitializeComponent();
 
@@ -57,7 +58,6 @@ namespace Warp.Controls
 
             Series = series;
             ImportPath = importPath;
-            ExportPath = exportPath;
 
             DataContext = Options;
 
@@ -116,6 +116,21 @@ namespace Warp.Controls
 
         private async void ButtonWrite_OnClick(object sender, RoutedEventArgs e)
         {
+            System.Windows.Forms.SaveFileDialog SaveDialog = new System.Windows.Forms.SaveFileDialog
+            {
+                Filter = "STAR Files|*.star"
+            };
+            System.Windows.Forms.DialogResult ResultSave = SaveDialog.ShowDialog();
+
+            if (ResultSave.ToString() == "OK")
+            {
+                ExportPath = SaveDialog.FileName;
+            }
+            else
+            {
+                return;
+            }
+
             bool Invert = (bool)CheckInvert.IsChecked;
             bool Normalize = (bool)CheckNormalize.IsChecked;
             bool Preflip = (bool)CheckPreflip.IsChecked;
@@ -131,6 +146,14 @@ namespace Warp.Controls
             bool DoVolumes = (bool)RadioVolume.IsChecked;
             if (!DoVolumes)
                 Options.Tasks.TomoSubReconstructPrerotated = true;
+
+            bool MakeSparse = (bool)CheckSparse.IsChecked;
+
+            float3 AdditionalShiftAngstrom = (bool)CheckShiftParticles.IsChecked ? 
+                                             new float3((float)SliderShiftParticlesX.Value,
+                                                        (float)SliderShiftParticlesY.Value,
+                                                        (float)SliderShiftParticlesZ.Value) : 
+                                             new float3(0);
 
             ProgressWrite.Visibility = Visibility.Visible;
             ProgressWrite.IsIndeterminate = true;
@@ -250,12 +273,34 @@ namespace Warp.Controls
                 List<Star> SeriesTablesOut = new List<Star>();
 
                 #endregion
-
-                int MaxDevices = 999;
-                int UsedDevices = Math.Min(MaxDevices, GPU.GetDeviceCount());
-
+                
                 if (IsCanceled)
                     return;
+
+                #region Create worker processes
+
+                int NDevices = GPU.GetDeviceCount();
+                List<int> UsedDevices = Options.MainWindow.GetDeviceList();
+                List<int> UsedDeviceProcesses = Helper.Combine(Helper.ArrayOfFunction(i => UsedDevices.Select(d => d + i * NDevices).ToArray(), MainWindow.GlobalOptions.ProcessesPerDevice)).ToList();
+
+                WorkerWrapper[] Workers = new WorkerWrapper[GPU.GetDeviceCount() * MainWindow.GlobalOptions.ProcessesPerDevice];
+                foreach (var gpuID in UsedDeviceProcesses)
+                {
+                    Workers[gpuID] = new WorkerWrapper(gpuID);
+                    Workers[gpuID].SetHeaderlessParams(new int2(Options.Import.HeaderlessWidth, Options.Import.HeaderlessHeight),
+                                                        Options.Import.HeaderlessOffset,
+                                                        Options.Import.HeaderlessType);
+
+                    if (!string.IsNullOrEmpty(Options.Import.GainPath) && Options.Import.CorrectGain)
+                        Workers[gpuID].LoadGainRef(Options.Import.GainPath,
+                                                    Options.Import.GainFlipX,
+                                                    Options.Import.GainFlipY,
+                                                    Options.Import.GainTranspose);
+                    else
+                        Workers[gpuID].LoadGainRef("", false, false, false);
+                }
+
+                #endregion
 
                 Star TableOut = null;
                 {
@@ -301,6 +346,21 @@ namespace Warp.Controls
                     if (TableIn.HasColumn("rlnOriginZ"))
                         TableIn.RemoveColumn("rlnOriginZ");
 
+                    if (AdditionalShiftAngstrom.Length() > 0)
+                    {
+                        for (int r = 0; r < TableIn.RowCount; r++)
+                        {
+                            Matrix3 R = Matrix3.Euler(AngleRot[r] * Helper.ToRad,
+                                                      AngleTilt[r] * Helper.ToRad,
+                                                      AnglePsi[r] * Helper.ToRad);
+                            float3 RotatedShift = R * AdditionalShiftAngstrom;
+
+                            PosX[r] += RotatedShift.X;
+                            PosY[r] += RotatedShift.Y;
+                            PosZ[r] += RotatedShift.Z;
+                        }
+                    }
+
                     if (Options.Tasks.TomoSubReconstructPrerotated)
                     {
                         if (TableIn.HasColumn("rlnAngleRot"))
@@ -323,6 +383,13 @@ namespace Warp.Controls
                     #endregion
 
                     Dispatcher.Invoke(() => ProgressWrite.MaxValue = ValidSeries.Count);
+
+
+                    //Dispatcher.Invoke(() =>
+                    //{
+                    //    ProgressWrite.IsIndeterminate = true;
+                    //    TextRemaining.Text = "?:??";
+                    //});
 
                     Helper.ForEachGPU(ValidSeries, (series, gpuID) =>
                     {
@@ -350,7 +417,9 @@ namespace Warp.Controls
                             #region Figure out relative or absolute path to sub-tomo and its CTF
 
                             string PathSubtomo = series.SubtomoDir + $"{series.RootName}_{pi:D7}_{ExportOptions.BinnedPixelSizeMean:F2}A.mrc";
-                            string PathCTF = series.SubtomoDir + $"{series.RootName}_{pi:D7}_ctf_{ExportOptions.BinnedPixelSizeMean:F2}A.mrc";
+                            string PathCTF = //MakeSparse ?
+                                            //(series.SubtomoDir + $"{series.RootName}_{pi:D7}_ctf_{ExportOptions.BinnedPixelSizeMean:F2}A.tif") :
+                                            (series.SubtomoDir + $"{series.RootName}_{pi:D7}_ctf_{ExportOptions.BinnedPixelSizeMean:F2}A.mrc");
                             if (Relative)
                             {
                                 Uri UriStar = new Uri(ExportPath);
@@ -384,7 +453,8 @@ namespace Warp.Controls
 
                         if (DoVolumes)
                         {
-                            series.ReconstructSubtomos(ExportOptions, TomoPositions, TomoAngles);
+                            Workers[gpuID].TomoExportParticles(series.Path, ExportOptions, TomoPositions, TomoAngles);
+                            //series.ReconstructSubtomos(ExportOptions, TomoPositions, TomoAngles);
 
                             lock (MicrographTables)
                                 MicrographTables.Add(series.RootName, MicrographTable);
@@ -404,7 +474,7 @@ namespace Warp.Controls
 
                         lock (MicrographTables)
                         {
-                            Timings.Add(ItemTime.ElapsedMilliseconds / (float)UsedDevices);
+                            Timings.Add(ItemTime.ElapsedMilliseconds / (float)UsedDeviceProcesses.Count);
 
                             int MsRemaining = (int)(MathHelper.Mean(Timings) * (ValidSeries.Count - MicrographTables.Count));
                             TimeSpan SpanRemaining = new TimeSpan(0, 0, 0, 0, MsRemaining);
@@ -420,11 +490,16 @@ namespace Warp.Controls
 
                         #endregion
 
-                    }, 1);
+                    }, 1, UsedDeviceProcesses);
 
                     if (MicrographTables.Count > 0)
                         TableOut = new Star(MicrographTables.Values.ToArray());
                 }
+
+                Thread.Sleep(10000);    // Writing out particles is async, so if workers are killed immediately they may not write out everything
+
+                foreach (var worker in Workers)
+                    worker?.Dispose();
 
                 if (IsCanceled)
                     return;

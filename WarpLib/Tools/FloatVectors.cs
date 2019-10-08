@@ -9,6 +9,7 @@ using Accord;
 namespace Warp.Tools
 {
     [StructLayout(LayoutKind.Sequential)]
+    [Serializable]
     public struct float4
     {
         public float X, Y, Z, W;
@@ -27,6 +28,14 @@ namespace Warp.Tools
             Y = v;
             Z = v;
             W = v;
+        }
+
+        public float4(int4 v)
+        {
+            X = v.X;
+            Y = v.Y;
+            Z = v.Z;
+            W = v.W;
         }
 
         public float4(byte[] value)
@@ -133,6 +142,11 @@ namespace Warp.Tools
             return $"{X}, {Y}, {Z}, {W}";
         }
 
+        public static float4 Lerp(float4 a, float4 b, float weight)
+        {
+            return a + (b - a) * weight;
+        }
+
         public static float RMSD(float4[] points)
         {
             float4 Mean = MathHelper.Mean(points);
@@ -147,6 +161,7 @@ namespace Warp.Tools
     }
 
     [StructLayout(LayoutKind.Sequential)]
+    [Serializable]
     public struct float3
     {
         public float X, Y, Z;
@@ -243,6 +258,7 @@ namespace Warp.Tools
         public static readonly float3 UnitX = new float3(1, 0, 0);
         public static readonly float3 UnitY = new float3(0, 1, 0);
         public static readonly float3 UnitZ = new float3(0, 0, 1);
+        public static readonly float3 UnitXY = new float3(1, 1, 0);
 
         public override bool Equals(Object obj)
         {
@@ -510,6 +526,7 @@ namespace Warp.Tools
     }
 
     [StructLayout(LayoutKind.Sequential)]
+    [Serializable]
     public struct float2
     {
         public float X, Y;
@@ -710,6 +727,7 @@ namespace Warp.Tools
     }
 
     [StructLayout(LayoutKind.Sequential)]
+    [Serializable]
     public struct float5
     {
         public float X, Y, Z, W, V;

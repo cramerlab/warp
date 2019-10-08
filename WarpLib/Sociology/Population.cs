@@ -179,5 +179,67 @@ namespace Warp.Sociology
             Writer.Flush();
             Writer.Close();
         }
+
+        public void SaveRefinementProgress(string folder)
+        {
+            foreach (var species in Species)
+            {
+                string SpeciesID = species.GUID.ToString().Substring(0, 8);
+
+                for (int i = 0; i < species.HalfMap1Reconstruction.Length; i++)
+                {
+                    species.HalfMap1Reconstruction[i]?.WriteMRC(System.IO.Path.Combine(folder, $"{SpeciesID}_half1_{i}.mrc"));
+                    species.HalfMap2Reconstruction[i]?.WriteMRC(System.IO.Path.Combine(folder, $"{SpeciesID}_half2_{i}.mrc"));
+                }
+                species.ParticlesToStar().Save(System.IO.Path.Combine(folder, $"{SpeciesID}_particles.star"));
+            }
+        }
+
+        public void GatherRefinementProgress(string[] folders)
+        {
+            foreach (var species in Species)
+            {
+                string SpeciesID = species.GUID.ToString().Substring(0, 8);
+
+                Projector Rec1 = species.HalfMap1Reconstruction[0];
+                Projector Rec2 = species.HalfMap2Reconstruction[0];
+
+                Particle[] OriginalParticles = species.Particles.ToList().ToArray();
+                Particle[] FinalParticles = species.Particles;
+
+                foreach (var folder in folders)
+                {
+                    foreach (var path in Directory.EnumerateFiles(folder, $"{SpeciesID}_half1_*.mrc"))
+                    {
+                        Projector Saved = Projector.FromFile(path);
+
+                        Rec1.Data.Add(Saved.Data);
+                        Rec1.Weights.Add(Saved.Weights);
+
+                        Saved.Dispose();
+                    }
+
+                    foreach (var path in Directory.EnumerateFiles(folder, $"{SpeciesID}_half2_*.mrc"))
+                    {
+                        Projector Saved = Projector.FromFile(path);
+
+                        Rec2.Data.Add(Saved.Data);
+                        Rec2.Weights.Add(Saved.Weights);
+
+                        Saved.Dispose();
+                    }
+
+                    Particle[] UpdatedParticles = species.ParticlesFromStar(new Star(System.IO.Path.Combine(folder, $"{SpeciesID}_particles.star")));
+
+                    for (int p = 0; p < OriginalParticles.Length; p++)
+                        if (OriginalParticles[p].Coordinates.Where((v, i) => v != UpdatedParticles[p].Coordinates[i]).Count() > 0 ||
+                            OriginalParticles[p].Angles.Where((v, i) => v != UpdatedParticles[p].Angles[i]).Count() > 0)
+                            FinalParticles[p] = UpdatedParticles[p];
+                }
+
+                Rec1.FreeDevice();
+                Rec2.FreeDevice();
+            }
+        }
     }
 }

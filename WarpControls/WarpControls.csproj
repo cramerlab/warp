@@ -93,6 +93,12 @@
       <DependentUpon>FormattedTextBlock.xaml</DependentUpon>
     </Compile>
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="SingleSliceRenderer.xaml.cs">
+      <DependentUpon>SingleSliceRenderer.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="MultiSliceRenderer.xaml.cs">
+      <DependentUpon>MultiSliceRenderer.xaml</DependentUpon>
+    </Compile>
     <Compile Include="SymmetrySelector.xaml.cs">
       <DependentUpon>SymmetrySelector.xaml</DependentUpon>
     </Compile>
@@ -115,6 +121,14 @@
     <Page Include="FormattedTextBlock.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
+    </Page>
+    <Page Include="SingleSliceRenderer.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="MultiSliceRenderer.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="SymmetrySelector.xaml">
       <SubType>Designer</SubType>

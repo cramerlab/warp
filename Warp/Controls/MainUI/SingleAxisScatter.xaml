@@ -16,7 +16,7 @@
         <StackPanel Name="PanelRangeHighlight"  Grid.Column="1" Background="{DynamicResource BlackBrush}" Opacity="0.06" HorizontalAlignment="Stretch" VerticalAlignment="Top" Height="100"/>
         <Grid Name="GridLineTop" Grid.ColumnSpan="2" HorizontalAlignment="Stretch" VerticalAlignment="Top">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="24"/>
+                <ColumnDefinition Width="26"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
             <TextBlock Name="TextLineTop" Text="10" FontSize="10" Foreground="Gray" HorizontalAlignment="Right" Margin="0,0,4,0" />
@@ -24,7 +24,7 @@
         </Grid>
         <Grid Name="GridLineCenter" Grid.ColumnSpan="2"  HorizontalAlignment="Stretch" VerticalAlignment="Center">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="24"/>
+                <ColumnDefinition Width="26"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
             <TextBlock Name="TextLineCenter" Text="5" FontSize="10" Foreground="Gray" HorizontalAlignment="Right" Margin="0,0,4,0" />
@@ -32,7 +32,7 @@
         </Grid>
         <Grid Name="GridLineBottom" Grid.ColumnSpan="2" HorizontalAlignment="Stretch" VerticalAlignment="Bottom">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="24"/>
+                <ColumnDefinition Width="26"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
             <TextBlock Name="TextLineBottom"  Text="0" FontSize="10" Foreground="Gray" HorizontalAlignment="Right" Margin="0,0,4,0" />

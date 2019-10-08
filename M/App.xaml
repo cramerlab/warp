@@ -30,6 +30,10 @@
             <SolidColorBrush x:Key="AccentColorBrush" Color="{DynamicResource AccentColor}" />
             <SolidColorBrush x:Key="HighlightBrush" Color="#7ec730" PresentationOptions:Freeze="True" />
             <s:ColorToSolidColorBrushValueConverter  x:Key="ColorToSolidColorBrush_ValueConverter"/>
+            <Style TargetType="Button" BasedOn="{StaticResource ChromelessButtonStyle}">
+                <Setter Property="Foreground" Value="#7ec730" />
+                <Setter Property="FontWeight" Value="Medium" />
+            </Style>
             <Style x:Key="HyperlinkLikeButton" TargetType="Button">
                 <Setter Property="Template">
                     <Setter.Value>

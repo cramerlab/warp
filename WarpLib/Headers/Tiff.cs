@@ -165,11 +165,25 @@ namespace Warp.Headers
                         fixed (byte* StripsDataPtr = StripsData)
                         fixed (float* ConvertedDataPtr = ConvertedData)
                         {
+                            int FullLength = ConvertedData.Length;
+                            int SafeLength = FullLength / 4;
+
+                            float* ConvertedDataP = ConvertedDataPtr;
+
                             if (Mode == TiffDataType.Byte)
                             {
                                 byte* StripsDataP = (byte*)StripsDataPtr;
-                                for (int i = 0; i < ConvertedData.Length; i++)
-                                    ConvertedDataPtr[i] = (float)StripsDataP[i];
+                                for (int i = 0; i < SafeLength; i++)
+                                {
+                                    *ConvertedDataP++ = (float)*StripsDataP++;
+                                    *ConvertedDataP++ = (float)*StripsDataP++;
+                                    *ConvertedDataP++ = (float)*StripsDataP++;
+                                    *ConvertedDataP++ = (float)*StripsDataP++;
+                                }
+                                for (int i = SafeLength * 4; i < FullLength; i++)
+                                {
+                                    *ConvertedDataP++ = (float)*StripsDataP++;
+                                }
                             }
                             else if (Mode == TiffDataType.Ushort)
                             {
@@ -226,13 +240,24 @@ namespace Warp.Headers
                                 fixed (float* ConvertedDataFlipYPtr = ConvertedDataFlipY)
                                 {
                                     int Width = Dimensions.X, Height = Dimensions.Y;
+                                    int WidthSafe = (Width / 4) * 4;
                                     for (int y = 0; y < Height; y++)
                                     {
                                         int YOffset = y * Width;
                                         int YOffsetFlipped = (Height - 1 - y) * Width;
 
-                                        for (int x = 0; x < Width; x++)
+                                        for (int x = 0; x < WidthSafe; x += 4)
+                                        {
                                             ConvertedDataFlipYPtr[YOffset + x] = ConvertedDataPtr[YOffsetFlipped + x];
+                                            ConvertedDataFlipYPtr[YOffset + x + 1] = ConvertedDataPtr[YOffsetFlipped + x + 1];
+                                            ConvertedDataFlipYPtr[YOffset + x + 2] = ConvertedDataPtr[YOffsetFlipped + x + 2];
+                                            ConvertedDataFlipYPtr[YOffset + x + 3] = ConvertedDataPtr[YOffsetFlipped + x + 3];
+                                        }
+
+                                        for (int x = WidthSafe; x < Width; x++)
+                                        {
+                                            ConvertedDataFlipYPtr[YOffset + x] = ConvertedDataPtr[YOffsetFlipped + x];
+                                        }
                                     }
                                 }
                             }
@@ -287,11 +312,25 @@ namespace Warp.Headers
                         fixed (byte* StripsDataPtr = StripsData)
                         fixed (float* ConvertedDataPtr = ConvertedData)
                         {
+                            int FullLength = ConvertedData.Length;
+                            int SafeLength = FullLength / 4;
+
+                            float* ConvertedDataP = ConvertedDataPtr;
+
                             if (Mode == TiffDataType.Byte)
                             {
                                 byte* StripsDataP = (byte*)StripsDataPtr;
-                                for (int i = 0; i < ConvertedData.Length; i++)
-                                    ConvertedDataPtr[i] = (float)StripsDataP[i];
+                                for (int i = 0; i < SafeLength; i++)
+                                {
+                                    *ConvertedDataP++ = (float)*StripsDataP++;
+                                    *ConvertedDataP++ = (float)*StripsDataP++;
+                                    *ConvertedDataP++ = (float)*StripsDataP++;
+                                    *ConvertedDataP++ = (float)*StripsDataP++;
+                                }
+                                for (int i = SafeLength * 4; i < FullLength; i++)
+                                {
+                                    *ConvertedDataP++ = (float)*StripsDataP++;
+                                }
                             }
                             else if (Mode == TiffDataType.Ushort)
                             {
@@ -348,13 +387,24 @@ namespace Warp.Headers
                                 fixed (float* ConvertedDataFlipYPtr = ConvertedDataFlipY)
                                 {
                                     int Width = Dimensions.X, Height = Dimensions.Y;
+                                    int WidthSafe = (Width / 4) * 4;
                                     for (int y = 0; y < Height; y++)
                                     {
                                         int YOffset = y * Width;
                                         int YOffsetFlipped = (Height - 1 - y) * Width;
 
-                                        for (int x = 0; x < Width; x++)
+                                        for (int x = 0; x < WidthSafe; x += 4)
+                                        {
                                             ConvertedDataFlipYPtr[YOffset + x] = ConvertedDataPtr[YOffsetFlipped + x];
+                                            ConvertedDataFlipYPtr[YOffset + x + 1] = ConvertedDataPtr[YOffsetFlipped + x + 1];
+                                            ConvertedDataFlipYPtr[YOffset + x + 2] = ConvertedDataPtr[YOffsetFlipped + x + 2];
+                                            ConvertedDataFlipYPtr[YOffset + x + 3] = ConvertedDataPtr[YOffsetFlipped + x + 3];
+                                        }
+
+                                        for (int x = WidthSafe; x < Width; x++)
+                                        {
+                                            ConvertedDataFlipYPtr[YOffset + x] = ConvertedDataPtr[YOffsetFlipped + x];
+                                        }
                                     }
                                 }
                             }

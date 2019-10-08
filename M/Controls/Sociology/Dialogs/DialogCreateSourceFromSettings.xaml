@@ -19,6 +19,8 @@
                 <RowDefinition Height="10" />
                 <RowDefinition Height="30" />
                 <RowDefinition Height="30" />
+                <RowDefinition Height="10" />
+                <RowDefinition Height="30" />
             </Grid.RowDefinitions>
 
             <lvc:PieChart DisableAnimations="True" LegendLocation="None" Width="256" Height="256" InnerRadius="80" HorizontalAlignment="Center">
@@ -54,10 +56,12 @@
             <CheckBox Name="CheckFilter" Grid.Row="6" Content="Include items outside of filter ranges" FontSize="18" />
             <CheckBox Name="CheckManual" Grid.Row="7" Content="Include manually excluded items" FontSize="18" />
 
+            <sparta:ValueSlider Name="SliderFrames" Grid.Row="9" TextFormat="Use only first {0} frames/tilts" Value="1" UpdateTrigger="PropertyChanged" MinValue="1" MaxValue="99999" StepSize="1" FontSize="18" />
+
         </Grid>
         <StackPanel Name="PanelButtons" Height="50" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,20">
-            <Button Name="ButtonCreate" Content="CREATE" FontSize="20" FontWeight="Medium" Foreground="CornflowerBlue" VerticalAlignment="Bottom" Style="{StaticResource ChromelessButtonStyle}" Click="ButtonCreate_OnClick" />
-            <Button Name="ButtonCancel" Content="CANCEL" FontSize="20" FontWeight="Medium" Foreground="CornflowerBlue" Margin="24,0,0,0" VerticalAlignment="Bottom" Style="{StaticResource ChromelessButtonStyle}" Click="ButtonCancel_OnClick" />
+            <Button Name="ButtonCreate" Content="CREATE" FontSize="20" VerticalAlignment="Bottom" Click="ButtonCreate_OnClick" />
+            <Button Name="ButtonCancel" Content="CANCEL" FontSize="20" Margin="24,0,0,0" VerticalAlignment="Bottom" Click="ButtonCancel_OnClick" />
         </StackPanel>
     </StackPanel>
 </UserControl>

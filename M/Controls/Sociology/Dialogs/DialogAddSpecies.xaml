@@ -28,8 +28,8 @@
             <TextBox Name="TextRemotePath" Grid.Row="6" Text="" FontSize="18" Margin="24,0,0,0" />
         </Grid>
         <StackPanel Name="PanelButtons" Height="50" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,20">
-            <Button Name="ButtonCreate" Content="ADD" FontSize="20" FontWeight="Medium" Foreground="CornflowerBlue" VerticalAlignment="Bottom" Style="{StaticResource ChromelessButtonStyle}" Click="ButtonAdd_OnClick" />
-            <Button Name="ButtonCancel" Content="CANCEL" FontSize="20" FontWeight="Medium" Foreground="CornflowerBlue" Margin="24,0,0,0" VerticalAlignment="Bottom" Style="{StaticResource ChromelessButtonStyle}" Click="ButtonCancel_OnClick" />
+            <Button Name="ButtonCreate" Content="ADD" FontSize="20" FontWeight="Medium" Foreground="#7ec730" VerticalAlignment="Bottom" Style="{StaticResource ChromelessButtonStyle}" Click="ButtonAdd_OnClick" />
+            <Button Name="ButtonCancel" Content="CANCEL" FontSize="20" FontWeight="Medium" Foreground="#7ec730" Margin="24,0,0,0" VerticalAlignment="Bottom" Style="{StaticResource ChromelessButtonStyle}" Click="ButtonCancel_OnClick" />
         </StackPanel>
     </StackPanel>
 </UserControl>

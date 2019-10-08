@@ -33,6 +33,8 @@ using Warp.Tools;
 using Warp;
 using Menu = System.Windows.Forms.Menu;
 using M.Controls.Sociology;
+using Image = Warp.Image;
+using M.Controls;
 
 namespace M
 {
@@ -421,11 +423,11 @@ namespace M
             if (ActivePopulation == null)
                 return;
 
-            if (ActivePopulation.Species.Count >= 1)
-            {
-                await this.ShowMessageAsync("Oopsie", "Multiple species aren't supported yet. Oh, the irony!");
-                return;
-            }
+            //if (ActivePopulation.Species.Count >= 1)
+            //{
+            //    await this.ShowMessageAsync("Oopsie", "Multiple species aren't supported yet. Oh, the irony!");
+            //    return;
+            //}
 
             CustomDialog AddDialog = new CustomDialog();
             AddDialog.HorizontalContentAlignment = HorizontalAlignment.Center;
@@ -457,8 +459,9 @@ namespace M
                     {
                         await this.HideMetroDialogAsync(NewDialog);
 
+                        string DefaultProgressMessage = "Please wait while various metrics are calculated for the new map. This will take at least a few minutes.\n";
                         var NewSpeciesProgress = await this.ShowProgressAsync("Creating new species...",
-                                                                              "Please wait while various metrics are calculated for the new map. This will take at least a few minutes.");
+                                                                              DefaultProgressMessage);
                         NewSpeciesProgress.SetIndeterminate();
 
                         Species NewSpecies = new Species(NewDialogContent.Halfmap1Final, NewDialogContent.Halfmap2Final, NewDialogContent.MaskFinal)
@@ -471,19 +474,23 @@ namespace M
                             MolecularWeightkDa = NewDialogContent.SpeciesWeight,
 
                             TemporalResolutionMovement = NewDialogContent.TemporalResMov,
-                            TemporalResolutionRotation = NewDialogContent.TemporalResRot,
+                            TemporalResolutionRotation = NewDialogContent.TemporalResMov,
 
                             Particles = NewDialogContent.ParticlesFinal
                         };
 
                         await Task.Run(() =>
                         {
-                            NewSpecies.CalculateResolutionAndFilter();
-                            NewSpecies.CalculateParticleStats();
-
-                            NewSpecies.Path = ActivePopulation.SpeciesDir + NewSpecies.GUID + "\\" + NewSpecies.NameSafe + ".species";
+                            NewSpecies.Path = ActivePopulation.SpeciesDir + NewSpecies.GUID.ToString().Substring(0, 8) + "\\" + NewSpecies.NameSafe + ".species";
                             Directory.CreateDirectory(NewSpecies.FolderPath);
 
+                            NewSpecies.CalculateResolutionAndFilter(-1, (message) => Dispatcher.Invoke(() => NewSpeciesProgress.SetMessage(DefaultProgressMessage + "\n" + message)));
+
+                            Dispatcher.Invoke(() => NewSpeciesProgress.SetMessage(DefaultProgressMessage + "\n" + "Calculating particle statistics"));
+                            NewSpecies.CalculateParticleStats();
+
+
+                            Dispatcher.Invoke(() => NewSpeciesProgress.SetMessage(DefaultProgressMessage + "\n" + "Committing results"));
                             NewSpecies.Commit();
                             NewSpecies.Save();
                         });
@@ -507,11 +514,11 @@ namespace M
             if (ActivePopulation == null)
                 return;
 
-            if (ActivePopulation.Species.Count > 1)
-            {
-                await this.ShowMessageAsync("Oopsie", "Multiple species aren't supported yet. Oh, the irony!");
-                return;
-            }
+            //if (ActivePopulation.Species.Count > 1)
+            //{
+            //    await this.ShowMessageAsync("Oopsie", "Multiple species aren't supported yet. Oh, the irony!");
+            //    return;
+            //}
 
             if (ActivePopulation.Species.Count == 0)
             {
@@ -519,40 +526,232 @@ namespace M
                 return;
             }
 
-            if (ActivePopulation.Sources.Count(s => s.Files.Any(f => f.Value.LastIndexOf(".tomostar") > -1)) == 0)
+            CustomDialog SettingsDialog = new CustomDialog();
+            SettingsDialog.HorizontalContentAlignment = HorizontalAlignment.Center;
+
+            DialogRefinementSettings SettingsDialogContent = new DialogRefinementSettings();
+            SettingsDialogContent.Close += async () => await this.HideMetroDialogAsync(SettingsDialog);
+            SettingsDialogContent.StartRefinement += async () =>
             {
-                await this.ShowMessageAsync("Oopsie", "Only refinement of tilt series is supported at the moment!");
-                return;
+                await this.HideMetroDialogAsync(SettingsDialog);
+
+                ClearSpeciesDisplay();  // To avoid UI updates from refinement thread
+
+                ProcessingOptionsMPARefine Options = new ProcessingOptionsMPARefine();
+
+                Options.NIterations = (int)SettingsDialogContent.SliderNIterations.Value;
+
+                Options.MinimumCTFRefinementResolution = (float)SettingsDialogContent.SliderCTFResolution.Value;
+
+                Options.ImageWarpResolution = new int2((int)SettingsDialogContent.SliderImageWarpWidth.Value,
+                                                       (int)SettingsDialogContent.SliderImageWarpHeight.Value);
+                Options.VolumeWarpResolution = new int4((int)SettingsDialogContent.SliderVolumeWarpWidth.Value,
+                                                        (int)SettingsDialogContent.SliderVolumeWarpHeight.Value,
+                                                        (int)SettingsDialogContent.SliderVolumeWarpDepth.Value,
+                                                        (int)SettingsDialogContent.SliderVolumeWarpDuration.Value);
+                Options.RefineMovies = (bool)SettingsDialogContent.CheckRefineTiltMovies.IsChecked;
+
+                Options.RefinedComponentsWarp = 0;
+                if ((bool)SettingsDialogContent.CheckImageWarp.IsChecked)
+                    Options.RefinedComponentsWarp |= WarpOptimizationTypes.ImageWarp;
+                if ((bool)SettingsDialogContent.CheckVolumeWarp.IsChecked)
+                    Options.RefinedComponentsWarp |= WarpOptimizationTypes.VolumeWarp;
+                if ((bool)SettingsDialogContent.CheckStageAngles.IsChecked)
+                    Options.RefinedComponentsWarp |= WarpOptimizationTypes.AxisAngle;
+                if ((bool)SettingsDialogContent.CheckParticlePositions.IsChecked)
+                    Options.RefinedComponentsWarp |= WarpOptimizationTypes.ParticlePosition;
+                if ((bool)SettingsDialogContent.CheckParticleAngles.IsChecked)
+                    Options.RefinedComponentsWarp |= WarpOptimizationTypes.ParticleAngle;
+                if ((bool)SettingsDialogContent.CheckBeamTilt.IsChecked)
+                    Options.RefinedComponentsWarp |= WarpOptimizationTypes.BeamTilt;
+                if ((bool)SettingsDialogContent.CheckMagnification.IsChecked)
+                    Options.RefinedComponentsWarp |= WarpOptimizationTypes.Magnification;
+
+                Options.RefinedComponentsCTF = 0;
+                if ((bool)SettingsDialogContent.CheckDefocus.IsChecked)
+                {
+                    Options.RefinedComponentsCTF |= CTFOptimizationTypes.Defocus;
+                    Options.RefinedComponentsCTF |= CTFOptimizationTypes.AstigmatismDelta;
+                    Options.RefinedComponentsCTF |= CTFOptimizationTypes.AstigmatismAngle;
+                }
+                if ((bool)SettingsDialogContent.CheckPhaseShift.IsChecked)
+                    Options.RefinedComponentsCTF |= CTFOptimizationTypes.PhaseShift;
+                if ((bool)SettingsDialogContent.CheckBeamTilt.IsChecked)
+                    Options.RefinedComponentsCTF |= CTFOptimizationTypes.BeamTilt;
+                if ((bool)SettingsDialogContent.CheckMagnification.IsChecked)
+                    Options.RefinedComponentsCTF |= CTFOptimizationTypes.PixelSize;
+
+                PerformRefinementIteration(Options);
+
+                UpdateSpeciesDisplay();
+            };
+
+            SettingsDialog.Content = SettingsDialogContent;
+            await this.ShowMetroDialogAsync(SettingsDialog);
+        }
+
+        private async void PerformRefinementIteration(ProcessingOptionsMPARefine options)
+        {
+            bool DoMultiProcess = true;
+                       
+            #region Create worker processes
+
+            int NDevices = GPU.GetDeviceCount();
+            List<int> UsedDevices = Options.MainWindow.GetDeviceList();
+
+            WorkerWrapper[] Workers = new WorkerWrapper[GPU.GetDeviceCount()];
+            string[] WorkerFolders = new string[Workers.Length];
+            string[] WorkerLogs = new string[Workers.Length];
+
+            foreach (var gpuID in UsedDevices)
+            {
+                WorkerFolders[gpuID] = System.IO.Path.Combine(ActivePopulation.FolderPath, "refinement_temp", $"worker{gpuID}");
+                Directory.CreateDirectory(WorkerFolders[gpuID]);
             }
 
-            var Progress = await this.ShowProgressAsync("Preparing for refinement...", "");
+            if (DoMultiProcess)
+                foreach (var gpuID in UsedDevices)
+                {
+                    Workers[gpuID] = new WorkerWrapper(gpuID);
+                    Workers[gpuID].SetHeaderlessParams(new int2(2),
+                                                       0,
+                                                       "float");
+
+                    WorkerLogs[gpuID] = System.IO.Path.Combine(ActivePopulation.FolderPath, "refinement_temp", $"worker{gpuID}", "run.out");
+                }
+
+            #endregion
+
+            var Progress = await this.ShowProgressAsync("Preparing for refinement – this will take a few minutes per species", "");
             Progress.SetIndeterminate();
 
-            ClearSpeciesDisplay();  // To avoid UI updates from refinement thread
+            int ItemsCompleted = 0;
+            int ItemsToDo = ActivePopulation.Sources.Select(s => s.Files.Count).Sum();
+
+            string[] CurrentlyRefinedItems = new string[GPU.GetDeviceCount()];
+
+            System.Timers.Timer StatusUpdater = null;
+            if (DoMultiProcess)
+            {
+                StatusUpdater = new System.Timers.Timer(1001);
+                StatusUpdater.Elapsed += (s, e) =>
+                {
+                    lock (CurrentlyRefinedItems)
+                    {
+                        StringBuilder StatusMessage = new StringBuilder();
+
+                        foreach (var gpuID in UsedDevices)
+                        {
+                            if (CurrentlyRefinedItems[gpuID] == null)
+                                continue;
+
+                            try
+                            {
+                                string ItemMessage = File.ReadLines(WorkerLogs[gpuID]).Last();
+                                StatusMessage.Append(CurrentlyRefinedItems[gpuID] + ": " + ItemMessage + "\n");
+                            } catch { }
+                        }
+
+                        Dispatcher.Invoke(() => Progress.SetMessage(StatusMessage.ToString()));
+                    }
+                };
+            }
 
             try
             {
                 await Task.Run(() =>
                 {
-                    foreach (var species in ActivePopulation.Species)
+                    if (DoMultiProcess)
                     {
-                        Dispatcher.InvokeAsync(() => Progress.SetMessage($"Preprocessing {species.Name}..."));
+                        Helper.ForEachGPUOnce(gpuID =>
+                        {
+                            Workers[gpuID].MPAPreparePopulation(ActivePopulation.Path);
+                        }, UsedDevices);
 
-                        species.PrepareRefinementRequisites();
+                        foreach (var species in ActivePopulation.Species)
+                            species.PrepareRefinementRequisites(false, 0);
+                    }
+                    else
+                    {
+                        foreach (var species in ActivePopulation.Species)
+                        {
+                            Dispatcher.InvokeAsync(() => Progress.SetMessage($"Preprocessing {species.Name}..."));
+
+                            species.PrepareRefinementRequisites();
+                        }
                     }
 
+                    GPU.CheckGPUExceptions();
+                    
+                    Dispatcher.InvokeAsync(() => Progress.SetTitle("Performing refinement"));
+
+                    Image.PrintObjectIDs();
+                    //if (false)
                     foreach (var source in ActivePopulation.Sources)
                     {
-                        foreach (var pair in source.Files)
+                        //break;
+                        Dispatcher.InvokeAsync(() => Progress.SetMessage($"Loading gain reference for {source.Name}..."));
+
+                        Image[] GainRefs = new Image[GPU.GetDeviceCount()];
+                                                
+                        try
                         {
-                            if (pair.Value.LastIndexOf(".tomostar") < 0)
-                                continue;
+                            if (DoMultiProcess)
+                            {
+                                Helper.ForEachGPUOnce(gpuID =>
+                                {
+                                    if (!string.IsNullOrEmpty(source.GainPath))
+                                        Workers[gpuID].LoadGainRef(source.GainPath,
+                                                                    source.GainFlipX,
+                                                                    source.GainFlipY,
+                                                                    source.GainTranspose);
+                                    else
+                                        Workers[gpuID].LoadGainRef("", false, false, false);
+                                }, UsedDevices);
+                            }
+                            else
+                            {
+                                Image GainRef = source.LoadAndPrepareGainReference();
+                                if (GainRef != null)
+                                    GainRefs = Helper.ArrayOfFunction(i => GainRef.GetCopy(), GPU.GetDeviceCount());
+                            }
+                        }
+                        catch
+                        {
+                            throw new Exception($"Could not load gain reference for {source.Name}.");
+                        }
 
-                            TiltSeries Series = new TiltSeries(source.FolderPath + pair.Value);
+                        if (DoMultiProcess)
+                            StatusUpdater.Start();
 
-                            Dispatcher.InvokeAsync(() => Progress.SetTitle($"Refining {Series.Name}..."));
+                        Helper.ForEachGPU(source.Files, (pair, GPUID) =>
+                        {
+                            if (DoMultiProcess)
+                            {
+                                lock (CurrentlyRefinedItems)
+                                    CurrentlyRefinedItems[GPUID] = pair.Value;
 
-                            Series.PerformMultiParticleRefinement(ActivePopulation.Species.ToArray(), source, (s) =>
+                                Workers[GPUID].MPARefine(source.FolderPath + pair.Value,
+                                                        WorkerFolders[GPUID],
+                                                        WorkerLogs[GPUID],
+                                                        options,
+                                                        source);
+
+                                lock (CurrentlyRefinedItems)
+                                    CurrentlyRefinedItems[GPUID] = null;
+                            }
+                            else
+                            {
+                                Movie Item = null;
+
+                                if (source.IsTiltSeries)
+                                    Item = new TiltSeries(source.FolderPath + pair.Value);
+                                else
+                                    Item = new Movie(source.FolderPath + pair.Value);
+
+                                Dispatcher.InvokeAsync(() => Progress.SetTitle($"Refining {Item.Name}..."));
+
+                                Item.PerformMultiParticleRefinement(WorkerFolders[GPUID], options, ActivePopulation.Species.ToArray(), source, GainRefs[GPUID], (s) =>
                                 {
                                     Dispatcher.InvokeAsync(() =>
                                     {
@@ -560,20 +759,60 @@ namespace M
                                     });
                                 });
 
-                            Series.SaveMeta();
-                        }
+                                Item.SaveMeta();
+
+                                GPU.CheckGPUExceptions();
+                            }
+
+                            Dispatcher.Invoke(() =>
+                            {
+                                ItemsCompleted++;
+
+                                Progress.Maximum = ItemsToDo;
+                                Progress.SetProgress(ItemsCompleted);
+                            });
+
+                            return false;
+                        }, 1, UsedDevices);
+
+                        if (DoMultiProcess)
+                            StatusUpdater.Stop();
 
                         source.Commit();
                     }
 
-                    Dispatcher.InvokeAsync(() => Progress.SetTitle("Finishing refinement..."));
+                    Image.PrintObjectIDs();
+
+                    Dispatcher.InvokeAsync(() => Progress.SetTitle("Finishing refinement"));
+
+                    if (DoMultiProcess)
+                    {
+                        Dispatcher.InvokeAsync(() => Progress.SetMessage("Saving intermediate results"));
+
+                        Helper.ForEachGPUOnce(gpuID =>
+                        {
+                            Workers[gpuID].MPASaveProgress(WorkerFolders[gpuID]);
+                            Workers[gpuID].Dispose();
+                        }, UsedDevices);
+
+                        Dispatcher.InvokeAsync(() => Progress.SetMessage("Gathering intermediate results"));
+
+                        ActivePopulation.GatherRefinementProgress(UsedDevices.Select(gpuID => WorkerFolders[gpuID]).ToArray());
+
+                        foreach (var folder in WorkerFolders)
+                            try
+                            {
+                                Directory.Delete(folder, true);
+                            }
+                            catch { }
+                    }
 
                     foreach (var species in ActivePopulation.Species)
                     {
                         Dispatcher.InvokeAsync(() => Progress.SetMessage($"Reconstructing and filtering {species.Name}..."));
 
                         species.FinishRefinement();
-                        //species.Commit();
+                        species.Commit();
                     }
                 });
             }
@@ -585,8 +824,6 @@ namespace M
             }
 
             await Progress.CloseAsync();
-
-            UpdateSpeciesDisplay();
         }
 
         #endregion

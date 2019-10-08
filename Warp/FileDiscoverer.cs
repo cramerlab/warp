@@ -50,6 +50,9 @@ namespace Warp
         {
             IncubationEnded?.Invoke();
 
+            //if (newExtension == "*.tif")
+            //    newExtension = "*.tif*";
+
             lock (Incubator)
             {
                 if (DiscoveryThread != null && DiscoveryThread.IsBusy)
@@ -65,6 +68,9 @@ namespace Warp
 
                         if (FolderPath == "" || !Directory.Exists(FolderPath) || !IOHelper.CheckFolderPermission(FolderPath))
                             return;
+
+                        Task.WaitAll(CreationTasks.Values.ToArray());
+                        //Thread.Sleep(500);  // There might still be item creation tasks running asynchro
 
                         Incubator.Clear();
                         lock (Ripe)

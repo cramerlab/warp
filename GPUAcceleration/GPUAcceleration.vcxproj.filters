@@ -13,10 +13,12 @@
     <CudaCompile Include="Polishing.cu" />
     <CudaCompile Include="Raycast.cu" />
     <CudaCompile Include="Shift.cu" />
-    <CudaCompile Include="TomoRefine.cu" />
     <CudaCompile Include="Tools.cu" />
     <CudaCompile Include="Backprojection.cu" />
     <CudaCompile Include="BoxNet2.cu" />
+    <CudaCompile Include="CubeNet.cu" />
+    <CudaCompile Include="MPARefine.cu" />
+    <CudaCompile Include="PCA.cu" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Angles.cpp" />
@@ -36,6 +38,7 @@
     </ClCompile>
     <ClCompile Include="FFT.cpp" />
     <ClCompile Include="FSC.cpp" />
+    <ClCompile Include="TiffNative.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Functions.h" />

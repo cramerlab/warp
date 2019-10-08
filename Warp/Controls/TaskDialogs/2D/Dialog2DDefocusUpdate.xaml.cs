@@ -24,14 +24,13 @@ namespace Warp.Controls
         public Options Options;
         public event Action Close;
 
-        public Dialog2DDefocusUpdate(Movie[] movies, string importPath, string exportPath, Options options)
+        public Dialog2DDefocusUpdate(Movie[] movies, string importPath, Options options)
         {
             InitializeComponent();
             DataContext = this;
             
             Movies = movies;
             ImportPath = importPath;
-            ExportPath = exportPath;
             Options = options;
 
             if (movies.Length > 0)
@@ -47,6 +46,21 @@ namespace Warp.Controls
 
         private async void ButtonWrite_OnClick(object sender, RoutedEventArgs e)
         {
+            System.Windows.Forms.SaveFileDialog SaveDialog = new System.Windows.Forms.SaveFileDialog
+            {
+                Filter = "STAR Files|*.star"
+            };
+            System.Windows.Forms.DialogResult ResultSave = SaveDialog.ShowDialog();
+
+            if (ResultSave.ToString() == "OK")
+            {
+                ExportPath = SaveDialog.FileName;
+            }
+            else
+            {
+                return;
+            }
+
             bool Skip = (bool)RadioSkip.IsChecked;
             bool Delete = (bool)RadioDelete.IsChecked;
 
@@ -161,7 +175,7 @@ namespace Warp.Controls
                                 float3 Position = new float3(PosX[r] * AngPix / movie.OptionsCTF.Dimensions.X,
                                                              PosY[r] * AngPix / movie.OptionsCTF.Dimensions.Y,
                                                              0.5f);
-                                float LocalDefocus = movie.GridCTF.GetInterpolated(Position);
+                                float LocalDefocus = movie.GridCTFDefocus.GetInterpolated(Position);
 
                                 TableIn.SetRowValue(r, "rlnDefocusU", ((LocalDefocus + Astigmatism) * 1e4f).ToString("F1", CultureInfo.InvariantCulture));
                                 TableIn.SetRowValue(r, "rlnDefocusV", ((LocalDefocus - Astigmatism) * 1e4f).ToString("F1", CultureInfo.InvariantCulture));

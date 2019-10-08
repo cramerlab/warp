@@ -367,10 +367,7 @@ namespace Warp
                 Amplitude = CTF.Amplitude,
                 DoPhase = CTF.DoPhase,
                 DoIce = false, //CTF.DoIce,
-                DoSimultaneous = CTF.DoSimultaneous,
                 UseMovieSum = CTF.UseMovieSum,
-                Astigmatism = CTF.Astigmatism,
-                AstigmatismAngle = CTF.AstigmatismAngle,
                 ZMin = CTF.ZMin,
                 ZMax = CTF.ZMax,
                 GridDims = new int3(Grids.CTFX, Grids.CTFY, Grids.CTFZ)
@@ -401,11 +398,7 @@ namespace Warp
             CTF.Thickness = options.Thickness;
             CTF.Amplitude = options.Amplitude;
             CTF.DoPhase = options.DoPhase;
-            //CTF.DoIce = options.DoIce;
-            CTF.DoSimultaneous = options.DoSimultaneous;
             CTF.UseMovieSum = options.UseMovieSum;
-            CTF.Astigmatism = options.Astigmatism;
-            CTF.AstigmatismAngle = options.AstigmatismAngle;
             CTF.ZMin = options.ZMin;
             CTF.ZMax = options.ZMax;
 

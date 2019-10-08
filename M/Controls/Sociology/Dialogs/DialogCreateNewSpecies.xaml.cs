@@ -98,13 +98,6 @@ namespace M.Controls.Sociology.Dialogs
         }
         public static readonly DependencyProperty TemporalResMovProperty = DependencyProperty.Register("TemporalResMov", typeof(int), typeof(DialogCreateNewSpecies), new PropertyMetadata(1, (a, b) => ((DialogCreateNewSpecies)a).UpdateParameters()));
 
-        public int TemporalResRot
-        {
-            get { return (int)GetValue(TemporalResRotProperty); }
-            set { SetValue(TemporalResRotProperty, value); }
-        }
-        public static readonly DependencyProperty TemporalResRotProperty = DependencyProperty.Register("TemporalResRot", typeof(int), typeof(DialogCreateNewSpecies), new PropertyMetadata(1, (a, b) => ((DialogCreateNewSpecies)a).UpdateParameters()));
-
         #endregion
 
         #region Properties half-maps
@@ -227,7 +220,7 @@ namespace M.Controls.Sociology.Dialogs
                 if (TabValidators[Tab]())
                 {
                     ButtonNext.IsEnabled = true;
-                    ButtonNext.Foreground = Brushes.CornflowerBlue;
+                    ButtonNext.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#7ec730"));
                 }
                 else
                 {
@@ -569,7 +562,7 @@ namespace M.Controls.Sociology.Dialogs
             float AngPixCoords = (float)ParticleCoordinatesPixel;
             float AngPixShifts = (float)ParticleShiftsPixel;
             int ResMov = TemporalResMov;
-            int ResRot = TemporalResRot;
+            int ResRot = TemporalResMov;
 
             TextParticlesError.Visibility = Visibility.Collapsed;
             ProgressParticles.Visibility = Visibility.Visible;
@@ -642,16 +635,16 @@ namespace M.Controls.Sociology.Dialogs
 
                     for (int p = 0; p < ParticlesFinal.Length; p++)
                     {
-                        float3[] Coordinates = Helper.ArrayOfFunction(i => new float3(ColumnsCoordX[p][i],
-                                                                                      ColumnsCoordY[p][i],
-                                                                                      ColumnsCoordZ[p][i]), TableResMov);
-                        float3[] Angles = Helper.ArrayOfFunction(i => new float3(ColumnsAngleRot[p][i],
-                                                                                 ColumnsAngleTilt[p][i],
-                                                                                 ColumnsAnglePsi[p][i]), TableResRot);
+                        float3[] Coordinates = Helper.ArrayOfFunction(i => new float3(ColumnsCoordX[i][p],
+                                                                                      ColumnsCoordY[i][p],
+                                                                                      ColumnsCoordZ[i][p]), TableResMov);
+                        float3[] Angles = Helper.ArrayOfFunction(i => new float3(ColumnsAngleRot[i][p],
+                                                                                 ColumnsAngleTilt[i][p],
+                                                                                 ColumnsAnglePsi[i][p]), TableResRot);
 
                         ParticlesFinal[p] = new Particle(Coordinates, Angles, ColumnSubset[p], ColumnSourceName[p], ColumnSourceHash[p]);
-                        ParticlesFinal[p].ResampleCoordinates(TemporalResMov);
-                        ParticlesFinal[p].ResampleAngles(TemporalResRot);
+                        ParticlesFinal[p].ResampleCoordinates(ResMov);
+                        ParticlesFinal[p].ResampleAngles(ResRot);
                     }
 
                     #endregion

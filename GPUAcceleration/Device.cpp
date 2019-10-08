@@ -21,7 +21,7 @@ __declspec(dllexport) int __stdcall GetDevice()
     return device;
 }
 
-__declspec(dllexport) long __stdcall GetFreeMemory(int device)
+__declspec(dllexport) long long __stdcall GetFreeMemory(int device)
 {
     int currentdevice = 0;
     cudaGetDevice(&currentdevice);
@@ -33,10 +33,10 @@ __declspec(dllexport) long __stdcall GetFreeMemory(int device)
 
     cudaSetDevice(currentdevice);
 
-	return (long)(freemem >> 20);
+	return (long long)(freemem >> 20);
 }
 
-__declspec(dllexport) long __stdcall GetTotalMemory(int device)
+__declspec(dllexport) long long __stdcall GetTotalMemory(int device)
 {
     int currentdevice = 0;
     cudaGetDevice(&currentdevice);
@@ -48,7 +48,7 @@ __declspec(dllexport) long __stdcall GetTotalMemory(int device)
 
     cudaSetDevice(currentdevice);
 
-    return (long)(totalmem >> 20);
+    return (long long)(totalmem >> 20);
 }
 
 __declspec(dllexport) char* __stdcall GetDeviceName(int device)

@@ -168,6 +168,28 @@ namespace Warp
             set { if (value != _PhaseShift) { _PhaseShift = value; OnPropertyChanged(); } }
         }
 
+        private float2 _BeamTilt = new float2(0, 0);
+        /// <summary>
+        /// Beam tilt in millirad
+        /// </summary>
+        [WarpSerializable]
+        public float2 BeamTilt
+        {
+            get { return _BeamTilt; }
+            set { if (value != _BeamTilt) { _BeamTilt = value; OnPropertyChanged(); } }
+        }
+
+        private float3 _BeamTilt2 = new float3(1, 0, 1);
+        /// <summary>
+        /// Higher-order beam tilt in millirad
+        /// </summary>
+        [WarpSerializable]
+        public float3 BeamTilt2
+        {
+            get { return _BeamTilt2; }
+            set { if (value != _BeamTilt2) { _BeamTilt2 = value; OnPropertyChanged(); } }
+        }
+
         private decimal _IllumAngle = 30M;
         /// <summary>
         /// Illumination angle in microradians
@@ -311,6 +333,46 @@ namespace Warp
                 retval = Math.Abs(retval);
 
             return (float)(scale * retval);
+        }
+
+        public double GetPhaseAtFrequency(double freq)
+        {
+            double voltage = (double)Voltage * 1e3;
+            double lambda = 12.2643247 / Math.Sqrt(voltage * (1.0 + voltage * 0.978466e-6));
+            double defocus = -(double)Defocus * 1e4;
+            double cs = (double)Cs * 1e7;
+            double amplitude = (double)Amplitude;
+            double scale = (double)Scale;
+            double phaseshift = (double)PhaseShift * Math.PI;
+            double K1 = Math.PI * lambda;
+            double K2 = Math.PI * 0.5f * cs * lambda * lambda * lambda;
+
+            double r2 = freq * freq;
+            double r4 = r2 * r2;
+
+            double deltaf = defocus;
+            double argument = K1 * deltaf * r2 + K2 * r4 - phaseshift;
+
+            return argument;
+        }
+
+        public double GetFrequencyAtPhase(double phase)
+        {
+            double voltage = (double)Voltage * 1e3;
+            double lambda = 12.2643247 / Math.Sqrt(voltage * (1.0 + voltage * 0.978466e-6));
+            double z = -(double)Defocus * 1e4;
+            double cs = (double)Cs * 1e7;
+            double amplitude = (double)Amplitude;
+            double scale = (double)Scale;
+            double phaseshift = (double)PhaseShift * Math.PI;
+            double a = Math.PI * lambda;
+            double b = Math.PI * 0.5f * cs * lambda * lambda * lambda;
+
+            double Root1 = Math.Sqrt(a * a * z * z + 4 * b * (phase + phaseshift));
+            double Frac1 = -(Root1 + a * z) / b;
+            double Frac2 = Math.Sqrt(Frac1) / Math.Sqrt(2.0);
+
+            return Frac2;
         }
 
         public float[] Get1DWithIce(int width, bool ampsquared, bool ignorebfactor = false, bool ignorescale = false)
@@ -489,7 +551,103 @@ namespace Warp
 
             return Result.ToArray();
         }
-        
+
+        public Image GetBeamTilt(int size, int originalSize)
+        {
+            float voltage = (float)Voltage * 1e3f;
+            float lambda = 12.2643247f / (float)Math.Sqrt(voltage * (1.0f + voltage * 0.978466e-6f));
+            float boxsize = (float)PixelSize * originalSize;
+
+            float factor = 0.360f * (float)Cs * 10000000 * lambda * lambda / (boxsize * boxsize * boxsize);
+
+            float2[] Data = new float2[new int2(size).ElementsFFT()];
+
+            Helper.ForEachElementFT(new int2(size), (x, y, xx, yy) =>
+            {
+                float q = _BeamTilt2.X * xx * xx + 2f * _BeamTilt2.Y * yy * xx + _BeamTilt2.Z * yy * yy;
+                float delta_phase = factor * q * (yy * _BeamTilt.Y + xx * _BeamTilt.X);
+                delta_phase = delta_phase * Helper.ToRad;
+                Data[y * (size / 2 + 1) + x] = new float2((float)Math.Cos(delta_phase), (float)Math.Sin(delta_phase));
+            });
+
+            return new Image(Data, new int3(size, size, 1), true);
+        }
+
+        public Image GetBeamTilt(int size, int originalSize, float2[] beamTilts)
+        {
+            float voltage = (float)Voltage * 1e3f;
+            float lambda = 12.2643247f / (float)Math.Sqrt(voltage * (1.0f + voltage * 0.978466e-6f));
+            float boxsize = (float)PixelSize * originalSize;
+
+            float factor = 0.360f * (float)Cs * 10000000 * lambda * lambda / (boxsize * boxsize * boxsize);
+
+            float2[][] Data = Helper.ArrayOfFunction(i => new float2[new int2(size).ElementsFFT()], beamTilts.Length);
+
+            for (int z = 0; z < beamTilts.Length; z++)
+            {
+                float2 t = beamTilts[z];
+                Helper.ForEachElementFT(new int2(size), (x, y, xx, yy) =>
+                {
+                    float q = _BeamTilt2.X * xx * xx + 2f * _BeamTilt2.Y * yy * xx + _BeamTilt2.Z * yy * yy;
+                    float delta_phase = factor * q * (yy * t.Y + xx * t.X);
+                    delta_phase = delta_phase * Helper.ToRad;
+                    Data[z][y * (size / 2 + 1) + x] = new float2((float)Math.Cos(delta_phase), (float)Math.Sin(delta_phase));
+                });
+            }
+
+            return new Image(Data, new int3(size, size, beamTilts.Length), true);
+        }
+
+        public Image GetBeamTiltCoords(int size, int originalSize)
+        {
+            float voltage = (float)Voltage * 1e3f;
+            float lambda = 12.2643247f / (float)Math.Sqrt(voltage * (1.0f + voltage * 0.978466e-6f));
+            float boxsize = (float)PixelSize * originalSize;
+
+            float factor = 0.360f * (float)Cs * 10000000 * lambda * lambda / (boxsize * boxsize * boxsize);
+
+            float2[] Data = new float2[new int2(size).ElementsFFT()];
+
+            Helper.ForEachElementFT(new int2(size), (x, y, xx, yy) =>
+            {
+                float q = _BeamTilt2.X * xx * xx + 2f * _BeamTilt2.Y * yy * xx + _BeamTilt2.Z * yy * yy;
+                Data[y * (size / 2 + 1) + x] = new float2(factor * q * xx, factor * q * yy) * Helper.ToRad;
+            });
+
+            return new Image(Data, new int3(size, size, 1), true);
+        }
+
+        public Image GetBeamTiltPhase(int size, int originalSize)
+        {
+            float voltage = (float)Voltage * 1e3f;
+            float lambda = 12.2643247f / (float)Math.Sqrt(voltage * (1.0f + voltage * 0.978466e-6f));
+            float boxsize = (float)PixelSize * originalSize;
+
+            float factor = 0.360f * (float)Cs * 10000000 * lambda * lambda / (boxsize * boxsize * boxsize);
+
+            float[] Data = new float[new int2(size).ElementsFFT()];
+
+            Helper.ForEachElementFT(new int2(size), (x, y, xx, yy) =>
+            {
+                float q = _BeamTilt2.X * xx * xx + 2f * _BeamTilt2.Y * yy * xx + _BeamTilt2.Z * yy * yy;
+                float delta_phase = factor * q * (yy * _BeamTilt.Y + xx * _BeamTilt.X);
+                delta_phase = delta_phase * Helper.ToRad;
+                Data[y * (size / 2 + 1) + x] = delta_phase;
+            });
+
+            return new Image(Data, new int3(size, size, 1), true);
+        }
+
+        public int GetAliasingFreeSize(float maxResolution)
+        {
+            double Freq0 = 1.0 / maxResolution;
+            float[] P = Helper.ArrayOfFunction(i => i > 0 ? (float)(GetPhaseAtFrequency(i / 1000.0 * Freq0) / Math.PI) : 0, 1000);
+            float[] dP = MathHelper.Diff(P).Select(v => Math.Abs(v)).ToArray();
+            float dPMax = MathHelper.Max(dP);
+
+            return (int)Math.Ceiling(dPMax / 0.5f * 1000) * 2;
+        }
+
         public static Image GetCTFCoords(int size, int originalSize, float pixelSize = 1, float pixelSizeDelta = 0, float pixelSizeAngle = 0)
         {
             Image CTFCoords;
@@ -539,6 +697,36 @@ namespace Warp
 
                     CTFCoordsData[y * (size.X / 2 + 1) + x] = new float2(r, angle);
                 }
+
+                CTFCoords = new Image(CTFCoordsData, new int3(size.X, size.Y, 1), true);
+            }
+
+            return CTFCoords;
+        }
+
+        public static Image GetCTFCoordsParallel(int2 size, int2 originalSize, float pixelSize = 1, float pixelSizeDelta = 0, float pixelSizeAngle = 0)
+        {
+            Image CTFCoords;
+            {
+                float2[] CTFCoordsData = new float2[(size.X / 2 + 1) * size.Y];
+                Helper.ForCPU(0, size.Y, 4, null, (y, threadID) =>
+                {
+                    for (int x = 0; x < size.X / 2 + 1; x++)
+                    {
+                        int xx = x;
+                        int yy = y < size.Y / 2 + 1 ? y : y - size.Y;
+
+                        float xs = xx / (float)originalSize.X;
+                        float ys = yy / (float)originalSize.Y;
+                        float r = (float)Math.Sqrt(xs * xs + ys * ys);
+                        float angle = (float)Math.Atan2(yy, xx);
+
+                        if (pixelSize != 1 || pixelSizeDelta != 0)
+                            r /= pixelSize + pixelSizeDelta * (float)Math.Cos(2.0 * (angle - pixelSizeAngle));
+
+                        CTFCoordsData[y * (size.X / 2 + 1) + x] = new float2(r, angle);
+                    }
+                }, null);
 
                 CTFCoords = new Image(CTFCoordsData, new int3(size.X, size.Y, 1), true);
             }
@@ -607,6 +795,8 @@ namespace Warp
             return new CTF
             {
                 _Amplitude = Amplitude,
+                _BeamTilt = BeamTilt,
+                _BeamTilt2 = BeamTilt2,
                 _Bfactor = Bfactor,
                 _Cs = Cs,
                 _Defocus = Defocus,

@@ -48,14 +48,17 @@ namespace Warp
             {
                 writer.WriteLine(DateTime.Now.ToString() + ":");
                 writer.WriteLine(exception.ToString());
+                writer.WriteLine(new StackTrace(exception, true).ToString());
             }
 
-            Warp.MainWindow.Analytics.LogCrash(exception);
+            Warp.MainWindow.GlobalOptions.LogCrash(exception);
 
             var Result = MessageBox.Show("Damn, Warp just crashed!\n" +
                                          $"Here are the details that were also saved in {Environment.CurrentDirectory}\\lastcrash.txt.\n" +
                                          "\n" +
                                          exception.ToString() +
+                                         "\n" +
+                                         new StackTrace(exception, true).ToString() +
                                          "\n" +
                                          "Please consider reporting the issue in https://groups.google.com/forum/#!forum/warp-em.\n" +
                                          "Would you like to be taken there now?",

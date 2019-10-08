@@ -10,6 +10,7 @@ using Warp.Tools;
 
 namespace Warp
 {
+    [Serializable]
     public class WarpBase : INotifyPropertyChanged
     {
         public event PropertyChangedEventHandler PropertyChanged;
@@ -45,12 +46,16 @@ namespace Warp
                     XMLHelper.WriteParamNode(writer, property.Name, (int2)property.GetValue(this));
                 else if (property.PropertyType == typeof(int3))
                     XMLHelper.WriteParamNode(writer, property.Name, (int3)property.GetValue(this));
+                else if (property.PropertyType == typeof(int4))
+                    XMLHelper.WriteParamNode(writer, property.Name, (int4)property.GetValue(this));
                 else if (property.PropertyType == typeof(float2))
                     XMLHelper.WriteParamNode(writer, property.Name, (float2)property.GetValue(this));
                 else if (property.PropertyType == typeof(float3))
                     XMLHelper.WriteParamNode(writer, property.Name, (float3)property.GetValue(this));
                 else if (property.PropertyType == typeof(Guid))
                     XMLHelper.WriteParamNode(writer, property.Name, ((Guid)property.GetValue(this)).ToString());
+                else if (property.PropertyType.IsEnum)
+                    XMLHelper.WriteParamNode(writer, property.Name, ((int)property.GetValue(this)).ToString());
                 else
                     throw new Exception("Value type not supported.");
             }
@@ -85,12 +90,16 @@ namespace Warp
                     property.SetValue(this, XMLHelper.LoadParamNode(nav, property.Name, (int2)property.GetValue(this)));
                 else if (property.PropertyType == typeof(int3))
                     property.SetValue(this, XMLHelper.LoadParamNode(nav, property.Name, (int3)property.GetValue(this)));
+                else if (property.PropertyType == typeof(int4))
+                    property.SetValue(this, XMLHelper.LoadParamNode(nav, property.Name, (int4)property.GetValue(this)));
                 else if (property.PropertyType == typeof(float2))
                     property.SetValue(this, XMLHelper.LoadParamNode(nav, property.Name, (float2)property.GetValue(this)));
                 else if (property.PropertyType == typeof(float3))
                     property.SetValue(this, XMLHelper.LoadParamNode(nav, property.Name, (float3)property.GetValue(this)));
                 else if (property.PropertyType == typeof(Guid))
                     property.SetValue(this, XMLHelper.LoadParamNode(nav, property.Name, (Guid)property.GetValue(this)));
+                else if (property.PropertyType.IsEnum)
+                    property.SetValue(this, XMLHelper.LoadParamNode(nav, property.PropertyType, property.Name, property.GetValue(this)));
                 else
                     throw new Exception("Value type not supported.");
             }

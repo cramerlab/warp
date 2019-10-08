@@ -9,48 +9,34 @@
              mc:Ignorable="d">
     <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
         <TextBlock Text="Reconstruct full tomograms" FontSize="24" Margin="0,20" />
-        <Grid Name="PanelConfiguration">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="30" />
-                <RowDefinition Height="10" />
-                <RowDefinition Height="30" />
-                <RowDefinition Height="30" />
-                <RowDefinition Height="10" />
-                <RowDefinition Height="30" />
-                <RowDefinition Height="30" />
-                <RowDefinition Height="30" />
-                <RowDefinition Height="10" />
-                <RowDefinition Height="30" />
-                <RowDefinition Height="10" />
-                <RowDefinition Height="30" />
-                <RowDefinition Height="30" />
-                <RowDefinition Height="50" />
-                <RowDefinition Height="30" />
-            </Grid.RowDefinitions>
-            <s:ValueSlider Name="SliderTomoFullReconstructPixel" Grid.Row="0" Value="{Binding Tasks.TomoFullReconstructPixel, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="Pixel size: {0} Å " MinValue="0.01" MaxValue="1000" StepSize="0.0001" FontSize="18" />
-            
-            <CheckBox Grid.Row="2" IsChecked="{Binding Tasks.InputInvert}" Content="Invert contrast" FontSize="18" />
-            <CheckBox Grid.Row="3" IsChecked="{Binding Tasks.InputNormalize}" Content="Normalize input images" FontSize="18" />
-            
-            <CheckBox Grid.Row="5" IsChecked="{Binding Tasks.TomoFullReconstructDoDeconv}" Content="Also produce deconvolved version" FontSize="18" />
-            <StackPanel Grid.Row="6" Orientation="Horizontal" Margin="24,0,0,0">
+        <StackPanel Name="PanelConfiguration" Orientation="Vertical">
+            <s:ValueSlider Name="SliderTomoFullReconstructPixel" Height="30" Margin="0,0,0,10" Value="{Binding Tasks.TomoFullReconstructPixel, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="Pixel size: {0} Å " MinValue="0.01" MaxValue="1000" StepSize="0.0001" FontSize="18" />
+
+            <CheckBox Height="30" IsChecked="{Binding Tasks.InputInvert}" Content="Invert contrast" FontSize="18" />
+            <CheckBox Height="30" Margin="0,0,0,10" IsChecked="{Binding Tasks.InputNormalize}" Content="Normalize input images" FontSize="18" />
+
+            <CheckBox Height="30" IsChecked="{Binding Tasks.TomoFullReconstructDoDeconv}" Content="Also produce deconvolved version" FontSize="18" />
+            <StackPanel Height="30" Orientation="Horizontal" Margin="24,0,0,0">
                 <s:ValueSlider Value="{Binding Tasks.TomoFullReconstructDeconvStrength, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="Strength = {0}, " MinValue="0" MaxValue="10" StepSize="0.01" FontSize="18" />
                 <s:ValueSlider Value="{Binding Tasks.TomoFullReconstructDeconvFalloff, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="Falloff = {0}, " MinValue="0" MaxValue="10" StepSize="0.01" FontSize="18" />
             </StackPanel>
-            <StackPanel Grid.Row="7" Orientation="Horizontal" Margin="24,0,0,0">
+            <StackPanel Height="30" Orientation="Horizontal" Margin="24,0,0,10">
                 <s:ValueSlider Value="{Binding Tasks.TomoFullReconstructDeconvHighpass, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="High-pass = {0} Å" MinValue="1" MaxValue="100000" StepSize="1" FontSize="18" />
             </StackPanel>
 
-            <CheckBox Grid.Row="9" IsChecked="{Binding Tasks.TomoFullReconstructOnlyFullVoxels}" Content="Keep only fully covered voxels" FontSize="18" />
+            <CheckBox Height="30" Margin="0,0,0,10" IsChecked="{Binding Tasks.TomoFullReconstructPrepareDenoising}" Content="Separate odd/even tilts for denoising" FontSize="18" />
 
-            <CheckBox Name="CheckFilter" Grid.Row="11" IsChecked="{Binding Tasks.IncludeFilteredOut}" Content="Include items outside of filter ranges" FontSize="18" />
-            <CheckBox Name="CheckManual" Grid.Row="12" IsChecked="{Binding Tasks.IncludeUnselected}" Content="Include manually excluded items" FontSize="18" />
+            <CheckBox Height="30" Margin="0,0,0,10" IsChecked="{Binding Tasks.TomoFullReconstructOnlyFullVoxels}" Content="Keep only fully covered voxels" FontSize="18" />
 
-            <StackPanel Grid.Row="13" Name="PanelButtons" Orientation="Horizontal" HorizontalAlignment="Right">
+            <CheckBox Name="CheckFilter" Height="30" IsChecked="{Binding Tasks.IncludeFilteredOut}" Content="Include items outside of filter ranges" FontSize="18" />
+            <CheckBox Name="CheckManual" Height="30" IsChecked="{Binding Tasks.IncludeUnselected}" Content="Include manually excluded items" FontSize="18" />
+
+            <StackPanel Name="PanelButtons" Height="50" Margin="0,0,0,30" Orientation="Horizontal" HorizontalAlignment="Right">
                 <Button Name="ButtonReconstruct"  Content="RECONSTRUCT" FontSize="20" FontWeight="Medium" Foreground="CornflowerBlue" VerticalAlignment="Bottom" Style="{StaticResource ChromelessButtonStyle}" Click="ButtonReconstruct_OnClick" />
                 <Button Name="ButtonCancel" Content="CANCEL" FontSize="20" FontWeight="Medium" Foreground="CornflowerBlue" VerticalAlignment="Bottom" Margin="24,0,0,0" Style="{StaticResource ChromelessButtonStyle}" Click="ButtonCancel_OnClick" />
             </StackPanel>
-        </Grid>
+        </StackPanel>
+        
         <Grid Name="PanelProgress" Margin="0,10,0,0" Visibility="Collapsed">
             <Grid.RowDefinitions>
                 <RowDefinition Height="30" />

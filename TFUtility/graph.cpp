@@ -397,7 +397,7 @@ __declspec(dllexport) TF_Session* __stdcall TF_LoadSessionFromSavedModelOnDevice
     
     TF_Session* session = new TF_Session(bundle.session.release(), graph);
 
-    GraphDef GDef = bundle.meta_graph_def.graph_def();
+    /*GraphDef GDef = bundle.meta_graph_def.graph_def();
     for (int i = 0; i < GDef.node_size(); i++)
     {
         auto Node = GDef.node(i);
@@ -406,7 +406,7 @@ __declspec(dllexport) TF_Session* __stdcall TF_LoadSessionFromSavedModelOnDevice
         {
             LOG(INFO) << Attributes["is_training"].b();
         }
-    }
+    }*/
 
     //graph->sessions[session] = Status::OK();
     session->last_num_graph_nodes = graph->graph.num_node_ids();
@@ -415,5 +415,5 @@ __declspec(dllexport) TF_Session* __stdcall TF_LoadSessionFromSavedModelOnDevice
 
 __declspec(dllexport) void __stdcall TF_FreeAllMemory()
 {
-	tensorflow::ProcessState::singleton()->~ProcessState();
+	tensorflow::GPUProcessState::singleton()->~GPUProcessState();
 }

@@ -26,6 +26,8 @@
                 <RowDefinition Height="30" />
                 <RowDefinition Height="10" />
                 <RowDefinition Height="30" />
+                <RowDefinition Height="10" />
+                <RowDefinition Height="30" />
                 <RowDefinition Height="30" />
                 <RowDefinition Height="50" />
                 <RowDefinition Height="30" />
@@ -50,12 +52,14 @@
             </StackPanel>
             <s:FormattedTextBlock Grid.Row="9" Value="{Binding Tasks.TomoMatchRecommendedAngPix}" TextFormat="{}{0:F2} Å/px or better recommended for this sampling rate" FontSize="18" />
 
-            <s:ValueSlider Name="SliderTomoMatchNResults" Grid.Row="11" Value="{Binding Tasks.TomoMatchNResults, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="Store {0} best results " MinValue="1" MaxValue="100000000" StepSize="1" FontSize="18" />
+            <CheckBox Grid.Row="11" IsChecked="{Binding Tasks.ReuseCorrVolumes}" Content="Reuse old correlation volumes if available" FontSize="18" />
 
-            <CheckBox Name="CheckFilter" Grid.Row="13" IsChecked="{Binding Tasks.IncludeFilteredOut}" Content="Include items outside of filter ranges" FontSize="18" />
-            <CheckBox Name="CheckManual" Grid.Row="14" IsChecked="{Binding Tasks.IncludeUnselected}" Content="Include manually excluded items" FontSize="18" />
+            <s:ValueSlider Name="SliderTomoMatchNResults" Grid.Row="13" Value="{Binding Tasks.TomoMatchNResults, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="Store {0} best results " MinValue="1" MaxValue="100000000" StepSize="1" FontSize="18" />
 
-            <StackPanel Grid.Row="15" Name="PanelButtons" Orientation="Horizontal" HorizontalAlignment="Right">
+            <CheckBox Name="CheckFilter" Grid.Row="15" IsChecked="{Binding Tasks.IncludeFilteredOut}" Content="Include items outside of filter ranges" FontSize="18" />
+            <CheckBox Name="CheckManual" Grid.Row="16" IsChecked="{Binding Tasks.IncludeUnselected}" Content="Include manually excluded items" FontSize="18" />
+
+            <StackPanel Grid.Row="17" Name="PanelButtons" Orientation="Horizontal" HorizontalAlignment="Right">
                 <Button Name="ButtonMatch"  Content="MATCH" FontSize="20" FontWeight="Medium" Foreground="CornflowerBlue" VerticalAlignment="Bottom" Style="{StaticResource ChromelessButtonStyle}" Click="ButtonReconstruct_OnClick" />
                 <Button Name="ButtonCancel" Content="CANCEL" FontSize="20" FontWeight="Medium" Foreground="CornflowerBlue" VerticalAlignment="Bottom" Margin="24,0,0,0" Style="{StaticResource ChromelessButtonStyle}" Click="ButtonCancel_OnClick" />
             </StackPanel>

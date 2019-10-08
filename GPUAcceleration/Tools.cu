@@ -25,9 +25,19 @@ __declspec(dllexport) void Pad(float* d_input, float* d_output, int3 olddims, in
     d_Pad(d_input, d_output, olddims, newdims, T_PAD_VALUE, 0.0f, batch);
 }
 
+__declspec(dllexport) void PadClamped(float* d_input, float* d_output, int3 olddims, int3 newdims, uint batch)
+{
+	d_Pad(d_input, d_output, olddims, newdims, T_PAD_CLAMP, 0.0f, batch);
+}
+
 __declspec(dllexport) void PadFT(float2* d_input, float2* d_output, int3 olddims, int3 newdims, uint batch)
 {
     d_FFTPad(d_input, d_output, olddims, newdims, batch);
+}
+
+__declspec(dllexport) void PadFTRealValued(float* d_input, float* d_output, int3 olddims, int3 newdims, uint batch)
+{
+	d_FFTPad(d_input, d_output, olddims, newdims, batch);
 }
 
 __declspec(dllexport) void PadFTFull(float* d_input, float* d_output, int3 olddims, int3 newdims, uint batch)
@@ -38,6 +48,11 @@ __declspec(dllexport) void PadFTFull(float* d_input, float* d_output, int3 olddi
 __declspec(dllexport) void CropFT(float2* d_input, float2* d_output, int3 olddims, int3 newdims, uint batch)
 {
     d_FFTCrop(d_input, d_output, olddims, newdims, batch);
+}
+
+__declspec(dllexport) void CropFTRealValued(float* d_input, float* d_output, int3 olddims, int3 newdims, uint batch)
+{
+	d_FFTCrop(d_input, d_output, olddims, newdims, batch);
 }
 
 __declspec(dllexport) void CropFTFull(float* d_input, float* d_output, int3 olddims, int3 newdims, uint batch)
@@ -118,9 +133,9 @@ __declspec(dllexport) void NormalizeMasked(float* d_ps, float* d_output, float* 
 	d_NormMonolithic(d_ps, d_output, length, d_mask, T_NORM_MEAN01STD, batch);
 }
 
-__declspec(dllexport) void SphereMask(float* d_input, float* d_output, int3 dims, float radius, float sigma, uint batch)
+__declspec(dllexport) void SphereMask(float* d_input, float* d_output, int3 dims, float radius, float sigma, bool decentered, uint batch)
 {
-	d_SphereMask(d_input, d_output, dims, &radius, sigma, NULL, batch);
+	d_SphereMask(d_input, d_output, dims, &radius, sigma, NULL, decentered, batch);
 }
 
 __declspec(dllexport) void CreateCTF(float* d_output, float2* d_coords, uint length, CTFParams* h_params, bool amplitudesquared, uint batch)
@@ -275,9 +290,9 @@ __declspec(dllexport) void MultiplyByScalars(float* d_input, float* d_output, fl
     d_MultiplyByScalar(d_input, d_multiplicators, d_output, elements, batch);
 }
 
-__declspec(dllexport) void Scale(float* d_input, float* d_output, int3 dimsinput, int3 dimsoutput, uint batch, int planforw, int planback)
+__declspec(dllexport) void Scale(float* d_input, float* d_output, int3 dimsinput, int3 dimsoutput, uint batch, int planforw, int planback, float2* d_inputfft, float2* d_outputfft)
 {
-	d_Scale(d_input, d_output, dimsinput, dimsoutput, T_INTERP_FOURIER, planforw != 0 ? &planforw : NULL, planback != 0 ? &planback : NULL, batch);
+	d_Scale(d_input, d_output, dimsinput, dimsoutput, T_INTERP_FOURIER, planforw != 0 ? &planforw : NULL, planback != 0 ? &planback : NULL, batch, d_inputfft, d_outputfft);
 }
 
 __declspec(dllexport) void ProjectForward(float2* d_inputft, float2* d_outputft, int3 dimsinput, int2 dimsoutput, float3* h_angles, float supersample, uint batch)
@@ -320,9 +335,9 @@ __declspec(dllexport) void ProjectForward3DShiftedTex(uint64_t t_inputRe, uint64
     d_rlnProjectShifted(t_inputRe, t_inputIm, dimsinput, d_outputft, dimsoutput, (tfloat3*)h_angles, (tfloat3*)h_shifts, h_globalweights, supersample, batch);
 }
 
-__declspec(dllexport) void ProjectBackward(float2* d_volumeft, float* d_volumeweights, int3 dimsvolume, float2* d_projft, float* d_projweights, int2 dimsproj, int rmax, float3* h_angles, float supersample, bool outputdecentered, uint batch)
+__declspec(dllexport) void ProjectBackward(float2* d_volumeft, float* d_volumeweights, int3 dimsvolume, float2* d_projft, float* d_projweights, int2 dimsproj, int rmax, float3* h_angles, int* h_ivolume, float3 magnification, float supersample, bool outputdecentered, uint batch)
 {
-    d_rlnBackproject(d_volumeft, d_volumeweights, dimsvolume, d_projft, d_projweights, toInt3(dimsproj), rmax, (tfloat3*)h_angles, supersample, outputdecentered, batch);
+    d_rlnBackproject(d_volumeft, d_volumeweights, dimsvolume, d_projft, d_projweights, toInt3(dimsproj), rmax, (tfloat3*)h_angles, h_ivolume, magnification, supersample, outputdecentered, batch);
 }
 
 __declspec(dllexport) void ProjectBackwardShifted(float2* d_volumeft, float* d_volumeweights, int3 dimsvolume, float2* d_projft, float* d_projweights, int2 dimsproj, int rmax, float3* h_angles, float3* h_shifts, float* h_globalweights, float supersample, uint batch)
@@ -421,9 +436,19 @@ __declspec(dllexport) void MinScalar(float* d_input, float* d_output, float valu
     d_MinOp(d_input, value, d_output, elements);
 }
 
+__declspec(dllexport) void Min(float* d_input1, float* d_input2, float* d_output, uint elements)
+{
+	d_MinOp(d_input1, d_input2, d_output, elements);
+}
+
 __declspec(dllexport) void MaxScalar(float* d_input, float* d_output, float value, uint elements)
 {
     d_MaxOp(d_input, value, d_output, elements);
+}
+
+__declspec(dllexport) void Max(float* d_input1, float* d_input2, float* d_output, uint elements)
+{
+	d_MaxOp(d_input1, d_input2, d_output, elements);
 }
 
 __declspec(dllexport) int CreateFFTPlan(int3 dims, uint batch)
@@ -620,7 +645,10 @@ __declspec(dllexport) void DistanceMapExact(float* d_input, float* d_output, int
 
 __declspec(dllexport) void PrefilterForCubic(float* d_data, int3 dims)
 {
-	d_CubicBSplinePrefilter3D(d_data, dims);
+	if (dims.z > 1)
+		d_CubicBSplinePrefilter3D(d_data, dims);
+	else
+		d_CubicBSplinePrefilter2D(d_data, toInt2(dims));
 }
 
 __declspec(dllexport) void CreateTexture3D(float* d_data, int3 dims, uint64_t* h_textureid, uint64_t* h_arrayid, bool linearfiltering)
@@ -660,6 +688,16 @@ __declspec(dllexport) void ValueFillComplex(float2* d_input, size_t elements, fl
 	d_ValueFill(d_input, elements, value);
 }
 
+__declspec(dllexport) void Real(float2* d_input, float* d_output, size_t elements)
+{
+	d_Re(d_input, d_output, elements);
+}
+
+__declspec(dllexport) void Imag(float2* d_input, float* d_output, size_t elements)
+{
+	d_Im(d_input, d_output, elements);
+}
+
 __declspec(dllexport) int PeekLastCUDAError()
 {
     cudaDeviceSynchronize();
@@ -681,9 +719,14 @@ __declspec(dllexport) void DistortImages(float* d_input, int2 dimsinput, float* 
     d_NormMonolithic(d_output, d_output, Elements2(dimsoutput), T_NORM_MEAN01STD, batch);
 }
 
-__declspec(dllexport) void WarpImage(float* d_input, float* d_output, int2 dims, float* h_warpx, float* h_warpy, int2 dimswarp)
+__declspec(dllexport) void DistortImagesAffine(float* d_input, int2 dimsinput, float* d_output, int2 dimsoutput, float2* h_offsets, float4* h_distortions, uint batch)
 {
-    d_WarpImage(d_input, d_output, dims, h_warpx, h_warpy, dimswarp);
+	d_DistortImages(d_input, dimsinput, d_output, dimsoutput, h_offsets, h_distortions, batch);
+}
+
+__declspec(dllexport) void WarpImage(float* d_input, float* d_output, int2 dims, float* h_warpx, float* h_warpy, int2 dimswarp, cudaArray_t a_input)
+{
+    d_WarpImage(d_input, d_output, dims, h_warpx, h_warpy, dimswarp, a_input);
 }
 
 __declspec(dllexport) void Rotate3DExtractAt(uint64_t t_volume, int3 dimsvolume, float* d_proj, int3 dimsproj, float3* h_angles, float3* h_positions, uint batch)

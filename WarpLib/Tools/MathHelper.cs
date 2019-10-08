@@ -75,7 +75,7 @@ namespace Warp.Tools
             foreach (var i in data)
             {
                 Sum += i;
-                Sum2 += i * i;
+                Sum2 += (double)i * i;
             }
 
             return (float)Math.Sqrt(data.Count() * Sum2 - Sum * Sum) / data.Count();
@@ -158,6 +158,21 @@ namespace Warp.Tools
             }
         }
 
+        public static float[] NormalizeL2(float[] data)
+        {
+            double Sum = 0;
+            for (int i = 0; i < data.Length; i++)
+                Sum += data[i] * data[i];
+            Sum = Math.Sqrt(Sum);
+
+            float[] Result = new float[data.Length];
+
+            for (int i = 0; i < data.Length; i++)
+                Result[i] = data[i] / (float)Sum;
+
+            return Result;
+        }
+
         public static void NormalizeL2InPlace(float[] data)
         {
             double Sum = 0;
@@ -167,6 +182,53 @@ namespace Warp.Tools
 
             for (int i = 0; i < data.Length; i++)
                 data[i] /= (float)Sum;
+        }
+
+        public static int[] Histogram(IEnumerable<float> data, int nbins, float min = float.NaN, float max = float.NaN)
+        {
+            if (float.IsNaN(min))
+                min = Min(data);
+            if (float.IsNaN(max))
+                max = Max(data);
+
+            float Range = max - min;
+
+            int[] HistogramBins = new int[nbins];
+
+            foreach (float v in data)
+                HistogramBins[Math.Max(0, Math.Min(nbins - 1, (int)((v - min) / Range * (nbins - 1) + 0.5)))]++;
+
+            return HistogramBins;
+        }
+
+        public static int[] Histogram2D(float[] data1, float[] data2, int nbins, float min1 = float.NaN, float max1 = float.NaN, float min2 = float.NaN, float max2 = float.NaN)
+        {
+            if (float.IsNaN(min1))
+                min1 = Min(data1);
+            if (float.IsNaN(max1))
+                max1 = Max(data1);
+            if (float.IsNaN(min2))
+                min2 = Min(data2);
+            if (float.IsNaN(max2))
+                max2 = Max(data2);
+
+            float Range1 = max1 - min1;
+            float Range2 = max2 - min2;
+
+            int[] HistogramBins = new int[nbins * nbins];
+
+            for (int i = 0; i < data1.Length; i++)
+            {
+                float v1 = data1[i];
+                int id1 = Math.Max(0, Math.Min(nbins - 1, (int)((v1 - min1) / Range1 * (nbins - 1) + 0.5)));
+
+                float v2 = data2[i];
+                int id2 = Math.Max(0, Math.Min(nbins - 1, (int)((v2 - min2) / Range2 * (nbins - 1) + 0.5)));
+
+                HistogramBins[id2 * nbins + id1]++;
+            }
+
+            return HistogramBins;
         }
 
         public static float CrossCorrelate(float[] data1, float[] data2)
@@ -255,6 +317,23 @@ namespace Warp.Tools
             }
 
             return Max;
+        }
+
+        public static (int id, float value) MaxElement(float[] data)
+        {
+            int MaxID = 0;
+            float Max = float.MinValue;
+
+            for (int i = 0; i < data.Length; i++)
+            {
+                if (data[i] > Max)
+                {
+                    MaxID = i;
+                    Max = data[i];
+                }
+            }
+
+            return (MaxID, Max);
         }
 
         public static float[] Max(float[] data, float val)
@@ -411,6 +490,34 @@ namespace Warp.Tools
                 D[i] = data[i + 1] - data[i];
 
             return D;
+        }
+
+        public static bool AllEqual(double[] a1, double[] a2)
+        {
+            if (a1 == null || a2 == null || a1.Length != a2.Length)
+                return false;
+
+            for (int i = 0; i < a1.Length; i++)
+            {
+                if (a1[i] != a2[i])
+                    return false;
+            }
+
+            return true;
+        }
+
+        public static bool AllEqual(float[] a1, float[] a2)
+        {
+            if (a1 == null || a2 == null || a1.Length != a2.Length)
+                return false;
+
+            for (int i = 0; i < a1.Length; i++)
+            {
+                if (a1[i] != a2[i])
+                    return false;
+            }
+
+            return true;
         }
 
         public static float DotProduct(float[] data1, float[] data2)
@@ -763,18 +870,51 @@ namespace Warp.Tools
             return new float3((float)plane_a, (float)plane_b, (float)plane_c);
         }
 
-        public static float[] FitAndGeneratePlane(float[] intensities, int2 dims)
+        public static float3 FitPlane(float[] intensities, int2 dims)
         {
-            float3[] Points = new float3[dims.Elements()];
+            double D = 0;
+            double E = 0;
+            double F = 0;
+            double G = 0;
+            double H = 0;
+            double I = 0;
+            double J = 0;
+            double K = 0;
+            double L = 0;
+            double denom = 0;
+
             for (int y = 0; y < dims.Y; y++)
             {
                 for (int x = 0; x < dims.X; x++)
                 {
-                    Points[y * dims.X + x] = new float3(x, y, intensities[y * dims.X + x]);
+                    float3 Point = new float3(x, y, intensities[y * dims.X + x]);
+                    D += Point.X * Point.X;
+                    E += Point.X * Point.Y;
+                    F += Point.X;
+                    G += Point.Y * Point.Y;
+                    H += Point.Y;
+                    I += 1;
+                    J += Point.X * Point.Z;
+                    K += Point.Y * Point.Z;
+                    L += Point.Z;
                 }
             }
 
-            float3 Plane = FitPlane(Points);
+            denom = F * F * G - 2 * E * F * H + D * H * H + E * E * I - D * G * I;
+
+            // X axis slope
+            double plane_a = (H * H * J - G * I * J + E * I * K + F * G * L - H * (F * K + E * L)) / denom;
+            // Y axis slope
+            double plane_b = (E * I * J + F * F * K - D * I * K + D * H * L - F * (H * J + E * L)) / denom;
+            // Z axis intercept
+            double plane_c = (F * G * J - E * H * J - E * F * K + D * H * K + E * E * L - D * G * L) / denom;
+
+            return new float3((float)plane_a, (float)plane_b, (float)plane_c);
+        }
+
+        public static float[] FitAndGeneratePlane(float[] intensities, int2 dims)
+        {
+            float3 Plane = FitPlane(intensities, dims);
 
             float[] Result = new float[dims.Elements()];
 
@@ -791,9 +931,15 @@ namespace Warp.Tools
 
         public static void FitAndSubtractPlane(float[] intensities, int2 dims)
         {
-            float[] Plane = FitAndGeneratePlane(intensities, dims);
-            for (int i = 0; i < intensities.Length; i++)
-                intensities[i] -= Plane[i];
+            float3 Plane = FitPlane(intensities, dims);
+
+            for (int y = 0; y < dims.Y; y++)
+            {
+                for (int x = 0; x < dims.X; x++)
+                {
+                    intensities[y * dims.X + x] -= x * Plane.X + y * Plane.Y + Plane.Z;
+                }
+            }
         }
 
         public static void FitAndSubtractGrid(float[] intensities, int2 dims, int2 gridDims)
@@ -917,6 +1063,60 @@ namespace Warp.Tools
             }
 
             return new float3(Slope, Intercept, Quality);
+        }
+
+        public static float[] GetGaussianKernel1D(int extent, float sigma, bool normalized)
+        {
+            float[] Kernel = new float[extent * 2 + 1];
+
+            sigma = -1f / (sigma * sigma * 2);
+            float GaussianSum = 0;
+
+            for (int i = 0; i < Kernel.Length; i++)
+            {
+                int ii = i - extent;
+                ii *= ii;
+
+                float G = (float)Math.Exp(ii * sigma);
+
+                GaussianSum += G;
+                Kernel[i] = G;
+            }
+
+            if (normalized)
+                for (int i = 0; i < Kernel.Length; i++)
+                    Kernel[i] /= GaussianSum;
+
+            return Kernel;
+        }
+
+        public static float[] ConvolveWithKernel1D(float[] data, float[] kernel)
+        {
+            float[] Convolved = new float[data.Length];
+            int Extent = kernel.Length / 2;
+
+            for (int i1 = 0; i1 < data.Length; i1++)
+            {
+                int Min = Math.Max(0, i1 - Extent);
+                int Max = Math.Min(data.Length - 1, i1 + Extent);
+                float Sum = 0;
+                float Weights = 0;
+
+                for (int ik = 0; ik < kernel.Length; ik++)
+                {
+                    int i2 = i1 + ik - Extent;
+                    if (i2 < 0 || i2 >= data.Length)
+                        continue;
+
+                    Sum += data[i2] * kernel[ik];
+                    Weights += kernel[ik];
+                }
+
+                if (Weights != 0)
+                    Convolved[i1] = Sum / Weights;
+            }
+
+            return Convolved;
         }
     }
 

@@ -98,6 +98,96 @@ namespace Warp
             return Result;
         }
 
+        public static float[] GetFSCNonCubic(Image volume1, Image volume2, int nshells)
+        {
+            Image HalfFT1 = volume1.IsComplex ? volume1 : volume1.AsFFT(true);
+            Image HalfFT2 = volume2.IsComplex ? volume2 : volume2.AsFFT(true);
+
+            int NShells = nshells;
+
+            double[] Nums = new double[NShells];
+            double[] Denoms1 = new double[NShells];
+            double[] Denoms2 = new double[NShells];
+
+            float[] Vol1 = HalfFT1.GetHostContinuousCopy();
+            float[] Vol2 = HalfFT2.GetHostContinuousCopy();
+
+            int3 DimsFT = HalfFT1.DimsFT;
+
+            Parallel.For(0, 20, p =>
+            {
+                double[] ThreadNums = new double[NShells];
+                double[] ThreadDenoms1 = new double[NShells];
+                double[] ThreadDenoms2 = new double[NShells];
+
+                for (int z = p; z < DimsFT.Z; z += 20)
+                {
+                    float zz = z < DimsFT.Z / 2 + 1 ? z : z - DimsFT.Z;
+                    zz /= volume1.Dims.Z / 2;
+                    zz *= zz;
+
+                    for (int y = 0; y < DimsFT.Y; y++)
+                    {
+                        float yy = y < DimsFT.Y / 2 + 1 ? y : y - DimsFT.Y;
+                        yy /= volume1.Dims.Y / 2;
+                        yy *= yy;
+
+                        for (int x = 0; x < DimsFT.X; x++)
+                        {
+                            float xx = x;
+                            xx /= volume1.Dims.X / 2;
+                            xx *= xx;
+
+                            float R = (float)Math.Sqrt(zz + yy + xx) * NShells;
+                            if (R >= NShells)
+                                continue;
+
+                            int ID = (int)R;
+                            float W1 = R - ID;
+                            float W0 = 1f - W1;
+
+                            int i = (z * DimsFT.Y + y) * DimsFT.X + x;
+
+                            float Nom = Vol1[i * 2] * Vol2[i * 2] + Vol1[i * 2 + 1] * Vol2[i * 2 + 1];
+                            float Denom1 = Vol1[i * 2] * Vol1[i * 2] + Vol1[i * 2 + 1] * Vol1[i * 2 + 1];
+                            float Denom2 = Vol2[i * 2] * Vol2[i * 2] + Vol2[i * 2 + 1] * Vol2[i * 2 + 1];
+
+                            ThreadNums[ID] += W0 * Nom;
+                            ThreadDenoms1[ID] += W0 * Denom1;
+                            ThreadDenoms2[ID] += W0 * Denom2;
+
+                            if (ID < NShells - 1)
+                            {
+                                ThreadNums[ID + 1] += W1 * Nom;
+                                ThreadDenoms1[ID + 1] += W1 * Denom1;
+                                ThreadDenoms2[ID + 1] += W1 * Denom2;
+                            }
+                        }
+                    }
+                }
+
+                lock (Nums)
+                    for (int i = 0; i < Nums.Length; i++)
+                    {
+                        Nums[i] += ThreadNums[i];
+                        Denoms1[i] += ThreadDenoms1[i];
+                        Denoms2[i] += ThreadDenoms2[i];
+                    }
+            });
+
+            float[] Result = new float[NShells];
+
+            for (int i = 0; i < Result.Length; i++)
+                Result[i] = (float)(Nums[i] / Math.Max(1e-6f, Math.Sqrt(Denoms1[i] * Denoms2[i])));
+
+            if (HalfFT1 != volume1)
+                HalfFT1.Dispose();
+            if (HalfFT2 != volume2)
+                HalfFT2.Dispose();
+
+            return Result;
+        }
+
         public static float[] GetAmps1D(Image volume)
         {
             Image VolumeFT = volume.IsComplex ? volume : volume.AsFFT(true);
@@ -912,6 +1002,344 @@ namespace Warp
                                            int nIterations)
         {
 
+        }
+
+        public static (float2[] PerFrame, float2[] PerItem, float[][] ItemFSCs) FitBFactors(float3[][][] corr, float[][][] ctfWeights, float pixelSize, float lowResLimitAngstrom)
+        {
+            int NItems = corr.Length;
+            int NFrames = corr[0].Length;
+            int FSCLength = corr[0][0].Length;
+
+            float2[] ResultFrames = Helper.ArrayOfConstant(new float2(1, 0), NFrames);
+            float2[] ResultItems = Helper.ArrayOfConstant(new float2(1, 0), NItems);
+
+            CTF CTF = new CTF()
+            {
+                PixelSize = (decimal)pixelSize,
+                Defocus = 0,
+                Amplitude = 1,
+                Cs = 0
+            };
+
+            #region Set up low and high res limits
+
+            int K0 = (int)Math.Ceiling(pixelSize * 2 / lowResLimitAngstrom * FSCLength);
+            int K1 = K0;
+            while (K1 < FSCLength - 1 && corr[0][0][K1].X != 0)
+                K1++;
+
+            float[] Weights = Helper.ArrayOfFunction(i => i >= K0 && i < K1 ? 1f : 0f, FSCLength);
+
+            #endregion
+
+            #region Methods for recalculating frame and items FSCs
+
+            Func<float[][]> CalculateFrameFSCs = () =>
+            {
+                float[][] Result = new float[NFrames][];
+
+                for (int f = 0; f < NFrames; f++)
+                {
+                    float3[] Sum = new float3[FSCLength];
+                    for (int i = 0; i < NItems; i++)
+                    {
+                        CTF CTFCopy = CTF.GetCopy();
+                        CTFCopy.Scale = (decimal)(ResultFrames[f].X * ResultItems[i].X);
+                        CTFCopy.Bfactor = (decimal)(ResultFrames[f].Y + ResultItems[i].Y);
+
+                        float[] Sim = CTFCopy.Get1D(FSCLength, false);
+
+                        for (int j = 0; j < FSCLength; j++)
+                            Sum[j] += corr[i][f][j] * Sim[j];
+                    }
+
+                    Result[f] = Sum.Select(v => v.X / (float)Math.Max(1e-16, Math.Sqrt(v.Y * v.Z))).ToArray();
+                }
+
+                return Result;
+            };
+
+            Func<float[][]> CalculateItemFSCs = () =>
+            {
+                float[][] Result = new float[NItems][];
+
+                for (int i = 0; i < NItems; i++)
+                {
+                    float3[] Sum = new float3[FSCLength];
+                    for (int f = 0; f < NFrames; f++)
+                    {
+                        CTF CTFCopy = CTF.GetCopy();
+                        CTFCopy.Scale = (decimal)(ResultFrames[f].X * ResultItems[i].X);
+                        CTFCopy.Bfactor = (decimal)(ResultFrames[f].Y + ResultItems[i].Y);
+
+                        float[] Sim = CTFCopy.Get1D(FSCLength, false);
+
+                        for (int j = 0; j < FSCLength; j++)
+                            Sum[j] += corr[i][f][j] * Sim[j];
+                    }
+
+                    Result[i] = Sum.Select(v => v.X / (float)Math.Max(1e-16, Math.Sqrt(v.Y * v.Z))).ToArray();
+                }
+
+                return Result;
+            };
+
+            #endregion
+
+            float[][] FrameFSCs = CalculateFrameFSCs();
+            float[][] ItemFSCs = CalculateItemFSCs();
+
+            new Image(Helper.Combine(FrameFSCs), new int3(FSCLength, NFrames, 1)).WriteMRC("d_framefsc.mrc", true);
+
+            #region Take a first guess at the envelope
+
+            float[] Envelope;
+            {
+                int BestFSC = 0;
+                float BestFSCSum = -float.MaxValue;
+                float[] FSCSums = FrameFSCs.Select(f => f.Select((v, i) => v * Weights[i]).Sum()).ToArray();
+
+                for (int i = 0; i < NFrames; i++)
+                {
+                    if (FSCSums[i] > BestFSCSum)
+                    {
+                        BestFSCSum = FSCSums[i];
+                        BestFSC = i;
+                    }
+                }
+
+                Envelope = FrameFSCs[BestFSC].ToList().ToArray();
+            }
+
+            #endregion
+
+            #region Method for recalculating the envelope
+
+            //Func<float[]> CalculateEnvelope = () =>
+            //{
+            //    float[] Result = new float[FSCLength];
+
+            //    float3[] Sum = new float3[FSCLength];
+
+            //    for (int i = 0; i < NItems; i++)
+            //        for (int f = 0; f < NFrames; f++)
+            //        {
+            //            CTF CTFCopy = CTF.GetCopy();
+            //            CTFCopy.Scale = (decimal)(ResultFrames[f].X * ResultItems[i].X);
+            //            CTFCopy.Bfactor = (decimal)(ResultFrames[f].Y + ResultItems[i].Y);
+
+            //            float[] Sim = CTFCopy.Get1D(Envelope.Length, false);
+
+            //            for (int j = 0; j < FSCLength; j++)
+            //                Sum[j] += corr[i][f][j] * new float3(Sim[j], 
+            //                                                     Sim[j] * Sim[j], 
+            //                                                     Sim[j] * Sim[j]);
+            //        }
+
+            //    for (int i = 0; i < FSCLength; i++)
+            //        Result[i] = Math.Max(0, Sum[i].X / (float)Math.Max(1e-16, Math.Sqrt(Sum[i].Y * Sum[i].Z)));
+
+            //    return Result;
+            //};
+
+            Func<float[]> CalculateEnvelopeFrames = () =>
+            {
+                float[] Result = new float[FSCLength];
+
+                float[] Sum = new float[FSCLength];
+                float[] WeightSum = new float[FSCLength];
+
+                for (int f = 0; f < NFrames; f++)
+                {
+                    CTF CTFCopy = CTF.GetCopy();
+                    CTFCopy.Scale = (decimal)(ResultFrames[f].X);
+                    CTFCopy.Bfactor = (decimal)(ResultFrames[f].Y);
+
+                    float[] Sim = CTFCopy.Get1D(FSCLength, false);
+
+                    for (int j = 0; j < FSCLength; j++)
+                    {
+                        Sum[j] += FrameFSCs[f][j] * Sim[j];
+                        WeightSum[j] += Sim[j] * Sim[j];
+                    }
+                }
+
+                for (int i = 0; i < FSCLength; i++)
+                    Result[i] = Math.Max(0, Sum[i] / (float)Math.Max(1e-16, WeightSum[i]));
+
+                return Result;
+            };
+
+            Func<float[]> CalculateEnvelopeItems = () =>
+            {
+                float[] Result = new float[FSCLength];
+
+                float[] Sum = new float[FSCLength];
+                float[] WeightSum = new float[FSCLength];
+
+                for (int i = 0; i < NItems; i++)
+                {
+                    CTF CTFCopy = CTF.GetCopy();
+                    CTFCopy.Scale = (decimal)(ResultItems[i].X);
+                    CTFCopy.Bfactor = (decimal)(ResultItems[i].Y);
+
+                    float[] Sim = CTFCopy.Get1D(FSCLength, false);
+
+                    for (int j = 0; j < FSCLength; j++)
+                    {
+                        Sum[j] += ItemFSCs[i][j] * Sim[j];
+                        WeightSum[j] += Sim[j] * Sim[j];
+                    }
+                }
+
+                for (int i = 0; i < FSCLength; i++)
+                    Result[i] = Math.Max(0, Sum[i] / (float)Math.Max(1e-16, WeightSum[i]));
+
+                return Result;
+            };
+
+            #endregion
+
+            #region Method for comparing weighted FSC to current envelope
+
+            Func<float[], float2, float[], float> EvalOne = (fsc, b, ctfWeight) =>
+            {
+                float Diff = 0;
+                float Samples = 0;
+
+                CTF CTFCopy = CTF.GetCopy();
+                CTFCopy.Scale = (decimal)Math.Exp(b.X * 0.01);
+                CTFCopy.Bfactor = (decimal)b.Y;
+
+                float[] Sim = CTFCopy.Get1D(fsc.Length, false);
+
+                for (int i = 0; i < fsc.Length; i++)
+                {
+                    float d = (Sim[i] * Envelope[i] - fsc[i]);
+                    d *= d;
+                    d *= Weights[i] * ctfWeight[i];
+                    Diff += d;
+                    Samples += Weights[i] * ctfWeight[i];
+                }
+
+                return Diff / Samples * 1000;
+            };
+
+            #endregion
+
+            double[] StartParamsFrames = new double[NFrames * 2];
+            double[] StartParamsItems = new double[NItems * 2];
+
+            for (int iopt = 0; iopt < 5; iopt++)
+            {
+                // Per frame
+                if (iopt > 0)
+                    Envelope = CalculateEnvelopeFrames();
+                for (int isubopt = 0; isubopt < 5; isubopt++)
+                {
+                    Func<double[], double> Eval = (input) =>
+                    {
+                        double Diff = 0;
+
+                        for (int f = 0; f < NFrames; f++)
+                            Diff += EvalOne(FrameFSCs[f], new float2((float)input[f * 2 + 0], (float)input[f * 2 + 1]), ctfWeights[0][f]);
+
+                        return Diff;
+                    };
+
+                    Func<double[], double[]> Grad = (input) =>
+                    {
+                        double[] Grads = new double[input.Length];
+
+                        float Delta = 0.001f;
+                        float Delta2 = Delta * 2;
+
+                        for (int f = 0; f < NFrames; f++)
+                        {
+                            float ScoreWeightPlus = EvalOne(FrameFSCs[f], new float2((float)input[f * 2 + 0] + Delta, (float)input[f * 2 + 1]), ctfWeights[0][f]);
+                            float ScoreWeightMinus = EvalOne(FrameFSCs[f], new float2((float)input[f * 2 + 0] - Delta, (float)input[f * 2 + 1]), ctfWeights[0][f]);
+                            Grads[f * 2 + 0] = (ScoreWeightPlus - ScoreWeightMinus) / Delta2;
+
+                            float ScoreBPlus = EvalOne(FrameFSCs[f], new float2((float)input[f * 2 + 0], (float)input[f * 2 + 1] + Delta), ctfWeights[0][f]);
+                            float ScoreBMinus = EvalOne(FrameFSCs[f], new float2((float)input[f * 2 + 0], (float)input[f * 2 + 1] - Delta), ctfWeights[0][f]);
+                            Grads[f * 2 + 1] = (ScoreBPlus - ScoreBMinus) / Delta2;
+                        }
+
+                        return Grads;
+                    };
+
+                    BroydenFletcherGoldfarbShanno Optimizer = new BroydenFletcherGoldfarbShanno(StartParamsFrames.Length, Eval, Grad);
+                    Optimizer.Minimize(StartParamsFrames);
+
+                    for (int f = 0; f < NFrames; f++)
+                        ResultFrames[f] = new float2((float)Math.Exp(StartParamsFrames[f * 2 + 0] * 0.01), 
+                                                         (float)StartParamsFrames[f * 2 + 1]);
+
+                    //float MaxWeight = MathHelper.Max(ResultFrames.Select(v => v.X));
+                    //float MaxB = MathHelper.Max(ResultFrames.Select(v => v.Y));
+                    //ResultFrames = ResultFrames.Select(v => new float2(v.X / MaxWeight, v.Y - MaxB)).ToArray();
+
+                    Envelope = CalculateEnvelopeFrames();
+                }
+
+                ItemFSCs = CalculateItemFSCs();
+                new Image(Helper.Combine(ItemFSCs), new int3(FSCLength, NItems, 1)).WriteMRC($"d_itemfsc_{iopt}.mrc", true);
+
+                // Per item
+                //if (iopt > 0)
+                //    Envelope = CalculateEnvelopeItems();
+                //for (int isubopt = 0; isubopt < 5; isubopt++)
+                //{
+                //    Func<double[], double> Eval = (input) =>
+                //    {
+                //        double Diff = 0;
+
+                //        for (int i = 0; i < NItems; i++)
+                //            Diff += EvalOne(ItemFSCs[i], new float2((float)input[i * 2 + 0], (float)input[i * 2 + 1]));
+
+                //        return Diff;
+                //    };
+
+                //    Func<double[], double[]> Grad = (input) =>
+                //    {
+                //        double[] Grads = new double[input.Length];
+
+                //        float Delta = 0.001f;
+                //        float Delta2 = Delta * 2;
+
+                //        for (int i = 0; i < NItems; i++)
+                //        {
+                //            float ScoreWeightPlus = EvalOne(ItemFSCs[i], new float2((float)input[i * 2 + 0] + Delta, (float)input[i * 2 + 1]));
+                //            float ScoreWeightMinus = EvalOne(ItemFSCs[i], new float2((float)input[i * 2 + 0] - Delta, (float)input[i * 2 + 1]));
+                //            Grads[i * 2 + 0] = (ScoreWeightPlus - ScoreWeightMinus) / Delta2;
+
+                //            //float ScoreBPlus = EvalOne(ItemFSCs[i], new float2((float)input[i * 2 + 0], (float)input[i * 2 + 1] + Delta));
+                //            //float ScoreBMinus = EvalOne(ItemFSCs[i], new float2((float)input[i * 2 + 0], (float)input[i * 2 + 1] - Delta));
+                //            //Grads[i * 2 + 1] = (ScoreBPlus - ScoreBMinus) / Delta2;
+                //        }
+
+                //        return Grads;
+                //    };
+
+                //    BroydenFletcherGoldfarbShanno Optimizer = new BroydenFletcherGoldfarbShanno(StartParamsItems.Length, Eval, Grad);
+                //    Optimizer.Minimize(StartParamsItems);
+
+                //    for (int i = 0; i < NItems; i++)
+                //        ResultItems[i] = new float2((float)Math.Exp(StartParamsItems[i * 2 + 0] * 0.01),
+                //                                    (float)StartParamsItems[i * 2 + 1]);
+
+                //    float MaxWeight = MathHelper.Mean(ResultItems.Select(v => v.X));
+                //    float MaxB = MathHelper.Mean(ResultItems.Select(v => v.Y));
+                //    ResultItems = ResultItems.Select(v => new float2(v.X / MaxWeight, v.Y - MaxB)).ToArray();
+
+                //    Envelope = CalculateEnvelopeItems();
+                //}
+
+                FrameFSCs = CalculateFrameFSCs();
+                new Image(Helper.Combine(FrameFSCs), new int3(FSCLength, NFrames, 1)).WriteMRC($"d_framefsc_{iopt}.mrc", true);
+            }
+
+            return (ResultFrames, ResultItems, ItemFSCs);
         }
     }
 }

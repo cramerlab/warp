@@ -180,7 +180,7 @@ namespace Warp.Controls
             get { return (Color)GetValue(ParticleCircleBrushProperty); }
             set { SetValue(ParticleCircleBrushProperty, value); }
         }
-        public static readonly DependencyProperty ParticleCircleBrushProperty = DependencyProperty.Register("ParticleCircleBrush", typeof(Color), typeof(MicrographDisplay), new PropertyMetadata(Colors.GreenYellow, (sender, e) => ((MicrographDisplay)sender).ParticlesSettingsChanged(sender, e)));
+        public static readonly DependencyProperty ParticleCircleBrushProperty = DependencyProperty.Register("ParticleCircleBrush", typeof(Color), typeof(MicrographDisplay), new PropertyMetadata(Color.FromArgb(255, 255, 240, 0), (sender, e) => ((MicrographDisplay)sender).ParticlesSettingsChanged(sender, e)));
         
         public string ParticleCircleStyle
         {
@@ -238,7 +238,6 @@ namespace Warp.Controls
         }
         public static readonly DependencyProperty BrushDiameterProperty = DependencyProperty.Register("BrushDiameter", typeof(int), typeof(MicrographDisplay), new PropertyMetadata(300));
         
-
         #endregion
 
         private float2 _VisualsCenterOffset = new float2();
@@ -496,7 +495,7 @@ namespace Warp.Controls
 
         private void ElevationSettingsChanged(DependencyObject sender, DependencyPropertyChangedEventArgs args)
         {
-            ImageElevation.Visibility = ElevationShow ? Visibility.Visible : Visibility.Hidden;
+            ImageElevation.Visibility = ElevationShow ? Visibility.Visible : Visibility.Collapsed;
         }
 
         private void Movie_ProcessingChanged(object sender, EventArgs e)
@@ -805,7 +804,7 @@ namespace Warp.Controls
 
             ImageSource ElevationImage = null;
 
-            if (Movie.GetType() == typeof(Movie) && Movie.GridCTF != null && Movie.GridCTF.Dimensions.Elements() > 1)
+            if (Movie.GetType() == typeof(Movie) && Movie.GridCTFDefocus != null && Movie.GridCTFDefocus.Dimensions.Elements() > 1)
             {
                 int2 DimsElevation = new int2(16);
                 float3[] ElevationPositions = Helper.Combine(Helper.ArrayOfFunction(y => Helper.ArrayOfFunction(x => new float3(x / (float)(DimsElevation.X - 1),
@@ -813,7 +812,7 @@ namespace Warp.Controls
                                                                                                                                 0.5f),
                                                                                                                 DimsElevation.X),
                                                                                     DimsElevation.Y));
-                float[] ElevationValues = Movie.GridCTF.GetInterpolated(ElevationPositions);
+                float[] ElevationValues = Movie.GridCTFDefocus.GetInterpolated(ElevationPositions);
 
                 //new Image(ElevationValues, new int3(DimsElevation)).WriteMRC("d_elevation.mrc");
 
@@ -856,6 +855,9 @@ namespace Warp.Controls
 
                 ImageDisplay.Width = ImageDisplay.Source.Width * ClampedScaleFactor;
                 ImageDisplay.Height = ImageDisplay.Source.Height * ClampedScaleFactor;
+
+                ImageMask.Width = ImageDisplay.Width;
+                ImageMask.Height = ImageDisplay.Height;
 
                 CanvasTrack.Width = ImageDisplay.Source.Width * ClampedScaleFactor;
                 CanvasTrack.Height = ImageDisplay.Source.Height * ClampedScaleFactor;
@@ -1040,17 +1042,16 @@ namespace Warp.Controls
                     if (NewZoom == Zoom)
                         return;
 
+                    float ScaleChange = NewScale / (float)ScaleFactor;
+
                     float2 ImageCenter = new float2((float)ImageDisplay.Width, (float)ImageDisplay.Height) / 2 + VisualsCenterOffset * (float)ScaleFactor;
                     Point PointAbsolute = e.GetPosition(ImageDisplay);
-                    float2 Delta = (new float2((float)PointAbsolute.X, (float)PointAbsolute.Y) - ImageCenter) / (float)ScaleFactor;
-
-                    float ScaleChange = NewScale / (float)ScaleFactor;
-                    if (ScaleChange > 1)
-                        VisualsCenterOffset += Delta / ScaleChange;
-                    else
-                        VisualsCenterOffset -= Delta;
+                    float2 RelativeToCenter = (new float2((float)PointAbsolute.X, (float)PointAbsolute.Y) - ImageCenter);
+                    float2 ExpectedShift = RelativeToCenter * ScaleChange - RelativeToCenter;
 
                     Zoom = NewZoom;
+
+                    VisualsCenterOffset += ExpectedShift / NewScale;
 
                     UpdateParticles();
                 }
@@ -1719,7 +1720,8 @@ namespace Warp.Controls
 
             LoadParticles();
 
-            ParticlesThreshold = (decimal)MathHelper.Min(Particles.Select(p => p.FOM));
+            if (Particles.Count > 0)
+                ParticlesThreshold = (decimal)MathHelper.Min(Particles.Select(p => p.FOM));
             ParticlesShow = true;
             UpdateParticles();
 
@@ -1732,7 +1734,7 @@ namespace Warp.Controls
 
         private void PopulateBoxNetworks(string modelDir)
         {
-            BoxNetworks = Helper.ArrayOfFunction(i => new BoxNet2(modelDir, i, 2, 1, false), 1);//GPU.GetDeviceCount());
+            BoxNetworks = new[] { new BoxNet2(modelDir, GPU.GetDeviceWithMostMemory(), 2, 1, false) };
             BoxNetworksModelDir = modelDir;
         }
 
@@ -1758,7 +1760,7 @@ namespace Warp.Controls
 
             await Task.Run(() =>
             {
-                NoiseNetworks = Helper.ArrayOfFunction(i => new NoiseNet2D(modelDir, new int2(128), 2, 1, false, i), 1);//GPU.GetDeviceCount());
+                NoiseNetworks = new[] { new NoiseNet2D(modelDir, new int2(128), 2, 1, false, GPU.GetDeviceWithMostMemory()) };
                 NoiseNetworksModelDir = modelDir;
             });
 
@@ -2004,6 +2006,10 @@ namespace Warp.Controls
                 TrainModel.Dispose();
             });
 
+            DropNoiseNetworks();
+            DropBoxNetworks();
+            TFHelper.TF_FreeAllMemory();
+
             await ProgressDialog.CloseAsync();
 
             MicrographOwner = null;
@@ -2043,9 +2049,9 @@ namespace Warp.Controls
             MaskImageBytes = new byte[MaskDims.Elements() * 4];
             for (int i = 0; i < MaskData.Length; i++)
             {
-                MaskImageBytes[i * 4 + 0] = Colors.Orange.B;
-                MaskImageBytes[i * 4 + 1] = Colors.Orange.G;
-                MaskImageBytes[i * 4 + 2] = Colors.Orange.R;
+                MaskImageBytes[i * 4 + 0] = 135; // Colors.Orange.B;
+                MaskImageBytes[i * 4 + 1] = 43; // Colors.Orange.G;
+                MaskImageBytes[i * 4 + 2] = 105; // Colors.Orange.R;
                 MaskImageBytes[i * 4 + 3] = 255;
             }
         }
@@ -2175,13 +2181,16 @@ namespace Warp.Controls
                 //output.SetField(TiffTag.PAGENUMBER, 0, 1);
 
                 for (int j = 0; j < MaskDims.Y; j++)
-                    output.WriteScanline(Helper.Subset(MaskData, j * MaskDims.X, (j + 1) * MaskDims.X), j);
+                {
+                    int jflip = MaskDims.Y - 1 - j;
+                    output.WriteScanline(Helper.Subset(MaskData, jflip * MaskDims.X, (jflip + 1) * MaskDims.X), j);
+                }
 
                 output.WriteDirectory();
                 output.FlushData();
 
                 output.Dispose();
-
+                
                 Movie.MaskPercentage = (decimal)MaskData.Select(v => (int)v).Sum() / MaskData.Length * 100;
                 Movie.SaveMeta();
             }

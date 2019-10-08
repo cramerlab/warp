@@ -2,7 +2,6 @@
 #define FUNCTIONS_H
 
 #include "../../gtom/include/GTOM.cuh"
-#include "../../gtom/include/DeviceFunctions.cuh"
 
 using namespace std;
 
@@ -239,6 +238,23 @@ extern "C" __declspec(dllexport) void __stdcall BoxNet2Augment(float* d_inputmic
                                                                 int seed,
                                                                 uint batch);
 
+// CubeNet.cu:
+extern "C" __declspec(dllexport) void CubeNetAugment(float* d_inputvol,
+													float* d_inputlabel,
+													int3 dimsinput,
+													float* d_outputmic,
+													float* d_outputlabel,
+													float* d_outputweight,
+													int nclasses,
+													int3 dimsoutput,
+													float2 labelweights,
+													float3* h_offsets,
+													float3* h_rotations,
+													float3* h_scales,
+													float noisestddev,
+													int seed,
+													uint batch);
+
 // Cubic.cpp:
 
 extern "C" __declspec(dllexport) void __stdcall CubicInterpOnGrid(int3 dimensions, 
@@ -266,8 +282,8 @@ extern "C" __declspec(dllexport) void DeconvolveCTF(float2* d_inputft, float2* d
 extern "C" __declspec(dllexport) int __stdcall GetDeviceCount();
 extern "C" __declspec(dllexport) void __stdcall SetDevice(int device);
 extern "C" __declspec(dllexport) int __stdcall GetDevice();
-extern "C" __declspec(dllexport) long __stdcall GetFreeMemory(int device);
-extern "C" __declspec(dllexport) long __stdcall GetTotalMemory(int device);
+extern "C" __declspec(dllexport) long long __stdcall GetFreeMemory(int device);
+extern "C" __declspec(dllexport) long long __stdcall GetTotalMemory(int device);
 extern "C" __declspec(dllexport) char* __stdcall GetDeviceName(int device);
 
 // FFT.cpp:
@@ -288,33 +304,42 @@ extern "C" __declspec(dllexport) void __stdcall ConicalFSC(float2* volume1ft,
 
 // Memory.cpp:
 
-extern "C" __declspec(dllexport) float* __stdcall MallocDevice(long elements);
-extern "C" __declspec(dllexport) float* __stdcall MallocDeviceFromHost(float* h_data, long elements);
-extern "C" __declspec(dllexport) int* __stdcall MallocDeviceFromHostInt(int* h_data, long elements);
-extern "C" __declspec(dllexport) void* __stdcall MallocDeviceHalf(long elements);
-extern "C" __declspec(dllexport) void* __stdcall MallocDeviceHalfFromHost(float* h_data, long elements);
+extern "C" __declspec(dllexport) float* __stdcall MallocDevice(long long elements);
+extern "C" __declspec(dllexport) float* __stdcall MallocDeviceFromHost(float* h_data, long long elements);
+extern "C" __declspec(dllexport) int* __stdcall MallocDeviceFromHostInt(int* h_data, long long elements);
+extern "C" __declspec(dllexport) void* __stdcall MallocDeviceHalf(long long elements);
+extern "C" __declspec(dllexport) void* __stdcall MallocDeviceHalfFromHost(float* h_data, long long elements);
 
 extern "C" __declspec(dllexport) void __stdcall FreeDevice(void* d_data);
 
-extern "C" __declspec(dllexport) void __stdcall CopyDeviceToHost(float* d_source, float* h_dest, long elements);
-extern "C" __declspec(dllexport) void __stdcall CopyDeviceToHostPinned(float* d_source, float* hp_dest, long elements);
-extern "C" __declspec(dllexport) void __stdcall CopyDeviceHalfToHost(half* d_source, float* h_dest, long elements);
-extern "C" __declspec(dllexport) void __stdcall CopyDeviceToDevice(float* d_source, float* d_dest, long elements);
-extern "C" __declspec(dllexport) void __stdcall CopyDeviceHalfToDeviceHalf(half* d_source, half* d_dest, long elements);
-extern "C" __declspec(dllexport) void __stdcall CopyHostToDevice(float* h_source, float* d_dest, long elements);
-extern "C" __declspec(dllexport) void __stdcall CopyHostToHost(float* h_source, float* h_dest, long elements);
-extern "C" __declspec(dllexport) void __stdcall CopyHostPinnedToDevice(float* hp_source, float* d_dest, long elements);
-extern "C" __declspec(dllexport) void __stdcall CopyHostToDeviceHalf(float* h_source, half* d_dest, long elements);
+extern "C" __declspec(dllexport) void __stdcall CopyDeviceToHost(float* d_source, float* h_dest, long long elements);
+extern "C" __declspec(dllexport) void __stdcall CopyDeviceToHostPinned(float* d_source, float* hp_dest, long long elements);
+extern "C" __declspec(dllexport) void __stdcall CopyDeviceHalfToHost(half* d_source, float* h_dest, long long elements);
+extern "C" __declspec(dllexport) void __stdcall CopyDeviceToDevice(float* d_source, float* d_dest, long long elements);
+extern "C" __declspec(dllexport) void __stdcall CopyDeviceHalfToDeviceHalf(half* d_source, half* d_dest, long long elements);
+extern "C" __declspec(dllexport) void __stdcall CopyHostToDevice(float* h_source, float* d_dest, long long elements);
+extern "C" __declspec(dllexport) void __stdcall CopyHostToHost(float* h_source, float* h_dest, long long elements);
+extern "C" __declspec(dllexport) void __stdcall CopyHostPinnedToDevice(float* hp_source, float* d_dest, long long elements);
+extern "C" __declspec(dllexport) void __stdcall CopyHostToDeviceHalf(float* h_source, half* d_dest, long long elements);
 
-extern "C" __declspec(dllexport) void __stdcall SingleToHalf(float* d_source, half* d_dest, long elements);
-extern "C" __declspec(dllexport) void __stdcall HalfToSingle(half* d_source, float* d_dest, long elements);
+extern "C" __declspec(dllexport) void __stdcall SingleToHalf(float* d_source, half* d_dest, long long elements);
+extern "C" __declspec(dllexport) void __stdcall HalfToSingle(half* d_source, float* d_dest, long long elements);
 
-extern "C" __declspec(dllexport) float* __stdcall MallocHostPinned(long elements);
+extern "C" __declspec(dllexport) float* __stdcall MallocHostPinned(long long elements);
 extern "C" __declspec(dllexport) void __stdcall FreeHostPinned(void* hp_data);
 
+extern "C" __declspec(dllexport) void* __stdcall HostMalloc(long long elements);
 extern "C" __declspec(dllexport) void __stdcall HostFree(void* h_pointer);
 
 extern "C" __declspec(dllexport) void __stdcall DeviceReset();
+
+extern "C" __declspec(dllexport) cudaArray_t MallocArray(int2 dims);
+extern "C" __declspec(dllexport) void CopyDeviceToArray(float* d_input, cudaArray_t a_output, int2 dims);
+extern "C" __declspec(dllexport) void FreeArray(cudaArray_t a_input);
+
+// TiffNative.cpp:
+
+extern "C" __declspec(dllexport) void ReadTIFF(const char* path, int layer, bool flipy, float* h_result);
 
 // Post.cu:
 
@@ -467,8 +492,8 @@ extern "C" __declspec(dllexport) void PolishingGetDiff(float2* d_particleframe,
 
 // Projector.cpp:
 extern "C" __declspec(dllexport) void InitProjector(int3 dims, int oversampling, float* data, float* datasize, int projdim);
-extern "C" __declspec(dllexport) void BackprojectorReconstruct(int3 dimsori, int oversampling, float* h_data, float* h_weights, char* c_symmetry, bool do_reconstruct_ctf, float* h_reconstruction);
-extern "C" __declspec(dllexport) void BackprojectorReconstructGPU(int3 dimsori, int3 dimspadded, int oversampling, float2* d_dataft, float* d_weights, bool do_reconstruct_ctf, float* d_result, cufftHandle pre_planforw, cufftHandle pre_planback, cufftHandle pre_planforwctf);
+extern "C" __declspec(dllexport) void BackprojectorReconstruct(int3 dimsori, int oversampling, float2* d_data, float* d_weights, char* c_symmetry, bool do_reconstruct_ctf, float* h_reconstruction);
+extern "C" __declspec(dllexport) void BackprojectorReconstructGPU(int3 dimsori, int3 dimspadded, int oversampling, float2* d_dataft, float* d_weights, char* c_symmetry, bool do_reconstruct_ctf, float* d_result, cufftHandle pre_planforw, cufftHandle pre_planback, cufftHandle pre_planforwctf, int griddingiterations);
 
 // Raycast.cu:
 extern "C" __declspec(dllexport) void RenderVolume(uint64_t t_intensities,
@@ -491,7 +516,27 @@ extern "C" __declspec(dllexport) void RenderVolume(uint64_t t_intensities,
                                                     char* h_hittest,
                                                     uchar4* h_bgra);
 
+// RealspaceProjection.cu:
+extern "C" __declspec(dllexport) void RealspaceProjectForward(float* d_volume,
+																int3 dimsvolume,
+																float* d_projections,
+																int2 dimsproj,
+																float supersample,
+																float3* h_angles,
+																int batch);
+
+extern "C" __declspec(dllexport) void RealspaceProjectBackward(float* d_volume,
+																int3 dimsvolume,
+																float* d_projections,
+																int2 dimsproj,
+																float supersample,
+																float3* h_angles,
+																bool normalizesamples,
+																int batch);
+
 // Symmetry.cpp:
+extern "C" __declspec(dllexport) int SymmetryGetNumberOfMatrices(char* c_symmetry);
+extern "C" __declspec(dllexport) void SymmetryGetMatrices(char* c_symmetry, float* h_matrices);
 extern "C" __declspec(dllexport) void SymmetrizeFT(float2* d_data, int3 dims, char* c_symmetry);
 
 
@@ -499,20 +544,21 @@ extern "C" __declspec(dllexport) void SymmetrizeFT(float2* d_data, int3 dims, ch
 extern "C" __declspec(dllexport) void SparseEigen(int* sparsei, int* sparsej, double* sparsevalues, int nsparse, int sidelength, int nvectors, double* eigenvectors, double* eigenvalues);
 
 
-// TomoRefine.cu:
-extern "C" __declspec(dllexport) void MultiParticleDiff(float* hp_result,
+// MPARefine.cu:
+extern "C" __declspec(dllexport) void MultiParticleDiff(float3* h_result,
 														float2** hp_experimental,
 														int dimdata,
+														int* h_relevantdims,
 														float2* h_shifts,
 														float3* h_angles,
-														float* h_defoci,
+														float3 magnification,
+														float2* h_beamtilt,
 														float* d_weights,
-														gtom::CTFParams* h_ctfparams,
+														float2* d_beamtiltcoords,
 														uint64_t* h_volumeRe,
 														uint64_t* h_volumeIm,
 														int dimprojector,
 														int* d_subsets,
-														float* h_relativeweights,
 														int nparticles,
 														int ntilts);
 
@@ -533,22 +579,60 @@ extern "C" __declspec(dllexport) void MultiParticleSimulate(float* d_result,
 															int ntilts);
 
 extern "C" __declspec(dllexport) void MultiParticleCorr2D(float* d_resultab,
-															float* d_resulta2,
-															float* d_resultb2,
+														float* d_resulta2,
+														float* d_resultb2,
+														float2** hp_experimental,
+														int dimdata,
+														int* h_relevantdims,
+														float2* h_shifts,
+														float3* h_angles,
+														float3 magnification,
+														uint64_t* h_volumeRe,
+														uint64_t* h_volumeIm,
+														int dimprojector,
+														int* d_subsets,
+														int nparticles,
+														int ntilts);
+
+extern "C" __declspec(dllexport) void MultiParticleResidual(float2* d_result,
 															float2** hp_experimental,
 															int dimdata,
 															float2* h_shifts,
 															float3* h_angles,
-															float* h_defoci,
+															float3 magnification,
 															float* d_weights,
-															gtom::CTFParams* h_ctfparams,
 															uint64_t* h_volumeRe,
 															uint64_t* h_volumeIm,
 															int dimprojector,
 															int* d_subsets,
 															int nparticles,
-															int ntilts,
-															bool getdivisor);
+															int ntilts);
+
+extern "C" __declspec(dllexport) void MultiParticleSumAmplitudes(float* hp_result,
+																int dimdata,
+																float3* h_angles,
+																uint64_t t_volumeRe,
+																uint64_t t_volumeIm,
+																int dimprojector,
+																int nparticles);
+
+// PCA.cu:
+
+extern "C" __declspec(dllexport) void PCA(float* h_result,
+											float2* d_experimental,
+											float2* d_experimentalunmasked,
+											float* d_ctf,
+											float* d_spectral,
+											int dimdata,
+											float2* h_shifts,
+											float3* h_angles,
+											float3 magnification,
+											uint64_t t_volumeRe,
+											uint64_t t_volumeIm,
+											int dimprojector,
+											int nparticles,
+											bool performsubtraction);
+
 
 // Tools.cu:
 
@@ -587,7 +671,13 @@ extern "C" __declspec(dllexport) void NormalizeMasked(float* d_ps,
                                                       uint length, 
                                                       uint batch);
 
-extern "C" __declspec(dllexport) void SphereMask(float* d_input, float* d_output, int3 dims, float radius, float sigma, uint batch);
+extern "C" __declspec(dllexport) void SphereMask(float* d_input, 
+												 float* d_output, 
+												 int3 dims, 
+												 float radius, 
+												 float sigma, 
+												 bool decentered, 
+												 uint batch);
 
 extern "C" __declspec(dllexport) void CreateCTF(float* d_output,
 												float2* d_coords,
@@ -625,11 +715,17 @@ extern "C" __declspec(dllexport) void IFFT(float2* d_input, float* d_output, int
 
 extern "C" __declspec(dllexport) void Pad(float* d_input, float* d_output, int3 olddims, int3 newdims, uint batch);
 
+extern "C" __declspec(dllexport) void PadClamped(float* d_input, float* d_output, int3 olddims, int3 newdims, uint batch);
+
 extern "C" __declspec(dllexport) void PadFT(float2* d_input, float2* d_output, int3 olddims, int3 newdims, uint batch);
+
+extern "C" __declspec(dllexport) void PadFTRealValued(float* d_input, float* d_output, int3 olddims, int3 newdims, uint batch);
 
 extern "C" __declspec(dllexport) void PadFTFull(float* d_input, float* d_output, int3 olddims, int3 newdims, uint batch);
 
 extern "C" __declspec(dllexport) void CropFT(float2* d_input, float2* d_output, int3 olddims, int3 newdims, uint batch);
+
+extern "C" __declspec(dllexport) void CropFTRealValued(float* d_input, float* d_output, int3 olddims, int3 newdims, uint batch);
 
 extern "C" __declspec(dllexport) void CropFTFull(float* d_input, float* d_output, int3 olddims, int3 newdims, uint batch);
 
@@ -691,7 +787,7 @@ extern "C" __declspec(dllexport) void MultiplyByScalar(float* d_input, float* d_
 
 extern "C" __declspec(dllexport) void MultiplyByScalars(float* d_input, float* d_output, float* d_multiplicators, size_t elements, uint batch);
 
-extern "C" __declspec(dllexport) void Scale(float* d_input, float* d_output, int3 dimsinput, int3 dimsoutput, uint batch, int planforw, int planback);
+extern "C" __declspec(dllexport) void Scale(float* d_input, float* d_output, int3 dimsinput, int3 dimsoutput, uint batch, int planforw, int planback, float2* d_inputfft, float2* d_outputfft);
 
 extern "C" __declspec(dllexport) void ProjectForward(float2* d_inputft, float2* d_outputft, int3 dimsinput, int2 dimsoutput, float3* h_angles, float supersample, uint batch);
 
@@ -709,7 +805,7 @@ extern "C" __declspec(dllexport) void ProjectForward3DTex(uint64_t t_inputRe, ui
 
 extern "C" __declspec(dllexport) void ProjectForward3DShiftedTex(uint64_t t_inputRe, uint64_t t_inputIm, float2* d_outputft, int3 dimsinput, int3 dimsoutput, float3* h_angles, float3* h_shifts, float* h_globalweights, float supersample, uint batch);
 
-extern "C" __declspec(dllexport) void ProjectBackward(float2* d_volumeft, float* d_volumeweights, int3 dimsvolume, float2* d_projft, float* d_projweights, int2 dimsproj, int rmax, float3* h_angles, float supersample, bool outputdecentered, uint batch);
+extern "C" __declspec(dllexport) void ProjectBackward(float2* d_volumeft, float* d_volumeweights, int3 dimsvolume, float2* d_projft, float* d_projweights, int2 dimsproj, int rmax, float3* h_angles, int* h_ivolume, float3 magnification, float supersample, bool outputdecentered, uint batch);
 
 extern "C" __declspec(dllexport) void ProjectBackwardShifted(float2* d_volumeft, float* d_volumeweights, int3 dimsvolume, float2* d_projft, float* d_projweights, int2 dimsproj, int rmax, float3* h_angles, float3* h_shifts, float* h_globalweights, float supersample, uint batch);
 
@@ -722,6 +818,10 @@ extern "C" __declspec(dllexport) void ShiftAndRotate2D(float* d_input, float* d_
 extern "C" __declspec(dllexport) void MinScalar(float* d_input, float* d_output, float value, uint elements);
 
 extern "C" __declspec(dllexport) void MaxScalar(float* d_input, float* d_output, float value, uint elements);
+
+extern "C" __declspec(dllexport) void Min(float* d_input1, float* d_input2, float* d_output, uint elements);
+
+extern "C" __declspec(dllexport) void Max(float* d_input1, float* d_input2, float* d_output, uint elements);
 
 extern "C" __declspec(dllexport) int CreateFFTPlan(int3 dims, uint batch);
 
@@ -818,10 +918,14 @@ extern "C" __declspec(dllexport) void DestroyTexture(uint64_t textureid, uint64_
 extern "C" __declspec(dllexport) void ValueFill(float* d_input, size_t elements, float value);
 extern "C" __declspec(dllexport) void ValueFillComplex(float2* d_input, size_t elements, float2 value);
 
+extern "C" __declspec(dllexport) void Real(float2* d_input, float* d_output, size_t elements);
+extern "C" __declspec(dllexport) void Imag(float2* d_input, float* d_output, size_t elements);
+
 extern "C" __declspec(dllexport) int PeekLastCUDAError();
 
 extern "C" __declspec(dllexport) void DistortImages(float* d_input, int2 dimsinput, float* d_output, int2 dimsoutput, float2* h_offsets, float* h_rotations, float3* h_scales, float noisestddev, int seed, uint batch);
-extern "C" __declspec(dllexport) void WarpImage(float* d_input, float* d_output, int2 dims, float* h_warpx, float* h_warpy, int2 dimswarp);
+extern "C" __declspec(dllexport) void DistortImagesAffine(float* d_input, int2 dimsinput, float* d_output, int2 dimsoutput, float2* h_offsets, float4* h_distortions, uint batch);
+extern "C" __declspec(dllexport) void WarpImage(float* d_input, float* d_output, int2 dims, float* h_warpx, float* h_warpy, int2 dimswarp, cudaArray_t a_input);
 
 extern "C" __declspec(dllexport) void Rotate3DExtractAt(uint64_t t_volume, int3 dimsvolume, float* d_proj, int3 dimsproj, float3* h_angles, float3* h_positions, uint batch);
 

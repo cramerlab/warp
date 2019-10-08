@@ -21,7 +21,7 @@
                 <RowDefinition Height="30" />
                 <RowDefinition Height="30" />
                 <RowDefinition Height="15" />
-                <RowDefinition Height="30" />
+                <RowDefinition Height="60" />
                 <RowDefinition Height="15" />
                 <RowDefinition Height="30" />
                 <RowDefinition Height="30" />
@@ -43,12 +43,16 @@
             <s:ValueSlider Name="SliderBoxSize" Grid.Row="7" Value="{Binding Tasks.Export2DBoxSize, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="Box size is {0} px" MinValue="2" MaxValue="10000" StepSize="2" FontSize="18" />
             <s:ValueSlider Name="SliderParticleDiameter" Grid.Row="8" Value="{Binding Tasks.Export2DParticleDiameter, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="Particle diameter is {0} Å" MinValue="2" MaxValue="10000" StepSize="1" FontSize="18" />
 
-            <StackPanel Grid.Row="10" Orientation="Horizontal">
-                <RadioButton Name="RadioAverage" GroupName="AverageStack" IsChecked="{Binding Tasks.Export2DDoAverages}" Content="Averages" FontSize="18" />
-                <RadioButton Name="RadioStack" GroupName="AverageStack" IsChecked="{Binding Tasks.Export2DDoMovies}" Content="Movies" FontSize="18" Margin="16,0,0,0" />
-                <RadioButton Name="RadioStar" GroupName="AverageStack" IsChecked="{Binding Tasks.Export2DDoOnlyTable}" Content="Only write STAR" FontSize="18" Margin="16,0,0,0" />
+            <StackPanel Grid.Row="10" Orientation="Vertical">
+                <StackPanel Orientation="Horizontal" Height="30">
+                    <RadioButton Name="RadioAverage" GroupName="ExportMode" IsChecked="{Binding Tasks.Export2DDoAverages}" Content="Averages" FontSize="18" />
+                    <RadioButton Name="RadioStack" GroupName="ExportMode" IsChecked="{Binding Tasks.Export2DDoMovies}" Content="Movies" FontSize="18" Margin="16,0,0,0" />
+                    <RadioButton Name="RadioStar" GroupName="ExportMode" IsChecked="{Binding Tasks.Export2DDoOnlyTable}" Content="Only write STAR" FontSize="18" Margin="16,0,0,0" />
+                </StackPanel>
+
+                <RadioButton Name="RadioDenoising" GroupName="ExportMode" IsChecked="{Binding Tasks.Export2DDoDenoisingPairs}" Content="Odd/even frame averages for denoising" FontSize="18" Height="30" />
             </StackPanel>
-                
+
             <CheckBox Name="CheckInvert" Grid.Row="12" IsChecked="{Binding Tasks.InputInvert}" Content="Invert contrast" FontSize="18" />
             <CheckBox Name="CheckNormalize" Grid.Row="13" IsChecked="{Binding Tasks.OutputNormalize}" Content="Normalize" FontSize="18" />
             <CheckBox Name="CheckPreflip" Grid.Row="14" IsChecked="{Binding Tasks.Export2DPreflip}" Content="Pre-flip phases in bigger box" FontSize="18" />

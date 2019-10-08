@@ -27,13 +27,12 @@ namespace Warp.Controls.TaskDialogs.Tomo
         public Options Options;
         public event Action Close;
 
-        public DialogTomoList(TiltSeries[] series, string exportPath, Options options)
+        public DialogTomoList(TiltSeries[] series, Options options)
         {
             InitializeComponent();
 
             Series = series;
             Options = options;
-            ExportPath = exportPath;
 
             DataContext = Options;
         }
@@ -45,6 +44,21 @@ namespace Warp.Controls.TaskDialogs.Tomo
 
         private async void ButtonWrite_OnClick(object sender, RoutedEventArgs e)
         {
+            System.Windows.Forms.SaveFileDialog FileDialog = new System.Windows.Forms.SaveFileDialog
+            {
+                Filter = "STAR Files|*.star"
+            };
+            System.Windows.Forms.DialogResult Result = FileDialog.ShowDialog();
+
+            if (Result.ToString() == "OK")
+            {
+                ExportPath = FileDialog.FileName;
+            }
+            else
+            {
+                return;
+            }
+
             bool Relative = (bool)CheckRelative.IsChecked;
             bool Filter = (bool)CheckFilter.IsChecked;
             bool Manual = (bool)CheckManual.IsChecked;

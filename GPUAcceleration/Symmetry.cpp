@@ -3,6 +3,36 @@
 using namespace gtom;
 
 
+__declspec(dllexport) int __stdcall SymmetryGetNumberOfMatrices(char* c_symmetry)
+{
+	relion::FileName fn_symmetry(c_symmetry);
+	relion::SymList SL;
+	SL.read_sym_file(fn_symmetry);
+
+	return SL.SymsNo() + 1;
+}
+
+__declspec(dllexport) void __stdcall SymmetryGetMatrices(char* c_symmetry, float* h_matrices)
+{
+	relion::FileName fn_symmetry(c_symmetry);
+	relion::SymList SL;
+	SL.read_sym_file(fn_symmetry);
+
+	relion::Matrix2D<DOUBLE> L(4, 4), R(4, 4);
+	R(0, 0) = 1;
+	R(1, 1) = 1;
+	R(2, 2) = 1;
+
+	for (int isym = -1; isym < SL.SymsNo(); isym++)
+	{
+		if (isym >= 0)
+			SL.get_matrices(isym, L, R);
+
+		for (int i = 0; i < 9; i++)
+			h_matrices[(isym + 1) * 9 + i] = R(i % 3, i / 3);
+	}
+}
+
 __declspec(dllexport) void __stdcall SymmetrizeFT(float2* d_data, int3 dims, char* c_symmetry)
 {
     relion::FileName fn_symmetry(c_symmetry);

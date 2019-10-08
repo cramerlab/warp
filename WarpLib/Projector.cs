@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Accord;
+using Warp.Headers;
 using Warp.Tools;
 
 namespace Warp
@@ -116,6 +117,20 @@ namespace Warp
             return Result;
         }
 
+        public void Project(int3 dims, float3[] angles, Image result)
+        {
+            PutTexturesOnDevice();
+            result.Fill(0);
+            GPU.ProjectForward3DTex(t_DataRe,
+                                    t_DataIm,
+                                    result.GetDevice(Intent.Write),
+                                    Data.Dims,
+                                    dims,
+                                    Helper.ToInterleaved(angles),
+                                    Oversampling,
+                                    (uint)angles.Length);
+        }
+
         public Image Project(int3 dims, float3[] angles, float3[] shifts, float[] globalweights)
         {
             if (angles.Length != shifts.Length || angles.Length != globalweights.Length)
@@ -159,7 +174,7 @@ namespace Warp
             return ProjIFT;
         }
 
-        public void BackProject(Image projft, Image projweights, float3[] angles)
+        public void BackProject(Image projft, Image projweights, float3[] angles, float3 magnification)
         {
             if (!projft.IsFT || !projft.IsComplex || !projweights.IsFT)
                 throw new Exception("Input data must be complex (except weights) and in FFTW layout.");
@@ -173,6 +188,8 @@ namespace Warp
                                 projft.DimsSlice,
                                 projft.Dims.X / 2,
                                 Angles,
+                                null,
+                                magnification,
                                 Oversampling,
                                 false,
                                 (uint)angles.Length);
@@ -200,7 +217,7 @@ namespace Warp
                                        (uint)angles.Length);
         }
 
-        public Image Reconstruct(bool isctf, int planForw = -1, int planBack = -1, int planForwCTF = -1)
+        public Image Reconstruct(bool isctf, string symmetry = "C1", int planForw = -1, int planBack = -1, int planForwCTF = -1, int griddingiterations = 10)
         {
             Image Reconstruction = new Image(IntPtr.Zero, Dims, isctf);
             GPU.BackprojectorReconstructGPU(Dims,
@@ -208,44 +225,70 @@ namespace Warp
                                             Oversampling,
                                             Data.GetDevice(Intent.Read),
                                             Weights.GetDevice(Intent.Read),
+                                            symmetry,
                                             isctf,
                                             Reconstruction.GetDevice(Intent.Write),
                                             planForw,
                                             planBack,
-                                            planForwCTF);
+                                            planForwCTF,
+                                            griddingiterations);
 
             return Reconstruction;
         }
 
-        public void Reconstruct(IntPtr d_reconstruction, int planForw = -1, int planBack = -1, int planForwCTF = -1)
+        public void Reconstruct(IntPtr d_reconstruction, bool isctf, string symmetry = "C1", int planForw = -1, int planBack = -1, int planForwCTF = -1, int griddingiterations = 10)
         {
             GPU.BackprojectorReconstructGPU(Dims,
                                             DimsOversampled,
                                             Oversampling,
                                             Data.GetDevice(Intent.Read),
                                             Weights.GetDevice(Intent.Read),
-                                            false,
+                                            symmetry,
+                                            isctf,
                                             d_reconstruction,
                                             planForw,
                                             planBack,
-                                            planForwCTF);
+                                            planForwCTF,
+                                            griddingiterations);
         }
 
         public Image ReconstructCPU(bool isctf, string symmetry)
         {
-            float[] ContinuousData = Data.GetHostContinuousCopy();
-            float[] ContinuousWeights = Weights.GetHostContinuousCopy();
+            //float[] ContinuousData = Data.GetHostContinuousCopy();
+            //float[] ContinuousWeights = Weights.GetHostContinuousCopy();
 
             float[] ContinuousResult = new float[Dims.Elements()];
 
-            Data.FreeDevice();
-            Weights.FreeDevice();
+            //Data.FreeDevice();
+            //Weights.FreeDevice();
 
-            CPU.BackprojectorReconstruct(Dims, Oversampling, ContinuousData, ContinuousWeights, symmetry, isctf, ContinuousResult);
+            CPU.BackprojectorReconstruct(Dims, Oversampling, Data.GetDevice(Intent.Read), Weights.GetDevice(Intent.Read), symmetry, isctf, ContinuousResult);
 
             Image Reconstruction = new Image(ContinuousResult, Dims, isctf);
 
             return Reconstruction;
+        }
+
+        public void MakeWeightsPositive()
+        {
+            float[][] DataData = Data.GetHost(Intent.ReadWrite);
+            float[][] WeightsData = Weights.GetHost(Intent.ReadWrite);
+
+            for (int z = 0; z < DataData.Length; z++)
+            {
+                float[] D = DataData[z];
+                float[] W = WeightsData[z];
+
+                for (int i = 0; i < W.Length; i++)
+                {
+                    if (W[i] < 0)
+                    {
+                        W[i] *= -1;
+                        //D[i * 2] *= -1;
+                        //D[i * 2 + 1] *= -1;
+                    }
+                }
+            }
         }
 
         public void FreeDevice()
@@ -299,6 +342,21 @@ namespace Warp
             }
         }
 
+        public void WriteMRC(string path)
+        {
+            Image DataRe = Data.AsReal();
+            DataRe.FreeDevice();
+            Image DataIm = Data.AsImaginary();
+            DataIm.FreeDevice();
+
+            Image Combined = Image.Stack(new[] { DataRe, DataIm, Weights });
+            DataRe.Dispose();
+            DataIm.Dispose();
+
+            Combined.WriteMRC(path, Oversampling, true);
+            Combined.Dispose();
+        }
+
         public static void GetPlans(int3 dims, int oversampling, out int planForw, out int planBack, out int planForwCTF)
         {
             int Oversampled = dims.X * oversampling;
@@ -307,6 +365,36 @@ namespace Warp
             planForw = GPU.CreateFFTPlan(DimsOversampled, 1);
             planBack = GPU.CreateIFFTPlan(DimsOversampled, 1);
             planForwCTF = GPU.CreateFFTPlan(dims, 1);
+        }
+
+        public static Projector FromFile(string path)
+        {
+            Image Combined = Image.FromFile(path);
+            int Oversampling = (int)(Combined.PixelSize + 0.1f);
+            int3 DimsOversampled = new int3(Combined.Dims.Y);
+            int3 Dims = (DimsOversampled - 3) / Oversampling;
+
+            Projector Result = new Projector(Dims, Oversampling);
+
+            float[][] CombinedData = Combined.GetHost(Intent.Read);
+            float[][] DataData = Result.Data.GetHost(Intent.Write);
+            float[][] WeightsData = Result.Weights.GetHost(Intent.Write);
+
+            for (int z = 0; z < DimsOversampled.Z; z++)
+            {
+                int ElementsSlice = (int)DimsOversampled.Slice().ElementsFFT();
+
+                for (int i = 0; i < ElementsSlice; i++)
+                {
+                    DataData[z][i * 2 + 0] = CombinedData[z][i];
+                    DataData[z][i * 2 + 1] = CombinedData[DimsOversampled.Z + z][i];
+                    WeightsData[z][i] = CombinedData[DimsOversampled.Z * 2 + z][i];
+                }
+            }
+
+            Combined.Dispose();
+
+            return Result;
         }
     }
 }

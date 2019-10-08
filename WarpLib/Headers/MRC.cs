@@ -35,7 +35,9 @@ namespace Warp.Headers
         public int ExtendedBytes;
         public short CreatorID;
 
-        public byte[] ExtraData1 = new byte[30];
+        public byte[] ExtraData10 = new byte[6];
+        public byte[] ExtID = new byte[4];
+        public byte[] ExtraData11 = new byte[20];
 
         public short NInt;
         public short NReal;
@@ -54,7 +56,7 @@ namespace Warp.Headers
         public float3 Origin;
 
         public byte[] CMap = new byte[] { (byte)'M', (byte)'A', (byte)'P', (byte)' ' };
-        public byte[] Stamp = new byte[] { 67, 65, 0, 0 };
+        public byte[] Stamp = new byte[] { 68, 65, 0, 0 };
 
         public float StdDevValue;
 
@@ -70,6 +72,7 @@ namespace Warp.Headers
         public bool ImodHasIntensity;
         public bool ImodHasExposure;
 
+        public float ImodRotation;
         public float[] ImodTilt;
         public float[] ImodMagnification;
         public float[] ImodIntensity;
@@ -99,7 +102,9 @@ namespace Warp.Headers
             ExtendedBytes = reader.ReadInt32();
             CreatorID = reader.ReadInt16();
 
-            ExtraData1 = reader.ReadBytes(30);
+            ExtraData10 = reader.ReadBytes(6);
+            ExtID = reader.ReadBytes(4);
+            ExtraData11 = reader.ReadBytes(20);
 
             NInt = reader.ReadInt16();
             NReal = reader.ReadInt16();
@@ -198,13 +203,23 @@ namespace Warp.Headers
 
             if (Extended != null)
                 writer.Write(Extended.Length);
+            else if (ImodTilt != null)
+                writer.Write(1024 * 128);
             else
                 writer.Write(0);
             writer.Write(CreatorID);
 
-            writer.Write(ExtraData1);
+            if (ImodTilt != null)
+                ExtID = new[] { (byte)'F', (byte)'E', (byte)'I', (byte)'1' };
+
+            writer.Write(ExtraData10);
+            writer.Write(ExtID);
+            writer.Write(ExtraData11);
 
             writer.Write(NInt);
+
+            // If there are tilt angles available, tell IMOD to expect them in the extended header
+            //NReal = ImodTilt == null ? (short)0 : (short)1;
             writer.Write(NReal);
 
             writer.Write(ExtraData2);
@@ -231,6 +246,29 @@ namespace Warp.Headers
 
             if (Extended != null)
                 writer.Write(Extended);
+
+            if (ImodTilt != null)
+            {
+                for (int i = 0; i < 1024; i++)
+                {
+                    if (i < ImodTilt.Length)
+                    {
+                        writer.Write(ImodTilt[i]);
+                        writer.Write(ImodRotation);
+
+                        writer.Write(new byte[8 * 4]);
+
+                        writer.Write(ImodRotation);
+                        writer.Write(PixelSize.X);
+
+                        writer.Write(new byte[80]);
+                    }
+                    else
+                    {
+                        writer.Write(new byte[128]);
+                    }
+                }
+            }
         }
 
         public override Type GetValueType()

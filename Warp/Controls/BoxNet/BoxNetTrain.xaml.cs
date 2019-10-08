@@ -66,493 +66,11 @@ namespace Warp.Controls
             }
         }
 
-        private async void ButtonRetrain_OnClick(object sender, RoutedEventArgs e)
-        {
-            Movie[] Movies = Options.MainWindow.FileDiscoverer.GetImmutableFiles();
-            if (Movies.Length == 0)
-            {
-                Close?.Invoke();
-                return;
-            }
-
-            TextNewName.Text = Helper.RemoveInvalidChars(TextNewName.Text);
-            bool UseCorpus = (bool)CheckCorpus.IsChecked;
-            float Diameter = (float)SliderDiameter.Value;
-
-            string PotentialNewName = TextNewName.Text;
-
-            PanelSettings.Visibility = Visibility.Collapsed;
-            PanelTraining.Visibility = Visibility.Visible;
-
-            await Task.Run(() =>
-            {
-                #region Load previous BoxNet
-
-                Dispatcher.Invoke(() => TextProgress.Text = "Loading old BoxNet model...");
-
-                Options.MainWindow.MicrographDisplayControl.DropBoxNetworks();
-                BoxNet NetworkTrain = new BoxNet(Options.MainWindow.LocatePickingModel(ModelName), GPU.GetDeviceCount() - 1, 8, 128, true);
-                BoxNet NetworkOld = new BoxNet(Options.MainWindow.LocatePickingModel(ModelName), (GPU.GetDeviceCount() * 2 - 2) % GPU.GetDeviceCount(), 8, 128, false);
-
-                Dictionary<string, float[][]> ParticleCache = new Dictionary<string, float[][]>();
-
-                #endregion
-
-                Dictionary<string, long> HeaderSizes = new Dictionary<string, long>();
-
-                #region Get information on the background training corpus
-                
-                Dispatcher.Invoke(() => TextProgress.Text = "Loading general examples...");
-
-                List<Tuple<string, int, int>> CorpusPaths = new List<Tuple<string, int, int>>();
-                List<Tuple<string, int, int>> CorpusFalsePositivePaths = new List<Tuple<string, int, int>>();
-                if (UseCorpus)
-                    foreach (var fileName in Directory.EnumerateFiles(System.IO.Path.Combine(Environment.CurrentDirectory, "boxnettraining"), "*.mrcs"))
-                    {
-                        int Class = Helper.PathToName(fileName).Contains("_positive") ? 1 : 0;
-                        MapHeader Header = MapHeader.ReadFromFile(fileName);
-                        for (int i = 0; i < Header.Dimensions.Z; i++)
-                        {
-                            if (Helper.PathToName(fileName).Contains("_falsepositive"))
-                                CorpusFalsePositivePaths.Add(new Tuple<string, int, int>(fileName, i, Class));
-                            else
-                                CorpusPaths.Add(new Tuple<string, int, int>(fileName, i, Class));
-                        }
-
-                        HeaderSizes.Add(fileName, HeaderMRC.GetHeaderSize(fileName));
-
-                        Image Examples = Image.FromFile(fileName);
-                        ParticleCache.Add(fileName, Examples.GetHost(Intent.Read));
-                    }
-
-                #endregion
-
-                #region Extract examples from 8 A/px averages
-
-                Dispatcher.Invoke(() => TextProgress.Text = "Preparing training data...");
-
-                string TrainingDir = Movies[0].DirectoryName + "boxnettraining/";
-                if (Directory.Exists(TrainingDir))
-                    Directory.Delete(TrainingDir, true);
-                Directory.CreateDirectory(TrainingDir);
-
-                List<Tuple<string, int, int>> TrainingPaths = new List<Tuple<string, int, int>>();
-
-                foreach (var movie in Movies)
-                {
-                    if (!File.Exists(movie.AveragePath))
-                        continue;
-
-                    bool HasExamples = File.Exists(FolderPositive + movie.RootName + SuffixPositive + ".star") ||
-                                       File.Exists(FolderFalsePositive + movie.RootName + SuffixFalsePositive + ".star");
-                    if (!HasExamples)
-                        continue;
-
-                    Image Average = Image.FromFile(movie.AveragePath);
-                    float PixelSize = Average.PixelSize;
-                    int2 Dims = new int2(Average.Dims);
-
-                    float Radius = Diameter / 2 / NetworkTrain.PixelSize;
-                    float DistanceLimit = Math.Max(Radius / 2, 2.5f);
-
-                    #region Load positions, and possibly move on to next movie
-
-                    List<float2> PosPositive = new List<float2>();
-                    List<float2> PosNegative = new List<float2>();
-                    List<float2> PosFalsePositive = new List<float2>();
-
-                    if (File.Exists(FolderPositive + movie.RootName + SuffixPositive + ".star"))
-                        PosPositive.AddRange(Star.LoadFloat2(FolderPositive + movie.RootName + SuffixPositive + ".star",
-                                                             "rlnCoordinateX",
-                                                             "rlnCoordinateY").Select(v => v * PixelSize / NetworkTrain.PixelSize));
-
-                    if (File.Exists(FolderFalsePositive + movie.RootName + SuffixFalsePositive + ".star"))
-                        PosFalsePositive.AddRange(Star.LoadFloat2(FolderFalsePositive + movie.RootName + SuffixFalsePositive + ".star",
-                                                                  "rlnCoordinateX",
-                                                                  "rlnCoordinateY").Select(v => v * PixelSize / NetworkTrain.PixelSize));
-
-                    if (PosPositive.Count == 0 && PosFalsePositive.Count == 0)
-                    {
-                        Average.Dispose();
-                        continue;
-                    }
-
-                    #endregion
-
-                    int2 DimsBN = new int2(new float2(Dims) * PixelSize / NetworkTrain.PixelSize + 0.5f) / 2 * 2;
-                    Image AverageBN = Average.AsScaled(DimsBN);
-                    Average.Dispose();
-
-                    #region Create negative example positions
-
-                    Random Rand = new Random(movie.RootName.GetHashCode());
-                    RandomNormal RandN = new RandomNormal(movie.RootName.GetHashCode());
-
-                    while (PosNegative.Count < PosPositive.Count)
-                    {
-                        float2 Center = PosPositive[Rand.Next(PosPositive.Count)];
-                        double Direction = Rand.NextDouble() * Math.PI * 2;
-                        float2 DirectionVec = new float2((float)Math.Cos(Direction),
-                                                         (float)Math.Sin(Direction));
-                        float Distance = DistanceLimit + Math.Abs(RandN.NextSingle(0, DistanceLimit));
-
-                        float2 TestPos = Center + DirectionVec * Distance + 0.5f;
-                        bool IsGood = true;
-
-                        foreach (var positive in PosPositive)
-                            if ((positive - new float2(TestPos)).Length() < DistanceLimit ||
-                                TestPos.X < Radius ||
-                                TestPos.Y < Radius ||
-                                TestPos.X > DimsBN.X - Radius ||
-                                TestPos.Y > DimsBN.Y - Radius)
-                            {
-                                IsGood = false;
-                                break;
-                            }
-
-                        if (!IsGood)
-                            continue;
-
-                        PosNegative.Add(TestPos);
-                    }
-
-                    while (PosNegative.Count < PosPositive.Count * 2)
-                    {
-                        float2 TestPos = new float2(Rand.Next(DimsBN.X), Rand.Next(DimsBN.Y));
-                        bool IsGood = true;
-
-                        foreach (var positive in PosPositive)
-                            if ((positive - new float2(TestPos)).Length() < DistanceLimit ||
-                                TestPos.X < Radius ||
-                                TestPos.Y < Radius ||
-                                TestPos.X > DimsBN.X - Radius ||
-                                TestPos.Y > DimsBN.Y - Radius)
-                            {
-                                IsGood = false;
-                                break;
-                            }
-
-                        if (!IsGood)
-                            continue;
-
-                        PosNegative.Add(TestPos);
-                    }
-
-                    #endregion
-
-                    #region Extract all examples from this movie
-
-                    List<float2>[] PosAll = { PosPositive, PosNegative, PosFalsePositive };
-                    string[] SuffixAll = { "_positive", "_negative", "_falsepositive" };
-
-                    for (int i = 0; i < PosAll.Length; i++)
-                    {
-                        if (PosAll[i].Count == 0)
-                            continue;
-
-                        int3[] Origins = PosAll[i].Select(v => new int3((int)v.X, (int)v.Y, 0)).ToArray();
-                        float3[] Shifts = PosAll[i].Select((v, j) => -new float3(v.X - Origins[j].X, v.Y - Origins[j].Y, 0)).ToArray();
-
-                        Origins = Origins.Select(v => v - new int3(80, 80, 0)).ToArray();
-
-                        Image Extracted = new Image(IntPtr.Zero, new int3(160, 160, Origins.Length));
-                        GPU.Extract(AverageBN.GetDevice(Intent.Read),
-                                    Extracted.GetDevice(Intent.Write),
-                                    AverageBN.Dims,
-                                    Extracted.Dims.Slice(),
-                                    Helper.ToInterleaved(Origins),
-                                    (uint)Origins.Length);
-                        Extracted.ShiftSlices(Shifts);
-
-                        Extracted.WriteMRC(TrainingDir + movie.RootName + SuffixAll[i] + ".mrcs", true);
-                        Extracted.FreeDevice();
-
-                        ParticleCache.Add(TrainingDir + movie.RootName + SuffixAll[i] + ".mrcs", Extracted.GetHost(Intent.Read));
-
-                        new Star(PosAll[i].Select(v => v * NetworkTrain.PixelSize / PixelSize).ToArray(),
-                                 "rlnCoordinateX",
-                                 "rlnCoordinateY").Save(TrainingDir + movie.RootName + SuffixAll[i] + ".star");
-
-                        for (int j = 0; j < Origins.Length; j++)
-                        {
-                            TrainingPaths.Add(new Tuple<string, int, int>(TrainingDir + movie.RootName + SuffixAll[i] + ".mrcs",
-                                                                          j,
-                                                                          SuffixAll[i] == "_positive" ? 3 : 2));
-                        }
-
-                        HeaderSizes.Add(TrainingDir + movie.RootName + SuffixAll[i] + ".mrcs",
-                                        HeaderMRC.GetHeaderSize(TrainingDir + movie.RootName + SuffixAll[i] + ".mrcs"));
-                    }
-
-                    AverageBN.Dispose();
-
-                    #endregion
-                }
-
-                #endregion
-
-                #region Populate and shuffle examples for all epochs
-
-                Dispatcher.Invoke(() => TextProgress.Text = "Shuffling examples...");
-
-                Random RG = new Random(ModelName.GetHashCode());
-                RandomNormal RGN = new RandomNormal(ModelName.GetHashCode());
-
-                int NEpochs = 80;
-                List<Tuple<string, int, int>> AllExamples = new List<Tuple<string, int, int>>();
-
-                Parallel.For(0, NEpochs, i =>
-                {
-                    List<Tuple<string, int, int>> Epoch = new List<Tuple<string, int, int>>();
-
-                    Epoch.AddRange(TrainingPaths);
-
-                    if (CorpusFalsePositivePaths.Count > 0)
-                        Epoch.AddRange(Helper.RandomSubset(CorpusFalsePositivePaths,
-                                                           Math.Min(CorpusFalsePositivePaths.Count, TrainingPaths.Count / 8),
-                                                           RG.Next(99999)));
-
-                    if (CorpusPaths.Count > 0)
-                        Epoch.AddRange(Helper.RandomSubset(CorpusPaths,
-                                                           Math.Min(CorpusPaths.Count, (int)(TrainingPaths.Count * 1.5)),
-                                                           RG.Next(99999)));
-
-                    Epoch = Helper.RandomSubset(Epoch,
-                                                Epoch.Count / NetworkTrain.BatchSize * NetworkTrain.BatchSize,
-                                                RG.Next(99999)).ToList();
-
-                    lock (AllExamples)
-                        AllExamples.AddRange(Epoch);
-                });
-
-                List<Tuple<string, int, int>[]> AllBatches = new List<Tuple<string, int, int>[]>();
-                for (int b = 0; b < AllExamples.Count; b += NetworkTrain.BatchSize)
-                    AllBatches.Add(Helper.Subset(AllExamples, b, b + NetworkTrain.BatchSize));
-
-                #endregion
-
-                #region Training
-
-                Dispatcher.Invoke(() => TextProgress.Text = "Training...");
-
-                int2 DimsRaw = new int2(160, 160);
-                int2 DimsAugmented = NetworkTrain.BoxDimensions;
-                int BatchSize = NetworkTrain.BatchSize;
-
-                int ElementsSliceRaw = (int)DimsRaw.Elements();
-                int ElementsBatchRaw = ElementsSliceRaw * BatchSize;
-
-                List<ObservablePoint> BackgroundAccuracyPoints = new List<ObservablePoint>();
-                List<ObservablePoint> TrainAccuracyPoints = new List<ObservablePoint>();
-                List<ObservablePoint> BackgroundBaselinePoints = new List<ObservablePoint>();
-                List<ObservablePoint> TrainBaselinePoints = new List<ObservablePoint>();
-                int PlotEveryN = 100;
-                Queue<float> LastBackgroundAccuracies = new Queue<float>(PlotEveryN);
-                Queue<float> LastTrainAccuracies = new Queue<float>(PlotEveryN);
-                List<float> LastBackgroundBaseline = new List<float>();
-                List<float> LastTrainBaseline = new List<float>();
-
-                GPU.SetDevice(0);
-
-                float[][] ExampleData = Helper.ArrayOfFunction(i => new float[ElementsBatchRaw], NetworkTrain.MaxThreads);
-                float[][] ExampleLabels = Helper.ArrayOfFunction(i => new float[BatchSize * 2], NetworkTrain.MaxThreads);
-                IntPtr[] d_ExampleData = Helper.ArrayOfFunction(i => GPU.MallocDevice(ElementsBatchRaw), NetworkTrain.MaxThreads);
-                IntPtr[] d_AugmentedData = Helper.ArrayOfFunction(i => GPU.MallocDevice(DimsAugmented.Elements() * BatchSize), NetworkTrain.MaxThreads);
-
-                Stopwatch Watch = new Stopwatch();
-                Watch.Start();
-
-                int NDone = 0;
-                Helper.ForCPU(0, AllBatches.Count, NetworkTrain.MaxThreads,
-
-                              threadID => GPU.SetDevice(0),
-
-                              (b, threadID) =>
-                              {
-                                  if (IsTrainingCanceled)
-                                      return;
-
-                                  for (int s = 0; s < BatchSize; s++)
-                                  {
-                                      //IOHelper.ReadMapFloatIntoMemory(AllBatches[b][s].Item1,
-                                      //                                HeaderSizes[AllBatches[b][s].Item1] + AllBatches[b][s].Item2 * ElementsSliceRaw * sizeof(float),
-                                      //                                ElementsSliceRaw,
-                                      //                                ExampleData[threadID],
-                                      //                                s * ElementsSliceRaw);
-                                      Array.Copy(ParticleCache[AllBatches[b][s].Item1][AllBatches[b][s].Item2], 0, ExampleData[threadID], s * ElementsSliceRaw, ElementsSliceRaw);
-
-                                      int Class = AllBatches[b][s].Item3 % 2;
-                                      ExampleLabels[threadID][s * 2] = Class == 0 ? 1 : 0;
-                                      ExampleLabels[threadID][s * 2 + 1] = Class == 1 ? 1 : 0;
-                                  }
-
-                                  unsafe
-                                  {
-                                      fixed (float* DataPtr = ExampleData[threadID])
-                                          GPU.CopyHostPinnedToDevice(new IntPtr(DataPtr), d_ExampleData[threadID], ElementsBatchRaw);
-                                  }
-
-                                  float2[] Translations = Helper.ArrayOfFunction(i => new float2(), BatchSize);
-                                  float[] Rotations = Helper.ArrayOfFunction(i => (float)(RG.NextDouble() * Math.PI * 2), BatchSize);
-                                  float3[] Scales = Helper.ArrayOfFunction(i => new float3(0.8f + (float)RG.NextDouble() * 0.4f,
-                                                                                           0.8f + (float)RG.NextDouble() * 0.4f,
-                                                                                           (float)(RG.NextDouble() * Math.PI * 2)), BatchSize);
-
-                                  GPU.DistortImages(d_ExampleData[threadID],
-                                                    DimsRaw,
-                                                    d_AugmentedData[threadID],
-                                                    DimsAugmented,
-                                                    Helper.ToInterleaved(Translations),
-                                                    Rotations,
-                                                    Helper.ToInterleaved(Scales),
-                                                    (float)Math.Abs(RGN.NextSingle(0, 0.3f)),
-                                                    RG.Next(99999),
-                                                    (uint)BatchSize);
-
-                                  //Image AugmentedDebug = new Image(d_AugmentedData[threadID], new int3(96, 96, 128));
-                                  //AugmentedDebug.WriteMRC("d_augmented" + threadID + ".mrc", true);
-                                  //AugmentedDebug.Dispose();
-
-                                  long[] ResultLabels = new long[128];
-                                  float[] ResultProbabilities = new float[128 * 2];
-                                  lock (NetworkTrain)
-                                      NetworkTrain.Train(d_AugmentedData[threadID], ExampleLabels[threadID], NDone > AllBatches.Count / 2 ? 0.0003f : 0.003f, threadID, out ResultLabels, out ResultProbabilities);
-                                  
-                                  int NRightTrain = 0, NRightBackground = 0, NSamplesTrain = 0, NSamplesBackground = 0;
-                                  for (int j = 0; j < BatchSize; j++)
-                                  {
-                                      if (AllBatches[b][j].Item3 > 1)
-                                      {
-                                          NSamplesTrain++;
-                                          if (ResultLabels[j] == AllBatches[b][j].Item3 % 2)
-                                              NRightTrain++;
-                                      }
-                                      else
-                                      {
-                                          NSamplesBackground++;
-                                          if (ResultLabels[j] == AllBatches[b][j].Item3 % 2)
-                                              NRightBackground++;
-                                      }
-                                  }
-                                  float BatchTrainAccuracy = (float)NRightTrain / NSamplesTrain;
-                                  float BatchBackgroundAccuracy = (float)NRightBackground / NSamplesBackground;
-
-                                  NetworkOld.Predict(d_AugmentedData[threadID], threadID, out ResultLabels, out ResultProbabilities);
-                                  int NRightTrainBaseline = 0, NRightBackgroundBaseline = 0;
-                                  for (int j = 0; j < BatchSize; j++)
-                                  {
-                                      if (ResultLabels[j] == AllBatches[b][j].Item3 % 2)
-                                      {
-                                          if (AllBatches[b][j].Item3 > 1)
-                                              NRightTrainBaseline++;
-                                          else
-                                              NRightBackgroundBaseline++;
-                                      }
-                                  }
-                                  float BatchTrainBaseline = (float)NRightTrainBaseline / NSamplesTrain;
-                                  float BatchBackgroundBaseline = (float)NRightBackgroundBaseline / NSamplesBackground;
-
-                                  lock (Watch)
-                                  {
-                                      NDone++;
-                                      
-                                      if (NSamplesTrain > 0)
-                                      {
-                                          LastTrainAccuracies.Enqueue(BatchTrainAccuracy);
-                                          if (LastTrainAccuracies.Count > PlotEveryN)
-                                              LastTrainAccuracies.Dequeue();
-
-                                          LastTrainBaseline.Add(BatchTrainBaseline);
-                                      }
-                                      if (NSamplesBackground > 0)
-                                      {
-                                          LastBackgroundAccuracies.Enqueue(BatchBackgroundAccuracy);
-                                          if (LastBackgroundAccuracies.Count > PlotEveryN)
-                                              LastBackgroundAccuracies.Dequeue();
-
-                                          LastBackgroundBaseline.Add(BatchBackgroundBaseline);
-                                      }
-
-                                      if (NDone % PlotEveryN == 0)
-                                      {
-                                          TrainAccuracyPoints.Add(new ObservablePoint((float)NDone / AllBatches.Count * 100,
-                                                                                 MathHelper.Mean(LastTrainAccuracies)));
-                                          BackgroundAccuracyPoints.Add(new ObservablePoint((float)NDone / AllBatches.Count * 100,
-                                                                                         MathHelper.Mean(LastBackgroundAccuracies)));
-
-                                          TrainBaselinePoints.Clear();
-                                          TrainBaselinePoints.Add(new ObservablePoint(0,
-                                                                                      MathHelper.Mean(LastTrainBaseline)));
-                                          TrainBaselinePoints.Add(new ObservablePoint((float)NDone / AllBatches.Count * 100,
-                                                                                      MathHelper.Mean(LastTrainBaseline)));
-
-                                          BackgroundBaselinePoints.Clear();
-                                          BackgroundBaselinePoints.Add(new ObservablePoint(0,
-                                                                                           MathHelper.Mean(LastBackgroundBaseline)));
-                                          BackgroundBaselinePoints.Add(new ObservablePoint((float)NDone / AllBatches.Count * 100,
-                                                                                           MathHelper.Mean(LastBackgroundBaseline)));
-
-                                          long Elapsed = Watch.ElapsedMilliseconds;
-                                          double Estimated = (double)Elapsed / NDone * AllBatches.Count;
-                                          int Remaining = (int)(Estimated - Elapsed);
-                                          TimeSpan SpanRemaining = new TimeSpan(0, 0, 0, 0, Remaining);
-
-                                          Dispatcher.InvokeAsync(() =>
-                                          {
-                                              SeriesTrainAccuracy.Values = new ChartValues<ObservablePoint>(TrainAccuracyPoints);
-                                              SeriesBackgroundAccuracy.Values = new ChartValues<ObservablePoint>(BackgroundAccuracyPoints);
-
-                                              //SeriesTrainBaseline.Values = new ChartValues<ObservablePoint>(TrainBaselinePoints);
-                                              //SeriesBackgroundBaseline.Values = new ChartValues<ObservablePoint>(BackgroundBaselinePoints);
-
-                                              TextProgress.Text = SpanRemaining.ToString((int)SpanRemaining.TotalHours > 0 ? @"hh\:mm\:ss" : @"mm\:ss");
-                                          });
-                                      }
-                                  }
-                              },
-
-                              null);
-
-                foreach (var ptr in d_ExampleData)
-                    GPU.FreeDevice(ptr);
-                foreach (var ptr in d_AugmentedData)
-                    GPU.FreeDevice(ptr);
-
-                #endregion
-
-                if (!IsTrainingCanceled)
-                {
-                    Dispatcher.Invoke(() => TextProgress.Text = "Saving new BoxNet model...");
-
-                    string BoxNetDir = System.IO.Path.Combine(Environment.CurrentDirectory, "boxnetmodels/");
-                    Directory.CreateDirectory(BoxNetDir);
-
-                    NetworkTrain.Export(BoxNetDir + PotentialNewName);
-                }
-
-                NetworkTrain.Dispose();
-                NetworkOld.Dispose();
-            });
-
-            if (!IsTrainingCanceled)
-                NewName = TextNewName.Text;
-
-            TextProgress.Text = "Done.";
-
-            if (IsTrainingCanceled)
-            {
-                Close?.Invoke();
-            }
-            else
-            {
-                ButtonCancelTraining.Content = "CLOSE";
-                ButtonCancelTraining.Click -= ButtonCancelTraining_OnClick;
-                ButtonCancelTraining.Click += (a, b) => Close?.Invoke();
-            }
-        }
-
         private async void ButtonRetrain2_OnClick(object sender, RoutedEventArgs e)
         {
+            Options.MainWindow.MicrographDisplayControl.DropBoxNetworks();
+            Options.MainWindow.MicrographDisplayControl.DropNoiseNetworks();
+
             Movie[] Movies = Options.MainWindow.FileDiscoverer.GetImmutableFiles();
             if (Movies.Length == 0)
             {
@@ -658,8 +176,15 @@ namespace Warp.Controls
 
                 {
                     float[] LabelWeights = { 1f, 1f, 1f };
-                    LabelWeights[0] = (float)Math.Pow((float)ClassHist[1] / ClassHist[0], 1 / 3.0);
-                    LabelWeights[2] = 1;//(float)Math.Sqrt((float)ClassHist[1] / ClassHist[2]);
+                    if (ClassHist[1] > 0)
+                    {
+                        LabelWeights[0] = (float)Math.Pow((float)ClassHist[1] / ClassHist[0], 1 / 3.0);
+                        LabelWeights[2] = 1;//(float)Math.Sqrt((float)ClassHist[1] / ClassHist[2]);
+                    }
+                    else
+                    {
+                        LabelWeights[0] = (float)Math.Pow((float)ClassHist[2] / ClassHist[0], 1 / 3.0);
+                    }
 
                     for (int icorpus = 0; icorpus < AllPaths.Length; icorpus++)
                         for (int i = 0; i < AllMicrographs[icorpus].Count; i++)
@@ -687,11 +212,11 @@ namespace Warp.Controls
                 BoxNet2 NetworkTrain = null;
                 try
                 {
-                    NetworkTrain = new BoxNet2(Options.MainWindow.LocatePickingModel(ModelName), GPU.GetDeviceCount() - 1, NThreads, 8, true);
+                    NetworkTrain = new BoxNet2(Options.MainWindow.LocatePickingModel(ModelName), GPU.GetDeviceWithMostMemory(), NThreads, 8, true);
                 }
                 catch   // It might be an old version of BoxNet that doesn't support batch size != 1
                 {
-                    NetworkTrain = new BoxNet2(Options.MainWindow.LocatePickingModel(ModelName), GPU.GetDeviceCount() - 1, NThreads, 1, true);
+                    NetworkTrain = new BoxNet2(Options.MainWindow.LocatePickingModel(ModelName), GPU.GetDeviceWithMostMemory(), NThreads, 1, true);
                 }
 
                 //BoxNet2 NetworkOld = new BoxNet2(Options.MainWindow.LocatePickingModel(ModelName), (GPU.GetDeviceCount() * 2 - 2) % GPU.GetDeviceCount(), NThreads, 1, false);
@@ -815,7 +340,7 @@ namespace Warp.Controls
                                                      DimsAugmented.Elements(),
                                                      (uint)BatchSize);
 
-                                  float LearningRate = 0.00002f;
+                                  float LearningRate = 0.00005f;
 
                                   long[][] ResultLabels = new long[2][];
                                   float[][] ResultProbabilities = new float[2][];
@@ -989,7 +514,7 @@ namespace Warp.Controls
                 {
                     Close?.Invoke();
 
-                    if (MainWindow.Analytics.ShowBoxNetReminder)
+                    if (MainWindow.GlobalOptions.ShowBoxNetReminder)
                     {
                         var DialogResult = await ((MainWindow)Application.Current.MainWindow).ShowMessageAsync("Sharing is caring 🙂",
                                                                                                                "BoxNet performs well because of the wealth of training data it\n" +
@@ -1195,8 +720,8 @@ namespace Warp.Controls
                     PosPositive.AddRange(Star.LoadFloat2(FolderPositive + movie.RootName + SuffixPositive + ".star",
                                                             "rlnCoordinateX",
                                                             "rlnCoordinateY").Select(v => v * PixelSize / BoxNet2.PixelSize));
-                if (PosPositive.Count == 0)
-                    continue;
+                //if (PosPositive.Count == 0)
+                //    continue;
 
                 if (File.Exists(FolderFalsePositive + movie.RootName + SuffixFalsePositive + ".star"))
                     PosFalse.AddRange(Star.LoadFloat2(FolderFalsePositive + movie.RootName + SuffixFalsePositive + ".star",

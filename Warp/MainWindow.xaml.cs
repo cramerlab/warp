@@ -7,6 +7,9 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.ServiceModel;
+using System.ServiceModel.Description;
+using System.ServiceModel.Web;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -26,6 +29,7 @@ using LiveCharts.Defaults;
 using MahApps.Metro;
 using MahApps.Metro.Controls;
 using MahApps.Metro.Controls.Dialogs;
+using Nancy.Hosting.Wcf;
 using Warp.Controls;
 using Warp.Controls.TaskDialogs.Tomo;
 using Warp.Controls.TaskDialogs.TwoD;
@@ -33,6 +37,7 @@ using Warp.Headers;
 using Warp.Sociology;
 using Warp.Tools;
 using Menu = System.Windows.Forms.Menu;
+using Path = System.IO.Path;
 
 namespace Warp
 {
@@ -41,8 +46,8 @@ namespace Warp
     /// </summary>
     public partial class MainWindow : MahApps.Metro.Controls.MetroWindow
     {
-        private const string DefaultAnalyticsName = "analytics.settings";
-        public static Analytics Analytics = new Analytics();
+        private const string DefaultGlobalOptionsName = "global.settings";
+        public static GlobalOptions GlobalOptions = new GlobalOptions();
 
         #region MAIN WINDOW
 
@@ -156,6 +161,7 @@ namespace Warp
                 ButtonOptionsLoad,
                 ButtonOptionsAdopt,
                 ButtonProcessOneItemCTF,
+                ButtonProcessOneItemTiltHandedness,
                 SwitchProcessCTF,
                 SwitchProcessMovement,
                 SwitchProcessPicking,
@@ -166,9 +172,9 @@ namespace Warp
 
             HideWhen2D = new List<UIElement>
             {
-                CheckCTFSimultaneous,
                 GridOptionsIOTomo,
-                PanelOverviewTasks3D
+                PanelOverviewTasks3D,
+                ButtonProcessOneItemTiltHandedness
             };
             foreach (var element in HideWhen2D)
                 element.Visibility = Visibility.Collapsed;
@@ -185,7 +191,7 @@ namespace Warp
                 LabelModelsHeader,
                 GridOptionsGrids,
                 GridOptionsPicking,
-                SwitchProcessPicking,
+                PanelProcessPicking,
                 LabelOutputHeader,
                 GridOptionsPostprocessing,
                 GridOptionsIO2D,
@@ -219,20 +225,20 @@ namespace Warp
 
             Options.MainWindow = this;
 
-            if (File.Exists(DefaultAnalyticsName))
-                Analytics.Load(DefaultAnalyticsName);
+            if (File.Exists(DefaultGlobalOptionsName))
+                GlobalOptions.Load(DefaultGlobalOptionsName);
 
             UpdateStatsAll();
 
             #region Perform version check online
 
-            if (Analytics.PromptShown)
+            if (GlobalOptions.PromptShown)
                 Dispatcher.InvokeAsync(async () =>
                 {
                     try
                     {
                         Version CurrentVersion = Assembly.GetExecutingAssembly().GetName().Version;
-                        Version LatestVersion = Analytics.GetLatestVersion();
+                        Version LatestVersion = GlobalOptions.GetLatestVersion();
 
                         if (CurrentVersion < LatestVersion)
                         {
@@ -267,7 +273,7 @@ namespace Warp
                     try
                     {
                         Version CurrentVersion = Assembly.GetExecutingAssembly().GetName().Version;
-                        Version LatestVersion = Analytics.GetLatestVersion();
+                        Version LatestVersion = GlobalOptions.GetLatestVersion();
 
                         if (CurrentVersion < LatestVersion)
                             ButtonUpdateAvailable.Visibility = Visibility.Visible;
@@ -283,24 +289,30 @@ namespace Warp
 
             #region Show prompt on first run
 
-            if (Analytics.ShowTiffReminder)
+            if (GlobalOptions.ShowTiffReminder)
                 Dispatcher.InvokeAsync(async () =>
                 {
                     var DialogResult = await this.ShowMessageAsync("Careful there!",
                                                                    "As of v1.0.6, Warp handles TIFF files differently. Find out more at http://www.warpem.com/warp/?page_id=361.\n" +
-                                                                   "Go there now?", MessageDialogStyle.AffirmativeAndNegative);
+                                                                   "Go there now?",
+                                                                   MessageDialogStyle.AffirmativeAndNegative,
+                                                                   new MetroDialogSettings
+                                                                   {
+                                                                       AffirmativeButtonText = "Yes",
+                                                                       NegativeButtonText = "No"
+                                                                   });
                     if (DialogResult == MessageDialogResult.Affirmative)
                     {
                         Process.Start("http://www.warpem.com/warp/?page_id=361");
                     }
                     else
                     {
-                        Analytics.ShowTiffReminder = false;
-                        Analytics.Save(DefaultAnalyticsName);
+                        GlobalOptions.ShowTiffReminder = false;
+                        GlobalOptions.Save(DefaultGlobalOptionsName);
                     }
                 }, DispatcherPriority.ApplicationIdle);
 
-            if (!Analytics.PromptShown)
+            if (!GlobalOptions.PromptShown)
                 Dispatcher.InvokeAsync(async () =>
                 {
                     CustomDialog Dialog = new CustomDialog();
@@ -310,12 +322,12 @@ namespace Warp
                     DialogContent.Close += () =>
                     {
                         this.HideMetroDialogAsync(Dialog);
-                        Analytics.PromptShown = true;
-                        Analytics.AllowCollection = (bool)DialogContent.CheckAgree.IsChecked;
+                        GlobalOptions.PromptShown = true;
+                        GlobalOptions.AllowCollection = (bool)DialogContent.CheckAgree.IsChecked;
 
-                        Analytics.Save(DefaultAnalyticsName);
+                        GlobalOptions.Save(DefaultGlobalOptionsName);
 
-                        Analytics.LogEnvironment();
+                        GlobalOptions.LogEnvironment();
                     };
                     Dialog.Content = DialogContent;
 
@@ -325,350 +337,33 @@ namespace Warp
             #endregion
 
             // Report hardware environment
-            Analytics.LogEnvironment();
+            GlobalOptions.LogEnvironment();
 
-            #region Set up log message windows
+            #region Start listening to Web API calls if desired
 
-            Logger.SetBufferCount(GPU.GetDeviceCount());
-            Logger.MessageLogged += Logger_MessageLogged;
-
-            GridMessageLogs.Children.Clear();
-            GridMessageLogs.ColumnDefinitions.Clear();
-            LogMessagePanels = new StackPanel[GPU.GetDeviceCount()];
-
-            for (int c = 0; c < GPU.GetDeviceCount(); c++)
+            if (GlobalOptions.APIPort > 0)
             {
-                GridMessageLogs.ColumnDefinitions.Add(new ColumnDefinition());
-
-                TextBlock TextLogTitle = new TextBlock
+                try
                 {
-                    Text = "GPU " + c,
-                    FontSize = 20
-                };
-                GridMessageLogs.Children.Add(TextLogTitle);
-                Grid.SetColumn(TextLogTitle, c);
-
-                ScrollViewer ViewerLog = new ScrollViewer
+                    var host = new WebServiceHost(new NancyWcfGenericService(), new Uri($"http://localhost:{GlobalOptions.APIPort}/Warp/"));
+                    host.AddServiceEndpoint(typeof(NancyWcfGenericService), new WebHttpBinding(), "");
+                    host.Open();
+                }
+                catch (Exception exc)
                 {
-                    HorizontalScrollBarVisibility = ScrollBarVisibility.Hidden,
-                    VerticalScrollBarVisibility = ScrollBarVisibility.Visible,
-                    HorizontalAlignment = HorizontalAlignment.Stretch,
-                    VerticalAlignment = VerticalAlignment.Stretch
-                };
-                GridMessageLogs.Children.Add(ViewerLog);
-                Grid.SetRow(ViewerLog, 1);
-                Grid.SetColumn(ViewerLog, c);
-
-                StackPanel PanelLog = new StackPanel()
-                {
-                    Orientation = Orientation.Vertical,
-                    HorizontalAlignment = HorizontalAlignment.Stretch,
-                    VerticalAlignment = VerticalAlignment.Top
-                };
-                ViewerLog.Content = PanelLog;
-                LogMessagePanels[c] = PanelLog;
+                    this.ShowMessageAsync("Oops, there was a problem starting the web API service",
+                                            exc.ToString(),
+                                            MessageDialogStyle.Affirmative);
+                }
             }
-
-            Logger.Write(new LogMessage("Test.", "System"));
-            Logger.Write(new LogMessage("Nothing really important.", "General"));
-            Logger.Write(new LogMessage("Lorem ipsum.", "System"));
-            //for (int i = 0; i < 200; i++)
-            //{
-            //    Logger.Write(new LogMessage(Guid.NewGuid().ToString(), "System " + i));
-            //}
 
             #endregion
 
-            #region Create mockup
+            #region Test stuff
 
             {
-                //Options.WriteToXML(null);
-
-                float2[] SplinePoints = { new float2(0f, 0f), new float2(1f / 3f, 1f)};//, new float2(2f / 3f, 0f)};//, new float2(1f, 1f) };
-                Cubic1D ReferenceSpline = new Cubic1D(SplinePoints);
-                Cubic1DShort ShortSpline = Cubic1DShort.GetInterpolator(SplinePoints);
-                for (float i = -1f; i < 2f; i += 0.01f)
-                {
-                    float Reference = ReferenceSpline.Interp(i);
-                    float Test = ShortSpline.Interp(i);
-                    if (Math.Abs(Reference - Test) > 1e-6f)
-                        throw new Exception();
-                }
-
-                Random Rnd = new Random(123);
-                int3 GridDim = new int3(1, 1, 1);
-                float[] GridValues = new float[GridDim.Elements()];
-                for (int i = 0; i < GridValues.Length; i++)
-                    GridValues[i] = (float)Rnd.NextDouble();
-                CubicGrid CGrid = new CubicGrid(GridDim, GridValues);
-                float[] Managed = CGrid.GetInterpolated(new int3(16, 16, 16), new float3(0, 0, 0));
-                float[] Native = CGrid.GetInterpolatedNative(new int3(16, 16, 16), new float3(0, 0, 0));
-                for (int i = 0; i < Managed.Length; i++)
-                    if (Math.Abs(Managed[i] - Native[i]) > 1e-6f)
-                        throw new Exception();
-
-                Matrix3 A = new Matrix3(1, 2, 3, 4, 5, 6, 7, 8, 9);
-                Matrix3 B = new Matrix3(11, 12, 13, 14, 15, 16, 17, 18, 19);
-                Matrix3 C = A * B;
-
-                // Euler matrix
-                {
-                    Matrix3 E = Matrix3.Euler(0 * Helper.ToRad, 20 * Helper.ToRad, 0 * Helper.ToRad);
-                    float3 EE = Matrix3.EulerFromMatrix(E.Transposed()) * Helper.ToDeg;
-
-                    float3 Transformed = E * new float3(1, 0, 0);
-                    Transformed.Y = 0;
-                }
-
-                //{
-                //    Image VolIntensities = Image.FromFile("E:\\Dropbox\\GRC2017\\models\\80S.mrc");
-                //    RendererMock1.Supersampling = 2;
-                //    RendererMock1.Camera.SurfaceThreshold = 0.025M;
-                //    RendererMock1.Camera.IntensityRangeMin = 0;
-                //    RendererMock1.Camera.IntensityRangeMax = 1;
-                //    RendererMock1.Volume = VolIntensities;
-                //}
-
-                //{
-                //    Image VolIntensities = Image.FromFile("E:\\Dropbox\\GRC2017\\models\\chloro70S.mrc");
-                //    RendererMock2.Supersampling = 2;
-                //    RendererMock2.Camera.SurfaceThreshold = 0.025M;
-                //    RendererMock2.Camera.IntensityRangeMin = 0;
-                //    RendererMock2.Camera.IntensityRangeMax = 1;
-                //    RendererMock2.Volume = VolIntensities;
-                //}
-
-                //{
-                //    Image VolIntensities = Image.FromFile("E:\\Dropbox\\GRC2017\\models\\26S.mrc");
-                //    RendererMock3.Supersampling = 2;
-                //    RendererMock3.Camera.SurfaceThreshold = 0.025M;
-                //    RendererMock3.Camera.IntensityRangeMin = 0;
-                //    RendererMock3.Camera.IntensityRangeMax = 1;
-                //    RendererMock3.Volume = VolIntensities;
-                //}
-
-                //float3[] HealpixAngles = Helper.GetHealpixAngles(3, "D4");
-
-                // Deconvolve reconstructions using a separate CTF
-                //{
-                //    for (int i = 1; i <= 24; i++)
-                //    {
-                //        Image Map = StageDataLoad.LoadMap($"F:\\stefanribo\\vlion\\warped_{i}.mrc", new int2(1, 1), 0, typeof(float));
-                //        Image MapFT = Map.AsFFT(true);
-                //        Map.Dispose();
-
-                //        Image CTF = StageDataLoad.LoadMap($"F:\\stefanribo\\vlion\\warped_ctf_{i}.mrc", new int2(1, 1), 0, typeof(float));
-                //        foreach (var slice in CTF.GetHost(Intent.ReadWrite))
-                //            for (int s = 0; s < slice.Length; s++)
-                //                slice[s] = Math.Max(1e-3f, slice[s]);
-
-                //        MapFT.Divide(CTF);
-                //        Map = MapFT.AsIFFT(true);
-                //        MapFT.Dispose();
-
-                //        Map.WriteMRC($"F:\\stefanribo\\vlion\\warped_deconv_{i}.mrc");
-                //        Map.Dispose();
-                //    }
-                //}
-
-                //{
-                //    Image SumFT = new Image(new int3(64, 64, 64), true, true);
-                //    Image SumWeights = new Image(new int3(64, 64, 64), true);
-
-                //    Star TableIn = new Star("F:\\badaben\\ppca_nomem\\nomembrane_membrane_class.star");
-                //    string[] ColumnClass = TableIn.GetColumn("rlnClassNumber");
-
-                //    int read = 0;
-                //    foreach (var tomoPath in Directory.EnumerateFiles("F:\\badaben\\ppca_nomem\\particles", "*_*.mrc"))
-                //    {
-                //        string CN = ColumnClass[read];
-
-                //        if (read++ % 10 != 0 || CN != "1")
-                //            continue;
-
-                //        FileInfo Info = new FileInfo(tomoPath);
-
-                //        Image Tomo = StageDataLoad.LoadMap(tomoPath, new int2(1, 1), 0, typeof(float));
-                //        Image TomoFT = Tomo.AsFFT(true);
-                //        Tomo.Dispose();
-
-                //        Image TomoWeights = StageDataLoad.LoadMap("F:\\badaben\\ppca_nomem\\particlectf\\" + Info.Name, new int2(1, 1), 0, typeof(float));
-
-                //        TomoFT.Multiply(TomoWeights);
-                //        TomoWeights.Multiply(TomoWeights);
-
-                //        SumFT.Add(TomoFT);
-                //        SumWeights.Add(TomoWeights);
-
-                //        TomoFT.Dispose();
-                //        TomoWeights.Dispose();
-
-                //        Debug.WriteLine(read);
-                //    }
-
-                //    foreach (var slice in SumWeights.GetHost(Intent.ReadWrite))
-                //        for (int i = 0; i < slice.Length; i++)
-                //            slice[i] = Math.Max(1e-3f, slice[i]);
-
-                //    SumFT.Divide(SumWeights);
-                //    Image Sum = SumFT.AsIFFT(true);
-                //    Sum.WriteMRC("F:\\badaben\\ppca_nomem\\subtomomean.mrc");
-
-                //    SumFT.Dispose();
-                //    SumWeights.Dispose();
-                //    Sum.Dispose();
-                //}
-
-                //{
-                //    Image Subtrahend = StageDataLoad.LoadMap("E:\\martinsried\\stefan\\membranebound\\vlion\\relion_subtrahend.mrc", new int2(1, 1), 0, typeof(float));
-                //    Image SubtrahendFT = Subtrahend.AsFFT(true);
-
-                //    int read = 0;
-                //    foreach (var tomoPath in Directory.EnumerateFiles("E:\\martinsried\\stefan\\membranebound\\oridata\\particles", "tomo*.mrc"))
-                //    {
-                //        FileInfo Info = new FileInfo(tomoPath);
-
-                //        Image Tomo = StageDataLoad.LoadMap(tomoPath, new int2(1, 1), 0, typeof(float));
-                //        Image TomoFT = Tomo.AsFFT(true);
-                //        Tomo.Dispose();
-
-                //        Image TomoWeights = StageDataLoad.LoadMap("E:\\martinsried\\stefan\\membranebound\\oridata\\particlectf\\" + Info.Name, new int2(1, 1), 0, typeof(float));
-
-                //        Image SubtrahendFTMult = new Image(SubtrahendFT.GetDevice(Intent.Read), SubtrahendFT.Dims, true, true);
-                //        SubtrahendFTMult.Multiply(TomoWeights);
-
-                //        TomoFT.Subtract(SubtrahendFTMult);
-                //        Tomo = TomoFT.AsIFFT(true);
-
-                //        Tomo.WriteMRC("D:\\stefanribo\\particles\\" + Info.Name);
-
-                //        Tomo.Dispose();
-                //        TomoFT.Dispose();
-                //        SubtrahendFTMult.Dispose();
-                //        TomoWeights.Dispose();
-
-                //        Debug.WriteLine(read++);
-                //    }
-                //}
-
-                //{
-                //    Image SubtRef1 = StageDataLoad.LoadMap("E:\\martinsried\\stefan\\membranebound\\vlion\\warp_subtrahend.mrc", new int2(1, 1), 0, typeof(float));
-                //    Projector Subt = new Projector(SubtRef1, 2);
-                //    SubtRef1.Dispose();
-
-                //    Image ProjFT = Subt.Project(new int2(220, 220), new[] { new float3(0, 0, 0) }, 110);
-                //    Image Proj = ProjFT.AsIFFT();
-                //    Proj.RemapFromFT();
-
-                //    Proj.WriteMRC("d_testproj.mrc");
-                //}
-
-                // Projector
-                /*{
-                    Image MapForProjector = StageDataLoad.LoadMap("E:\\youwei\\run36_half1_class001_unfil.mrc", new int2(1, 1), 0, typeof (float));
-                    Projector Proj = new Projector(MapForProjector, 2);
-                    Image Projected = Proj.Project(new int2(240, 240), new[] { new float3(0, 0, 0) }, 120);
-                    Projected = Projected.AsIFFT();
-                    Projected.RemapFromFT();
-                    Projected.WriteMRC("d_projected.mrc");
-                }*/
-
-                // Backprojector
-                /*{
-                    Image Dot = new Image(new int3(32, 32, 360));
-                    for (int a = 0; a < 360; a++)
-                        Dot.GetHost(Intent.Write)[a][0] = 1;
-                    Dot = Dot.AsFFT();
-                    Dot.AsAmplitudes().WriteMRC("d_dot.mrc");
-
-                    Image DotWeights = new Image(new int3(32, 32, 360), true);
-                    for (int a = 0; a < 360; a++)
-                        for (int i = 0; i < DotWeights.ElementsSliceReal; i++)
-                            DotWeights.GetHost(Intent.Write)[a][i] = 1;
-
-                    float3[] Angles = new float3[360];
-                    for (int a = 0; a < 360; a++)
-                        Angles[a] = new float3(0, a * Helper.ToRad * 0.05f, 0);
-
-                    Projector Proj = new Projector(new int3(32, 32, 32), 2);
-                    Proj.BackProject(Dot, DotWeights, Angles);
-
-                    Proj.Weights.WriteMRC("d_weights.mrc");
-                    //Image Re = Proj.Data.AsImaginary();
-                    //Re.WriteMRC("d_projdata.mrc");
-
-                    Image Rec = Proj.Reconstruct(true);
-                    Rec.WriteMRC("d_rec.mrc");
-                }*/
-
-                //Star Models = new Star("D:\\rado27\\Refine3D\\run1_ct5_it005_half1_model.star", "data_model_group_2");
-                //Debug.WriteLine(Models.GetRow(0)[0]);
-
-                /*Image Volume = StageDataLoad.LoadMap("F:\\carragher20s\\ref256.mrc", new int2(1, 1), 0, typeof (float));
-                Image VolumePadded = Volume.AsPadded(new int3(512, 512, 512));
-                VolumePadded.WriteMRC("d_padded.mrc");
-                Volume.Dispose();
-                VolumePadded.RemapToFT(true);
-                Image VolumeFT = VolumePadded.AsFFT(true);
-                VolumePadded.Dispose();
-
-                Image VolumeProjFT = VolumeFT.AsProjections(new[] { new float3(Helper.ToRad * 0, Helper.ToRad * 0, Helper.ToRad * 0) }, new int2(256, 256), 2f);
-                Image VolumeProj = VolumeProjFT.AsIFFT();
-                VolumeProjFT.Dispose();
-                VolumeProj.RemapFromFT();
-                VolumeProj.WriteMRC("d_proj.mrc");
-                VolumeProj.Dispose();*/
-
-                /*Options.Movies.Add(new Movie(@"D:\Dev\warp\May19_21.44.54.mrc"));
-                Options.Movies.Add(new Movie(@"D:\Dev\warp\May19_21.49.06.mrc"));
-                Options.Movies.Add(new Movie(@"D:\Dev\warp\May19_21.50.48.mrc"));
-                Options.Movies.Add(new Movie(@"D:\Dev\warp\May19_21.52.16.mrc"));
-                Options.Movies.Add(new Movie(@"D:\Dev\warp\May19_21.53.43.mrc"));
-
-                CTFDisplay.PS2D = new BitmapImage();*/
-
-                /*float2[] SimCoords = new float2[512 * 512];
-                for (int y = 0; y < 512; y++)
-                    for (int x = 0; x < 512; x++)
-                    {
-                        int xcoord = x - 512, ycoord = y - 512;
-                        SimCoords[y * 512 + x] = new float2((float) Math.Sqrt(xcoord * xcoord + ycoord * ycoord),
-                            (float) Math.Atan2(ycoord, xcoord));
-                    }
-                float[] Sim2D = new CTF {Defocus = -2M}.Get2D(SimCoords, 512, true);
-                byte[] Sim2DBytes = new byte[Sim2D.Length];
-                for (int i = 0; i < 512 * 512; i++)
-                    Sim2DBytes[i] = (byte) (Sim2D[i] * 255f);
-                BitmapSource Sim2DSource = BitmapSource.Create(512, 512, 96, 96, PixelFormats.Indexed8, BitmapPalettes.Gray256, Sim2DBytes, 512);
-                CTFDisplay.Simulated2D = Sim2DSource;*/
-
-                /*float2[] PointsPS1D = new float2[512];
-                for (int i = 0; i < PointsPS1D.Length; i++)
-                    PointsPS1D[i] = new float2(i, (float) Math.Exp(-i / 300f));
-                CTFDisplay.PS1D = PointsPS1D;
-
-                float[] SimCTF = new CTF { Defocus = -2M }.Get1D(512, true);
-                float2[] PointsSim1D = new float2[SimCTF.Length];
-                for (int i = 0; i < SimCTF.Length; i++)
-                    PointsSim1D[i] = new float2(i, SimCTF[i] * (float)Math.Exp(-i / 100f) + (float)Math.Exp(-i / 300f));
-                CTFDisplay.Simulated1D = PointsSim1D;*/
-
-                /*CubicGrid Grid = new CubicGrid(new int3(5, 5, 5), 0, 0, Dimension.X);
-                Grid.Values[2, 2, 2] = 1f;
-                float[] Data = new float[11 * 11 * 11];
-                int i = 0;
-                for (float z = 0f; z < 1.05f; z += 0.1f)
-                    for (float y = 0f; y < 1.05f; y += 0.1f)
-                        for (float x = 0f; x < 1.05f; x += 0.1f)
-                            Data[i++] = Grid.GetInterpolated(new float3(x, y, z));
-                Image DataImage = new Image(Data, new int3(11, 11, 11));
-                DataImage.WriteMRC("bla.mrc");
-
-                Image GPUImage = new Image(DataImage.GetDevice(Intent.Read), new int3(11, 11, 11));
-                GPUImage.WriteMRC("gpu.mrc");*/
-
-                /*CubicGrid WiggleGrid = new CubicGrid(new int3(2, 2, 1));
-                float[][] WiggleWeights = WiggleGrid.GetWiggleWeights(new int3(3, 3, 1));*/
+                //WorkerWrapper Worker = new WorkerWrapper(1);
+                //Worker.Dispose();
             }
 
             #endregion
@@ -817,7 +512,7 @@ namespace Warp
 
         public static Options Options = new Options();
         static bool OptionsAutoSave = false;
-        static bool OptionsLookForFolderOptions = false;
+        public static bool OptionsLookForFolderOptions = false;
 
         #endregion
 
@@ -1039,7 +734,7 @@ namespace Warp
                 try
                 {
                     Options.Save(DefaultOptionsName);
-                    Analytics.Save(DefaultAnalyticsName);
+                    GlobalOptions.Save(DefaultGlobalOptionsName);
                 } catch { }
 
                 if (Options.Import.Folder != "")
@@ -1088,6 +783,7 @@ namespace Warp
         #region Helper variables
 
         public static bool IsPreprocessing = false;
+        public static bool IsStoppingPreprocessing = false;
         static Task PreprocessingTask = null;
 
         bool IsPreprocessingCollapsed = false;
@@ -1272,6 +968,18 @@ namespace Warp
 
         #endregion
 
+        public void StartProcessing()
+        {
+            if (!IsPreprocessing && !IsStoppingPreprocessing)
+                Dispatcher.InvokeAsync(() => ButtonStartProcessing_OnClick(null, null));
+        }
+
+        public void StopProcessing()
+        {
+            if (IsPreprocessing && !IsStoppingPreprocessing)
+                Dispatcher.InvokeAsync(() => ButtonStartProcessing_OnClick(null, null));
+        }
+
         private async void ButtonStartProcessing_OnClick(object sender, RoutedEventArgs e)
         {
             if (!IsPreprocessing)
@@ -1286,7 +994,9 @@ namespace Warp
 
                 PreprocessingTask = Task.Run(async () =>
                 {
+                    int NDevices = GPU.GetDeviceCount();
                     List<int> UsedDevices = GetDeviceList();
+                    List<int> UsedDeviceProcesses = Helper.Combine(Helper.ArrayOfFunction(i => UsedDevices.Select(d => d + i * NDevices).ToArray(), GlobalOptions.ProcessesPerDevice)).ToList();
 
                     #region Check if options are compatible
 
@@ -1298,41 +1008,35 @@ namespace Warp
 
                     #region Load gain reference if needed
 
-                    Image[] ImageGain = new Image[GPU.GetDeviceCount()];
+                    Image ImageGain = null;
                     if (!string.IsNullOrEmpty(Options.Import.GainPath) && Options.Import.CorrectGain && File.Exists(Options.Import.GainPath))
-                        foreach (int d in UsedDevices)
-                            try
+                        try
+                        {
+                            ImageGain = LoadAndPrepareGainReference();
+                        }
+                        catch (Exception exc)
+                        {
+                            ImageGain?.Dispose();
+
+                            await Dispatcher.InvokeAsync(async () =>
                             {
-                                GPU.SetDevice(d);
-                                //ImageGain[d] = Image.FromFilePatient(50, 500,
-                                //                                     Options.Import.GainPath,
-                                //                                     new int2(Options.Import.HeaderlessWidth, Options.Import.HeaderlessHeight),
-                                //                                     (int)Options.Import.HeaderlessOffset,
-                                //                                     ImageFormatsHelper.StringToType(Options.Import.HeaderlessType));
-                                ImageGain[d] = LoadAndPrepareGainReference();
-                            }
-                            catch (Exception exc)
-                            {
-                                foreach (int dd in UsedDevices)
-                                    ImageGain[dd]?.Dispose();
+                                await this.ShowMessageAsync("Oopsie",
+                                                            "Something went wrong when trying to load the gain reference.\n\n" +
+                                                            "The exception raised is:\n" + exc);
 
-                                await Dispatcher.InvokeAsync(async () =>
-                                {
-                                    await this.ShowMessageAsync("Oopsie",
-                                                                "Something went wrong when trying to load the gain reference.\n\n" +
-                                                                "The exception raised is:\n" + exc);
+                                ButtonStartProcessing_OnClick(sender, e);
+                            });
 
-                                    ButtonStartProcessing_OnClick(sender, e);
-                                });
-
-                                return;
-                            }
+                            return;
+                        }
 
                     #endregion
 
                     #region Load BoxNet model if needed
 
-                    BoxNet2[] BoxNetworks = new BoxNet2[GPU.GetDeviceCount()];
+                    BoxNet2[] BoxNetworks = new BoxNet2[NDevices];
+                    object[] BoxNetLocks = Helper.ArrayOfFunction(i => new object(), NDevices);
+
                     if (Options.ProcessPicking)
                     {
                         ProgressDialogController ProgressDialog = null;
@@ -1360,8 +1064,7 @@ namespace Warp
                                 ButtonStartProcessing_OnClick(sender, e);
                             });
 
-                            foreach (int dd in UsedDevices)
-                                ImageGain[dd]?.Dispose();
+                            ImageGain?.Dispose();
 
                             await ProgressDialog.CloseAsync();
 
@@ -1372,23 +1075,7 @@ namespace Warp
                     }
 
                     #endregion
-
-                    /*#region Wait until all discovered files have been loaded
-
-                    if (FileDiscoverer.IsIncubating())
-                    {
-                        ProgressDialogController ProgressDialog = null;
-                        await Dispatcher.Invoke(async () => ProgressDialog = await this.ShowProgressAsync($"Waiting for all discovered items to be loaded...", ""));
-                        ProgressDialog.SetIndeterminate();
-
-                        while (FileDiscoverer.IsIncubating())
-                            Thread.Sleep(50);
-
-                        await ProgressDialog.CloseAsync();
-                    }
-
-                    #endregion*/
-
+                    
                     #region Load or create STAR table for BoxNet output, if needed
 
                     string BoxNetSuffix = Helper.PathToNameWithExtension(Options.Picking.ModelPath);
@@ -1509,8 +1196,8 @@ namespace Warp
                                                                      "rlnCoordinateY");
 
                                 float[] Defoci = new float[Positions.Length];
-                                if (item.GridCTF != null)
-                                    Defoci = item.GridCTF.GetInterpolated(Positions.Select(v => new float3(v.X / (item.OptionsBoxNet.Dimensions.X / (float)item.OptionsBoxNet.BinnedPixelSizeMean),
+                                if (item.GridCTFDefocus != null)
+                                    Defoci = item.GridCTFDefocus.GetInterpolated(Positions.Select(v => new float3(v.X / (item.OptionsBoxNet.Dimensions.X / (float)item.OptionsBoxNet.BinnedPixelSizeMean),
                                                                                                            v.Y / (item.OptionsBoxNet.Dimensions.Y / (float)item.OptionsBoxNet.BinnedPixelSizeMean),
                                                                                                            0.5f)).ToArray());
                                 float Astigmatism = (float)item.CTF.DefocusDelta / 2;
@@ -1554,7 +1241,28 @@ namespace Warp
 
                     #endregion
 
-                    bool CheckedGainDims = ImageGain[0] == null;
+                    #region Spawn workers and let them load gain refs
+
+                    WorkerWrapper[] Workers = new WorkerWrapper[GPU.GetDeviceCount() * GlobalOptions.ProcessesPerDevice];
+                    foreach (var gpuID in UsedDeviceProcesses)
+                    {
+                        Workers[gpuID] = new WorkerWrapper(gpuID);
+                        Workers[gpuID].SetHeaderlessParams(new int2(Options.Import.HeaderlessWidth, Options.Import.HeaderlessHeight), 
+                                                           Options.Import.HeaderlessOffset, 
+                                                           Options.Import.HeaderlessType);
+
+                        if (!string.IsNullOrEmpty(Options.Import.GainPath) && Options.Import.CorrectGain)
+                            Workers[gpuID].LoadGainRef(Options.Import.GainPath,
+                                                       Options.Import.GainFlipX,
+                                                       Options.Import.GainFlipY,
+                                                       Options.Import.GainTranspose);
+                        else
+                            Workers[gpuID].LoadGainRef("", false, false, false);
+                    }
+
+                    bool CheckedGainDims = ImageGain == null;
+
+                    #endregion
 
                     while (true)
                     {
@@ -1587,7 +1295,7 @@ namespace Warp
 
                         if (NeedProcessing.Count == 0)
                         {
-                            Task.Delay(20);
+                            await Task.Delay(20);
                             continue;
                         }
 
@@ -1600,7 +1308,7 @@ namespace Warp
                             if (NeedProcessing[0].GetType() == typeof(Movie))
                                 ItemPath = NeedProcessing[0].Path;
                             else
-                                ItemPath = ((TiltSeries)NeedProcessing[0]).TiltMoviePaths[0];
+                                ItemPath = Path.Combine(((TiltSeries)NeedProcessing[0]).DirectoryName, ((TiltSeries)NeedProcessing[0]).TiltMoviePaths[0]);
 
                             MapHeader Header = MapHeader.ReadFromFilePatient(50, 500,
                                                                              ItemPath,
@@ -1608,8 +1316,13 @@ namespace Warp
                                                                              Options.Import.HeaderlessOffset,
                                                                              ImageFormatsHelper.StringToType(Options.Import.HeaderlessType));
 
-                            if (Header.Dimensions.X != ImageGain[0].Dims.X || Header.Dimensions.Y != ImageGain[0].Dims.Y)
+                            if (Header.Dimensions.X != ImageGain.Dims.X || Header.Dimensions.Y != ImageGain.Dims.Y)
                             {
+                                ImageGain.Dispose();
+
+                                foreach (var worker in Workers)
+                                    worker?.Dispose();
+
                                 await Dispatcher.InvokeAsync(async () =>
                                 {
                                     await this.ShowMessageAsync("Oopsie", "Image dimensions do not match those of the gain reference. Maybe it needs to be rotated or transposed?");
@@ -1631,17 +1344,6 @@ namespace Warp
                             StatsProgressIndicator.Visibility = Visibility.Visible;
                         });
 
-                        int NSimultaneous = 1;
-                        int NPreread = NSimultaneous * 1;
-
-                        Dictionary<int, SemaphoreSlim> SemaphoresPreread = new Dictionary<int, SemaphoreSlim>();
-                        Dictionary<int, SemaphoreSlim> SemaphoresProcessing = new Dictionary<int, SemaphoreSlim>();
-                        foreach (var device in UsedDevices)
-                        {
-                            SemaphoresPreread.Add(device, new SemaphoreSlim(1));
-                            SemaphoresProcessing.Add(device, new SemaphoreSlim(NSimultaneous));
-                        }
-
                         #region Perform preprocessing on all available GPUs
 
                         Helper.ForEachGPU(NeedProcessing, (item, gpuID) =>
@@ -1650,7 +1352,6 @@ namespace Warp
                                 return true;    // This cancels the iterator
 
                             Image OriginalStack = null;
-                            bool AcquiredProcessingSemaphore = false;
 
                             try
                             {
@@ -1691,16 +1392,15 @@ namespace Warp
 
                                 if (!IsTomo)
                                 {
-                                    SemaphoresPreread[gpuID].Wait();
-
                                     Debug.WriteLine(GPU.GetDevice() + " loading...");
                                     var TimerRead = BenchmarkRead.Start();
 
-                                    LoadAndPrepareHeaderAndMap(item.Path, ImageGain[gpuID], ScaleFactor, out OriginalHeader, out OriginalStack, NeedStack);
+                                    LoadAndPrepareHeaderAndMap(item.Path, ImageGain, ScaleFactor, out OriginalHeader, out OriginalStack, false);
+                                    if (NeedStack)
+                                        Workers[gpuID].LoadStack(item.Path, ScaleFactor);
 
                                     BenchmarkRead.Finish(TimerRead);
                                     Debug.WriteLine(GPU.GetDevice() + " loaded.");
-                                    SemaphoresPreread[gpuID].Release();
                                 }
 
                                 // Store original dimensions in Angstrom
@@ -1715,20 +1415,17 @@ namespace Warp
                                 {
                                     ((TiltSeries)item).LoadMovieSizes(CurrentOptionsCTF);
 
-                                    float3 StackDims = new float3(((TiltSeries)item).ImageDimensionsPhysical[0], ((TiltSeries)item).NTilts);
+                                    float3 StackDims = new float3(((TiltSeries)item).ImageDimensionsPhysical, ((TiltSeries)item).NTilts);
                                     CurrentOptionsCTF.Dimensions = StackDims;
                                     CurrentOptionsMovement.Dimensions = StackDims;
                                     CurrentOptionsExport.Dimensions = StackDims;
                                 }
                                 
-                                SemaphoresProcessing[gpuID].Wait();
-                                AcquiredProcessingSemaphore = true;
                                 Debug.WriteLine(GPU.GetDevice() + " processing...");
 
                                 if (!IsPreprocessing)
                                 {
                                     OriginalStack?.Dispose();
-                                    SemaphoresProcessing[gpuID].Release();
                                     return true;
                                 } // These checks are needed to abort the processing faster
 
@@ -1736,83 +1433,68 @@ namespace Warp
                                 {
                                     var TimerCTF = BenchmarkCTF.Start();
 
-                                    if (item.GetType() == typeof(Movie))
-                                        item.ProcessCTF(OriginalStack, CurrentOptionsCTF);
+                                    if (!IsTomo)
+                                    {
+                                        Workers[gpuID].MovieProcessCTF(item.Path, CurrentOptionsCTF);
+                                        item.LoadMeta();
+                                    }
                                     else
-                                        ((TiltSeries)item).ProcessCTFSimultaneous(CurrentOptionsCTF);
+                                    {
+                                        Workers[gpuID].TomoProcessCTF(item.Path, CurrentOptionsCTF);
+                                        item.LoadMeta();
+                                    }
 
                                     BenchmarkCTF.Finish(TimerCTF);
-                                    Analytics.LogProcessingCTF(CurrentOptionsCTF, item.CTF, (float)item.CTFResolutionEstimate);
+                                    GlobalOptions.LogProcessingCTF(CurrentOptionsCTF, item.CTF, (float)item.CTFResolutionEstimate);
                                 }
                                 if (!IsPreprocessing)
                                 {
                                     OriginalStack?.Dispose();
-                                    SemaphoresProcessing[gpuID].Release();
                                     return true;
                                 }
 
-                                if (DoMovement && NeedsNewMotion && item.GetType() != typeof(TiltSeries))
+                                if (DoMovement && NeedsNewMotion && !IsTomo)
                                 {
                                     var TimerMotion = BenchmarkMotion.Start();
 
-                                    item.ProcessShift(OriginalStack, CurrentOptionsMovement);
+                                    Workers[gpuID].MovieProcessMovement(item.Path, CurrentOptionsMovement);
+                                    item.LoadMeta();
+                                    //item.ProcessShift(OriginalStack, CurrentOptionsMovement);
 
                                     BenchmarkMotion.Finish(TimerMotion);
-                                    Analytics.LogProcessingMovement(CurrentOptionsMovement, (float)item.MeanFrameMovement);
+                                    GlobalOptions.LogProcessingMovement(CurrentOptionsMovement, (float)item.MeanFrameMovement);
                                 }
                                 if (!IsPreprocessing)
                                 {
                                     OriginalStack?.Dispose();
-                                    SemaphoresProcessing[gpuID].Release();
                                     return true;
                                 }
 
-                                if (DoExport && NeedsNewExport)
+                                if (DoExport && NeedsNewExport && !IsTomo)
                                 {
                                     var TimerOutput = BenchmarkOutput.Start();
 
-                                    item.ExportMovie(OriginalStack, CurrentOptionsExport);
+                                    Workers[gpuID].MovieExportMovie(item.Path, CurrentOptionsExport);
+                                    item.LoadMeta();
+                                    //item.ExportMovie(OriginalStack, CurrentOptionsExport);
 
-                                    BenchmarkOutput.Finish(TimerOutput);
-                                }
-
-                                // In case no average was written out, force its creation to enable micrograph display
-
-                                if (!File.Exists(item.AveragePath) && item.GetType() == typeof(Movie))
-                                {
-                                    if (!Directory.Exists(item.AverageDir))
-                                        Directory.CreateDirectory(item.AverageDir);
-                                    
-                                    var TimerOutput = BenchmarkOutput.Start();
-
-                                    Image StackAverage = OriginalStack.AsReducedAlongZ();
-                                    OriginalStack.FreeDevice();
-                                    //Task.Run(() =>
-                                    {
-                                        StackAverage.WriteMRC(item.AveragePath, (float)Options.BinnedPixelSizeMean, true);
-                                        StackAverage.Dispose();
-
-                                        if (!DoExport) // No settings stored yet
-                                        {
-                                            item.OptionsMovieExport = CurrentOptionsExport;
-                                            item.SaveMeta();
-                                        }
-                                    }//);
-                                    
                                     BenchmarkOutput.Finish(TimerOutput);
                                 }
 
                                 if (!File.Exists(item.ThumbnailsPath))
                                     item.CreateThumbnail(384, 2.5f);
 
-                                if (DoPicking && NeedsNewPicking)
+                                if (DoPicking && NeedsNewPicking && !IsTomo)
                                 {
                                     var TimerPicking = BenchmarkPicking.Start();
 
                                     Image AverageForPicking = Image.FromFilePatient(50, 500, item.AveragePath);
-                                    item.MatchBoxNet2(new[] { BoxNetworks[gpuID] }, AverageForPicking, CurrentOptionsBoxNet, null);
 
-                                    Analytics.LogProcessingBoxNet(CurrentOptionsBoxNet, item.GetParticleCount("_" + BoxNetSuffix));
+                                    // Let only one process per GPU access BoxNet on that GPU, otherwise TF memory consumption can explode
+                                    lock (BoxNetLocks[gpuID % NDevices])
+                                        item.MatchBoxNet2(new[] { BoxNetworks[gpuID % NDevices] }, AverageForPicking, CurrentOptionsBoxNet, null);
+
+                                    GlobalOptions.LogProcessingBoxNet(CurrentOptionsBoxNet, item.GetParticleCount("_" + BoxNetSuffix));
 
                                     #region Export particles if needed
 
@@ -1850,15 +1532,19 @@ namespace Warp
                                             Voltage = Options.CTF.Voltage
                                         };
 
-                                        item.ExportParticles(OriginalStack, Positions, ParticleOptions);
+                                        if (Positions.Length > 0)
+                                        {
+                                            Workers[gpuID].MovieExportParticles(item.Path, ParticleOptions, Positions);
+                                            item.LoadMeta();
+                                            //item.ExportParticles(OriginalStack, Positions, ParticleOptions);
+                                        }
 
                                         OriginalStack?.Dispose();
                                         Debug.WriteLine(GPU.GetDevice() + " processed.");
-                                        SemaphoresProcessing[gpuID].Release();
 
                                         float[] Defoci = new float[Positions.Length];
-                                        if (item.GridCTF != null)
-                                            Defoci = item.GridCTF.GetInterpolated(Positions.Select(v => new float3(v.X / CurrentOptionsBoxNet.Dimensions.X,
+                                        if (item.GridCTFDefocus != null)
+                                            Defoci = item.GridCTFDefocus.GetInterpolated(Positions.Select(v => new float3(v.X / CurrentOptionsBoxNet.Dimensions.X,
                                                                                                                    v.Y / CurrentOptionsBoxNet.Dimensions.Y,
                                                                                                                    0.5f)).ToArray());
                                         float Astigmatism = (float)item.CTF.DefocusDelta / 2;
@@ -1976,7 +1662,6 @@ namespace Warp
                                     {
                                         OriginalStack?.Dispose();
                                         Debug.WriteLine(GPU.GetDevice() + " processed.");
-                                        SemaphoresProcessing[gpuID].Release();
                                     }
 
                                     #endregion
@@ -1989,7 +1674,6 @@ namespace Warp
                                 {
                                     OriginalStack?.Dispose();
                                     Debug.WriteLine(GPU.GetDevice() + " processed.");
-                                    SemaphoresProcessing[gpuID].Release();
                                 }
 
 
@@ -2021,12 +1705,9 @@ namespace Warp
                                     ProcessingStatusBar.UpdateElements();
                                 });
 
-                                if (AcquiredProcessingSemaphore)
-                                    SemaphoresProcessing[gpuID].Release();
-
                                 return false;
                             }
-                        }, Math.Max(NPreread, NSimultaneous), UsedDevices);
+                        }, 1, UsedDeviceProcesses);
 
 
                         Dispatcher.Invoke(() =>
@@ -2044,11 +1725,13 @@ namespace Warp
                         });
                     }
 
+                    ImageGain?.Dispose();
+
+                    foreach (var worker in Workers)
+                        worker?.Dispose();
+
                     foreach (int d in UsedDevices)
-                    {
-                        ImageGain[d]?.Dispose();
                         BoxNetworks[d]?.Dispose();
-                    }
 
                     #region Make sure all particle tables are written out in their most recent form
 
@@ -2122,6 +1805,8 @@ namespace Warp
             }
             else
             {
+                IsStoppingPreprocessing = true;
+
                 ButtonStartProcessing.IsEnabled = false;
                 ButtonStartProcessing.Content = "STOPPING...";
 
@@ -2152,6 +1837,8 @@ namespace Warp
                 ButtonStartProcessing.IsEnabled = true;
                 ButtonStartProcessing.Content = "START PROCESSING";
                 ButtonStartProcessing.Foreground = new LinearGradientBrush(Colors.DeepSkyBlue, Colors.DeepPink, 0);
+
+                IsStoppingPreprocessing = false;
             }
         }
 
@@ -2850,20 +2537,35 @@ namespace Warp
 
         private void ButtonTasksExportMicrographs_OnClick(object sender, RoutedEventArgs e)
         {
-            System.Windows.Forms.SaveFileDialog FileDialog = new System.Windows.Forms.SaveFileDialog
-            {
-                Filter = "STAR Files|*.star"
-            };
-            System.Windows.Forms.DialogResult Result = FileDialog.ShowDialog();
+            Movie[] Movies = FileDiscoverer.GetImmutableFiles();
 
-            if (Result.ToString() == "OK")
+            CustomDialog Dialog = new CustomDialog();
+            Dialog.HorizontalContentAlignment = HorizontalAlignment.Center;
+
+            Dialog2DList DialogContent = new Dialog2DList(Movies, Options);
+            DialogContent.Close += () => this.HideMetroDialogAsync(Dialog);
+            Dialog.Content = DialogContent;
+
+            this.ShowMetroDialogAsync(Dialog);
+        }
+
+        private void ButtonTasksAdjustDefocus_OnClick(object sender, RoutedEventArgs e)
+        {
+            System.Windows.Forms.OpenFileDialog OpenDialog = new System.Windows.Forms.OpenFileDialog
+            {
+                Filter = "STAR Files|*.star",
+                Title = "Select a file with particle metadata, e.g. a run_data.star file from RELION's refinement"
+            };
+            System.Windows.Forms.DialogResult ResultOpen = OpenDialog.ShowDialog();
+
+            if (ResultOpen.ToString() == "OK")
             {
                 Movie[] Movies = FileDiscoverer.GetImmutableFiles();
 
                 CustomDialog Dialog = new CustomDialog();
                 Dialog.HorizontalContentAlignment = HorizontalAlignment.Center;
 
-                Dialog2DList DialogContent = new Dialog2DList(Movies, FileDialog.FileName, Options);
+                Dialog2DDefocusUpdate DialogContent = new Dialog2DDefocusUpdate(Movies, OpenDialog.FileName, Options);
                 DialogContent.Close += () => this.HideMetroDialogAsync(Dialog);
                 Dialog.Content = DialogContent;
 
@@ -2871,67 +2573,27 @@ namespace Warp
             }
         }
 
-        private void ButtonTasksAdjustDefocus_OnClick(object sender, RoutedEventArgs e)
-        {
-            System.Windows.Forms.OpenFileDialog OpenDialog = new System.Windows.Forms.OpenFileDialog
-            {
-                Filter = "STAR Files|*.star"
-            };
-            System.Windows.Forms.DialogResult ResultOpen = OpenDialog.ShowDialog();
-
-            if (ResultOpen.ToString() == "OK")
-            {
-                System.Windows.Forms.SaveFileDialog SaveDialog = new System.Windows.Forms.SaveFileDialog
-                {
-                    Filter = "STAR Files|*.star"
-                };
-                System.Windows.Forms.DialogResult ResultSave = SaveDialog.ShowDialog();
-
-                if (ResultSave.ToString() == "OK")
-                {
-                    Movie[] Movies = FileDiscoverer.GetImmutableFiles();
-
-                    CustomDialog Dialog = new CustomDialog();
-                    Dialog.HorizontalContentAlignment = HorizontalAlignment.Center;
-
-                    Dialog2DDefocusUpdate DialogContent = new Dialog2DDefocusUpdate(Movies, OpenDialog.FileName, SaveDialog.FileName, Options);
-                    DialogContent.Close += () => this.HideMetroDialogAsync(Dialog);
-                    Dialog.Content = DialogContent;
-
-                    this.ShowMetroDialogAsync(Dialog);
-                }
-            }
-        }
-
         private void ButtonTasksExportParticles_OnClick(object sender, RoutedEventArgs e)
         {
             System.Windows.Forms.OpenFileDialog OpenDialog = new System.Windows.Forms.OpenFileDialog
             {
-                Filter = "STAR Files|*.star"
+                Filter = "STAR Files|*.star",
+                Title = "Select a file with particle coordinates for either the entire data set or one movie"
             };
             System.Windows.Forms.DialogResult ResultOpen = OpenDialog.ShowDialog();
 
             if (ResultOpen.ToString() == "OK")
             {
-                System.Windows.Forms.SaveFileDialog SaveDialog = new System.Windows.Forms.SaveFileDialog
-                {
-                    Filter = "STAR Files|*.star"
-                };
-                System.Windows.Forms.DialogResult ResultSave = SaveDialog.ShowDialog();
+                Movie[] Movies = FileDiscoverer.GetImmutableFiles();
 
-                if (ResultSave.ToString() == "OK")
-                {
-                    Movie[] Movies = FileDiscoverer.GetImmutableFiles();
+                CustomDialog Dialog = new CustomDialog();
+                Dialog.HorizontalContentAlignment = HorizontalAlignment.Center;
 
-                    CustomDialog Dialog = new CustomDialog();
-                    Dialog.HorizontalContentAlignment = HorizontalAlignment.Center;
+                Dialog2DParticleExport DialogContent = new Dialog2DParticleExport(Movies, OpenDialog.FileName, Options);
+                DialogContent.Close += () => this.HideMetroDialogAsync(Dialog);
+                Dialog.Content = DialogContent;
 
-                    Dialog2DParticleExport DialogContent = new Dialog2DParticleExport(Movies, OpenDialog.FileName, SaveDialog.FileName, Options);
-                    DialogContent.Close += () => this.HideMetroDialogAsync(Dialog);
-                    Dialog.Content = DialogContent;
-
-                    this.ShowMetroDialogAsync(Dialog);
-                }
+                this.ShowMetroDialogAsync(Dialog);
             }
         }
 
@@ -2939,7 +2601,8 @@ namespace Warp
         {
             System.Windows.Forms.OpenFileDialog FileDialog = new System.Windows.Forms.OpenFileDialog
             {
-                Filter = "STAR Files|*.star"
+                Filter = "STAR Files|*.star",
+                Title = "Select a file with particle coordinates for either the entire data set or one movie"
             };
             System.Windows.Forms.DialogResult Result = FileDialog.ShowDialog();
 
@@ -2965,7 +2628,8 @@ namespace Warp
             System.Windows.Forms.OpenFileDialog FileDialog = new System.Windows.Forms.OpenFileDialog
             {
                 Filter = "MRC Volumes|*.mrc",
-                Multiselect = false
+                Multiselect = false,
+                Title = "Select template volume"
             };
             System.Windows.Forms.DialogResult Result = FileDialog.ShowDialog();
 
@@ -3014,25 +2678,16 @@ namespace Warp
 
         private void ButtonTasksExportTomograms_OnClick(object sender, RoutedEventArgs e)
         {
-            System.Windows.Forms.SaveFileDialog FileDialog = new System.Windows.Forms.SaveFileDialog
-            {
-                Filter = "STAR Files|*.star"
-            };
-            System.Windows.Forms.DialogResult Result = FileDialog.ShowDialog();
+            TiltSeries[] Series = FileDiscoverer.GetImmutableFiles().Cast<TiltSeries>().ToArray();
 
-            if (Result.ToString() == "OK")
-            {
-                TiltSeries[] Series = FileDiscoverer.GetImmutableFiles().Cast<TiltSeries>().ToArray();
+            CustomDialog Dialog = new CustomDialog();
+            Dialog.HorizontalContentAlignment = HorizontalAlignment.Center;
 
-                CustomDialog Dialog = new CustomDialog();
-                Dialog.HorizontalContentAlignment = HorizontalAlignment.Center;
+            DialogTomoList DialogContent = new DialogTomoList(Series, Options);
+            DialogContent.Close += () => this.HideMetroDialogAsync(Dialog);
+            Dialog.Content = DialogContent;
 
-                DialogTomoList DialogContent = new DialogTomoList(Series, FileDialog.FileName, Options);
-                DialogContent.Close += () => this.HideMetroDialogAsync(Dialog);
-                Dialog.Content = DialogContent;
-
-                this.ShowMetroDialogAsync(Dialog);
-            }
+            this.ShowMetroDialogAsync(Dialog);
         }
 
         private void ButtonTasksReconstructTomograms_OnClick(object sender, RoutedEventArgs e)
@@ -3056,31 +2711,23 @@ namespace Warp
         {
             System.Windows.Forms.OpenFileDialog OpenDialog = new System.Windows.Forms.OpenFileDialog
             {
-                Filter = "STAR Files|*.star"
+                Filter = "STAR Files|*.star",
+                Title = "Select file with particles coordinates for either the entire data set or one tomogram"
             };
             System.Windows.Forms.DialogResult ResultOpen = OpenDialog.ShowDialog();
 
             if (ResultOpen.ToString() == "OK")
             {
-                System.Windows.Forms.SaveFileDialog SaveDialog = new System.Windows.Forms.SaveFileDialog
-                {
-                    Filter = "STAR Files|*.star"
-                };
-                System.Windows.Forms.DialogResult ResultSave = SaveDialog.ShowDialog();
+                TiltSeries[] Series = FileDiscoverer.GetImmutableFiles().Cast<TiltSeries>().ToArray();
 
-                if (ResultSave.ToString() == "OK")
-                {
-                    TiltSeries[] Series = FileDiscoverer.GetImmutableFiles().Cast<TiltSeries>().ToArray();
+                CustomDialog Dialog = new CustomDialog();
+                Dialog.HorizontalContentAlignment = HorizontalAlignment.Center;
 
-                    CustomDialog Dialog = new CustomDialog();
-                    Dialog.HorizontalContentAlignment = HorizontalAlignment.Center;
+                DialogTomoParticleExport DialogContent = new DialogTomoParticleExport(Series, OpenDialog.FileName, Options);
+                DialogContent.Close += () => this.HideMetroDialogAsync(Dialog);
+                Dialog.Content = DialogContent;
 
-                    DialogTomoParticleExport DialogContent = new DialogTomoParticleExport(Series, OpenDialog.FileName, SaveDialog.FileName, Options);
-                    DialogContent.Close += () => this.HideMetroDialogAsync(Dialog);
-                    Dialog.Content = DialogContent;
-
-                    this.ShowMetroDialogAsync(Dialog);
-                }
+                this.ShowMetroDialogAsync(Dialog);
             }
         }
 
@@ -3091,7 +2738,8 @@ namespace Warp
             System.Windows.Forms.OpenFileDialog FileDialog = new System.Windows.Forms.OpenFileDialog
             {
                 Filter = "MRC Volumes|*.mrc",
-                Multiselect = false
+                Multiselect = false,
+                Title = "Select template volume"
             };
             System.Windows.Forms.DialogResult Result = FileDialog.ShowDialog();
 
@@ -3128,7 +2776,7 @@ namespace Warp
                 Options.Export.DoDeconvolve = false;
                 Options.Export.DoStack = false;
             }
-            else                                        // SPA interface
+            else                                        // 2D interface
             {
                 foreach (var element in HideWhen2D)
                     element.Visibility = Visibility.Collapsed;
@@ -3194,7 +2842,7 @@ namespace Warp
                     {
                         ((TiltSeries)Item).LoadMovieSizes(CurrentOptionsCTF);
 
-                        float3 StackDims = new float3(((TiltSeries)Item).ImageDimensionsPhysical[0], ((TiltSeries)Item).NTilts);
+                        float3 StackDims = new float3(((TiltSeries)Item).ImageDimensionsPhysical, ((TiltSeries)Item).NTilts);
                         CurrentOptionsCTF.Dimensions = StackDims;
                     }
 
@@ -3238,6 +2886,96 @@ namespace Warp
                 }
             });
         }
+        
+
+        private async void ButtonProcessOneItemTiltHandedness_Click(object sender, RoutedEventArgs e)
+        {
+            if (Options.Runtime.DisplayedMovie == null)
+                return;
+
+            Stopwatch Watch = new Stopwatch();
+            Watch.Start();
+
+            TiltSeries Series = (TiltSeries)Options.Runtime.DisplayedMovie;
+
+            var Dialog = await this.ShowProgressAsync("Please wait...", $"Loading tilt movies and estimating gradients...");
+            Dialog.SetIndeterminate();
+
+            await Task.Run(async () =>
+            {
+                try
+                {
+                    Movie[] TiltMovies = Series.TiltMoviePaths.Select(s => new Movie(Path.Combine(Series.DirectoryName, s))).ToArray();
+
+                    if (TiltMovies.Any(m => m.GridCTFDefocus.Values.Length < 2))
+                        throw new Exception("One or more tilt movies don't have local defocus information.\n" +
+                                            "Please run CTF estimation on all individual tilt movies with a 2x2 spatial resolution grid.");
+
+                    Series.VolumeDimensionsPhysical = new float3((float)Options.Tomo.DimensionsX,
+                                                                 (float)Options.Tomo.DimensionsY,
+                                                                 (float)Options.Tomo.DimensionsZ) * (float)Options.PixelSizeMean;
+                    Series.ImageDimensionsPhysical = new float2(Series.VolumeDimensionsPhysical.X, Series.VolumeDimensionsPhysical.Y);
+
+                    float[] GradientsEstimated = new float[Series.NTilts];
+                    float[] GradientsAssumed = new float[Series.NTilts];
+
+                    float3[] Points = 
+                    {
+                        new float3(0, Series.VolumeDimensionsPhysical.Y / 2, Series.VolumeDimensionsPhysical.Z / 2),
+                        new float3(Series.VolumeDimensionsPhysical.X, Series.VolumeDimensionsPhysical.Y / 2, Series.VolumeDimensionsPhysical.Z / 2)
+                    };
+
+                    float3[] Projected0 = Series.GetPositionInAllTilts(Points[0]).Select(v => v / new float3(Series.ImageDimensionsPhysical.X, Series.ImageDimensionsPhysical.Y, 1)).ToArray();
+                    float3[] Projected1 = Series.GetPositionInAllTilts(Points[1]).Select(v => v / new float3(Series.ImageDimensionsPhysical.X, Series.ImageDimensionsPhysical.Y, 1)).ToArray();
+
+                    for (int t = 0; t < Series.NTilts; t++)
+                    {
+                        float Interp0 = TiltMovies[t].GridCTFDefocus.GetInterpolated(new float3(Projected0[t].X, Projected0[0].Y, 0.5f));
+                        float Interp1 = TiltMovies[t].GridCTFDefocus.GetInterpolated(new float3(Projected1[t].X, Projected1[0].Y, 0.5f));
+                        GradientsEstimated[t] = Interp1 - Interp0;
+
+                        GradientsAssumed[t] = Projected1[t].Z - Projected0[t].Z;
+                    }
+
+                    if (GradientsEstimated.Length > 1)
+                    {
+                        GradientsEstimated = MathHelper.Normalize(GradientsEstimated);
+                        GradientsAssumed = MathHelper.Normalize(GradientsAssumed);
+                    }
+                    else
+                    {
+                        GradientsEstimated[0] = Math.Sign(GradientsEstimated[0]);
+                        GradientsAssumed[0] = Math.Sign(GradientsAssumed[0]);
+                    }
+
+                    float Correlation = MathHelper.DotProduct(GradientsEstimated, GradientsAssumed) / GradientsEstimated.Length;
+
+                    if (Dialog.IsOpen)
+                        await Dialog.CloseAsync();
+
+                    if (Correlation > 0)
+                        await Dispatcher.Invoke(async () =>
+                        {
+                            await this.ShowMessageAsync("", $"It looks like the angles are in accord with the estimated defocus gradients. Correlation = {Correlation:F2}");
+                        });
+                    else
+                        await Dispatcher.Invoke(async () =>
+                        {
+                            await this.ShowMessageAsync("", $"It looks like the angles should be flipped during tilt series import. Correlation = {Correlation:F2}");
+                        });
+                }
+                catch (Exception exc)
+                {
+                    await Dispatcher.Invoke(async () =>
+                    {
+                        if (Dialog.IsOpen)
+                            await Dialog.CloseAsync();
+
+                        await this.ShowMessageAsync("Oopsie", exc.ToString());
+                    });
+                }
+            });
+        }
 
         #endregion
 
@@ -3253,62 +2991,7 @@ namespace Warp
         }
 
         #endregion
-
-        #region Logging
-
-        StackPanel[] LogMessagePanels;
-
-        private void ButtonOpenLog_OnClick(object sender, RoutedEventArgs e)
-        {
-            //if (GridMessageLogs.Visibility == Visibility.Collapsed)
-            //{
-            //    GridMessageLogs.Visibility = Visibility.Visible;
-            //    ButtonOpenLog.Content = "CLOSE LOG";
-            //}
-            //else
-            //{
-            //    GridMessageLogs.Visibility = Visibility.Collapsed;
-            //    ButtonOpenLog.Content = "OPEN LOG";
-            //}
-        }
-
-        private void UpdateLog(List<LogMessage> log, int logID)
-        {
-            LogMessagePanels[logID].Children.Clear();
-
-            Dictionary<string, List<LogMessage>> Groups = new Dictionary<string, List<LogMessage>>();
-            foreach (var message in log)
-            {
-                if (!Groups.ContainsKey(message.GroupTitle))
-                    Groups.Add(message.GroupTitle, new List<LogMessage>());
-                Groups[message.GroupTitle].Add(message);
-            }
-
-            foreach (var group in Groups)
-                group.Value.Sort((a, b) => a.Timestamp.CompareTo(b.Timestamp));
-
-            List<List<LogMessage>> GroupsList = new List<List<LogMessage>>(Groups.Values);
-            GroupsList.Sort((a, b) => a[0].Timestamp.CompareTo(b[0].Timestamp));
-
-            foreach (var group in GroupsList)
-            {
-                LogMessageGroup GroupDisplay = new LogMessageGroup();
-                GroupDisplay.Margin = new Thickness(0, 4, 0, 0);
-                GroupDisplay.GroupName = group[0].GroupTitle;
-                GroupDisplay.Messages = group;
-                LogMessagePanels[logID].Children.Add(GroupDisplay);
-            }
-
-            ((ScrollViewer)LogMessagePanels[logID].Parent).ScrollToEnd();
-        }
-
-        private void Logger_MessageLogged(LogMessage message, int bufferID, List<LogMessage> buffer)
-        {
-            UpdateLog(buffer, bufferID);
-        }
-
-        #endregion
-
+        
         #region Helper methods
 
         void AdjustInput()
@@ -4598,13 +4281,13 @@ namespace Warp
                     Image Images = ParticleImages[ParticleName];
                     Image CTFs = ParticleCTFs[ParticleName];
 
-                    Proj.BackProject(Images, CTFs, ParticleAngles[ParticleName]);
+                    Proj.BackProject(Images, CTFs, ParticleAngles[ParticleName], new float3(1, 1, 0));
 
                     Images.FreeDevice();
                     CTFs.FreeDevice();
                 }
 
-                Image Rec = Proj.Reconstruct(false, PlanForw, PlanBack, PlanForwCTF);
+                Image Rec = Proj.Reconstruct(false, "C1", PlanForw, PlanBack, PlanForwCTF);
                 Proj.Dispose();
 
                 Rec.WriteMRC("F:\\badaben\\ppca_nomem\\randomsubsets\\" + n.ToString("D6") + ".mrc");
@@ -4615,23 +4298,22 @@ namespace Warp
         #endregion
     }
 
-    class WeightOptContainer
+    public class NyquistAngstromConverter : IValueConverter
     {
-        public int SeriesID;
-        public int Subset;
-        public float[] DataFT;
-        public float[] DataWeights;
-        public float Angle;
-        public float Dose;
-
-        public WeightOptContainer(int seriesID, int subset, float[] dataFT, float[] dataWeights, float angle, float dose)
+        public object Convert(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
         {
-            SeriesID = seriesID;
-            Subset = subset;
-            DataFT = dataFT;
-            DataWeights = dataWeights;
-            Angle = angle;
-            Dose = dose;
+            if (value == null || MainWindow.Options == null)
+                return null;
+
+            return MainWindow.Options.BinnedPixelSizeMean * 2 / (decimal)value;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+        {
+            if (value == null || MainWindow.Options == null)
+                return null;
+
+            return MainWindow.Options.BinnedPixelSizeMean * 2 / (decimal)value;
         }
     }
 

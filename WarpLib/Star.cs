@@ -448,6 +448,14 @@ namespace Warp
                 Rows.RemoveAt(indices[i]);
         }
 
+        public void SortByKey(string[] keys)
+        {
+            var SortedRows = Helper.ArrayOfFunction(i => (Rows[i], i), RowCount).ToList();
+            SortedRows.Sort((a, b) => keys[a.i].CompareTo(keys[b.i]));
+
+            Rows = SortedRows.Select(t => t.Item1).ToList();
+        }
+
         public Star CreateSubset(IEnumerable<int> rows)
         {
             Star Subset = new Star(GetColumnNames());
@@ -500,6 +508,7 @@ namespace Warp
 
         public CTF[] GetRelionCTF()
         {
+            float[] Voltage = HasColumn("rlnVoltage") ? GetColumn("rlnVoltage").Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray() : Helper.ArrayOfConstant(300f, RowCount);
             float[] DefocusU = HasColumn("rlnDefocusU") ? GetColumn("rlnDefocusU").Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray() : new float[RowCount];
             float[] DefocusV = HasColumn("rlnDefocusV") ? GetColumn("rlnDefocusV").Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray() : new float[RowCount];
             float[] DefocusAngle = HasColumn("rlnDefocusAngle") ? GetColumn("rlnDefocusAngle").Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray() : new float[RowCount];
@@ -509,6 +518,8 @@ namespace Warp
             float[] Magnification = HasColumn("rlnMagnification") ? GetColumn("rlnMagnification").Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray() : Helper.ArrayOfConstant(10000f, RowCount);
             float[] PixelSize = HasColumn("rlnDetectorPixelSize") ? GetColumn("rlnDetectorPixelSize").Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray() : Helper.ArrayOfConstant(1f, RowCount);
             float[] NormCorrection = HasColumn("rlnNormCorrection") ? GetColumn("rlnNormCorrection").Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray() : Helper.ArrayOfConstant(1f, RowCount);
+            float[] BeamTiltX = HasColumn("rlnBeamTiltX") ? GetColumn("rlnBeamTiltX").Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray() : Helper.ArrayOfConstant(0f, RowCount);
+            float[] BeamTiltY = HasColumn("rlnBeamTiltY") ? GetColumn("rlnBeamTiltY").Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray() : Helper.ArrayOfConstant(0f, RowCount);
 
             CTF[] Result = new CTF[RowCount];
 
@@ -517,15 +528,72 @@ namespace Warp
                 Result[r] = new CTF
                 {
                     PixelSize = (decimal)(PixelSize[r] / Magnification[r] * 10000),
+                    Voltage = (decimal)Voltage[r],
                     Amplitude = (decimal)Amplitude[r],
                     PhaseShift = (decimal)PhaseShift[r],
                     Cs = (decimal)Cs[r],
                     DefocusAngle = (decimal)DefocusAngle[r],
                     Defocus = (decimal)((DefocusU[r] + DefocusV[r]) * 0.5e-4f),
                     DefocusDelta = (decimal)((DefocusU[r] - DefocusV[r]) * 0.5e-4f),
-                    Scale = (decimal)NormCorrection[r]
+                    Scale = (decimal)NormCorrection[r],
+                    BeamTilt = new float2(BeamTiltX[r], BeamTiltY[r])
                 };
             }
+
+            return Result;
+        }
+
+        public float[] GetFloat(string name1 = null)
+        {
+            return (name1 == null ? GetColumn(0) : GetColumn(name1)).Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray();
+        }
+
+        public float2[] GetFloat2(string name1 = null, string name2 = null)
+        {
+            float[] Column1 = (name1 == null ? GetColumn(0) : GetColumn(name1)).Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray();
+            float[] Column2 = (name2 == null ? GetColumn(1) : GetColumn(name2)).Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray();
+
+            return Helper.Zip(Column1, Column2);
+        }
+
+        public float3[] GetFloat3(string name1 = null, string name2 = null, string name3 = null)
+        {
+            float[] Column1 = (name1 == null ? GetColumn(0) : GetColumn(name1)).Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray();
+            float[] Column2 = (name2 == null ? GetColumn(1) : GetColumn(name2)).Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray();
+            float[] Column3 = (name3 == null ? GetColumn(2) : GetColumn(name3)).Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray();
+
+            return Helper.Zip(Column1, Column2, Column3);
+        }
+
+        public float4[] GetFloat4()
+        {
+            float[] Column1 = GetColumn(0).Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray();
+            float[] Column2 = GetColumn(1).Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray();
+            float[] Column3 = GetColumn(2).Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray();
+            float[] Column4 = GetColumn(3).Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray();
+
+            return Helper.Zip(Column1, Column2, Column3, Column4);
+        }
+
+        public float5[] GetFloat5()
+        {
+            float[] Column1 = GetColumn(0).Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray();
+            float[] Column2 = GetColumn(1).Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray();
+            float[] Column3 = GetColumn(2).Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray();
+            float[] Column4 = GetColumn(3).Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray();
+            float[] Column5 = GetColumn(4).Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray();
+
+            return Helper.Zip(Column1, Column2, Column3, Column4, Column5);
+        }
+
+        public float[][] GetFloatN(int n = -1)
+        {
+            if (n < 0)
+                n = ColumnCount;
+
+            float[][] Result = new float[RowCount][];
+            for (int r = 0; r < RowCount; r++)
+                Result[r] = GetRow(r).Take(n).Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray();
 
             return Result;
         }

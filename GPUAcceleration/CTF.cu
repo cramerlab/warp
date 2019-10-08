@@ -56,9 +56,9 @@ __declspec(dllexport) void CreateSpectra(float* d_frame,
 
     if (ctftime || !ctfspace)
     {
-        for (int z = 0; z < nframes; z++)
+        for (size_t z = 0; z < nframes; z++)
         {
-            int framegroup = z / pertimegroup;
+            size_t framegroup = z / pertimegroup;
             if (framegroup >= ctfgrid.z)
                 break;
 
@@ -99,7 +99,7 @@ __declspec(dllexport) void CreateSpectra(float* d_frame,
         cudaMalloc((void**)&d_tempspectraaccumulated, norigins * ElementsFFT2(dimsregion) * sizeof(tfloat));
         d_ValueFill(d_tempspectraaccumulated, ElementsFFT2(dimsregion) * norigins, (tfloat)0);
 
-        for (int z = 0; z < nframes; z++)
+        for (size_t z = 0; z < nframes; z++)
         {
             // Write spectra to temp and reduce them to a temporary average spectrum
             d_CTFPeriodogram(d_frame + Elements2(dimsframe) * z, dimsframe, d_origins, norigins, dimsregion, dimsregion, d_tempspectra, false, ownplanforw, d_extracted, d_extractedft);

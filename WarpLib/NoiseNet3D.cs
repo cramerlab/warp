@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -248,7 +249,20 @@ namespace Warp
             Directory.CreateDirectory(newModelDir + "variables");
 
             foreach (var fileName in Directory.EnumerateFiles(ModelDir))
-                File.Copy(fileName, newModelDir + Helper.PathToNameWithExtension(fileName), true);
+            {
+                string Source = fileName;
+                string Destination = newModelDir + Helper.PathToNameWithExtension(fileName);
+
+                bool AreSame = false;
+                try
+                {
+                    AreSame = Helper.NormalizePath(Source) == Helper.NormalizePath(Destination);
+                }
+                catch { }
+
+                if (!AreSame)
+                    File.Copy(fileName, newModelDir + Helper.PathToNameWithExtension(fileName), true);
+            }
 
             TFTensor TensorPath = TFTensor.CreateString(Encoding.ASCII.GetBytes(newModelDir + "variables/variables"));
             var Runner = Session.GetRunner().AddInput(NodeSaverPath, TensorPath);
@@ -346,6 +360,8 @@ namespace Warp
 
             Extracted.Dispose();
 
+            noisy.FreeDevice();
+
             float[][] Denoised = noisy.GetHost(Intent.Write);
             for (int z = 0; z < Dims.Z; z++)
             {
@@ -367,6 +383,303 @@ namespace Warp
                     }
                 }
             }
+        }
+
+        public static (Image[] Halves1, Image[] Halves2, float2[] Stats) TrainOnVolumes(NoiseNet3D network, 
+                                                                                        Image[] halves1, 
+                                                                                        Image[] halves2, 
+                                                                                        Image[] masks, 
+                                                                                        float angpix, 
+                                                                                        float lowpass, 
+                                                                                        float upsample, 
+                                                                                        bool dontFlatten,
+                                                                                        bool performTraining,
+                                                                                        int niterations,
+                                                                                        float startFrom, 
+                                                                                        int batchsize,
+                                                                                        int gpuprocess,
+                                                                                        Action<string> progressCallback)
+        {
+            if (batchsize != 4)
+            {
+                niterations = niterations * 4 / batchsize;
+                Debug.WriteLine($"Adjusting the number of iterations to {niterations} to match different batch size.\n");
+            }
+
+            GPU.SetDevice(gpuprocess);
+
+            #region Mask
+
+            Debug.Write("Preparing mask... ");
+            progressCallback?.Invoke("Preparing mask... ");
+
+            int3[] BoundingBox = Helper.ArrayOfFunction(i => new int3(-1), halves1.Length);
+            if (masks != null)
+            {
+                for (int i = 0; i < masks.Length; i++)
+                {
+                    Image Mask = masks[i];
+
+                    Mask.TransformValues((x, y, z, v) =>
+                    {
+                        if (v > 0.5f)
+                        {
+                            BoundingBox[i].X = Math.Max(BoundingBox[i].X, Math.Abs(x - Mask.Dims.X / 2) * 2);
+                            BoundingBox[i].Y = Math.Max(BoundingBox[i].Y, Math.Abs(y - Mask.Dims.Y / 2) * 2);
+                            BoundingBox[i].Z = Math.Max(BoundingBox[i].Z, Math.Abs(z - Mask.Dims.Z / 2) * 2);
+                        }
+
+                        return v;
+                    });
+
+                    if (BoundingBox[i].X < 2)
+                        throw new Exception("Mask does not seem to contain any non-zero values.");
+
+                    BoundingBox[i] += 64;
+
+                    BoundingBox[i].X = Math.Min(BoundingBox[i].X, Mask.Dims.X);
+                    BoundingBox[i].Y = Math.Min(BoundingBox[i].Y, Mask.Dims.Y);
+                    BoundingBox[i].Z = Math.Min(BoundingBox[i].Z, Mask.Dims.Z);
+                }
+            }
+
+            Console.WriteLine("done.\n");
+
+            #endregion
+
+            #region Load and prepare data
+
+            Console.WriteLine("Preparing data:");
+
+            List<Image> Maps1 = new List<Image>();
+            List<Image> Maps2 = new List<Image>();
+
+            List<Image> HalvesForDenoising1 = new List<Image>();
+            List<Image> HalvesForDenoising2 = new List<Image>();
+            List<float2> StatsForDenoising = new List<float2>();
+
+            for (int imap = 0; imap < halves1.Length; imap++)
+            {
+                Debug.Write($"Preparing map {imap}... ");
+                progressCallback?.Invoke($"Preparing map {imap}... ");
+
+                Image Map1 = halves1[imap];
+                Image Map2 = halves2[imap];
+
+                float MapPixelSize = Map1.PixelSize / upsample;
+
+                if (!dontFlatten)
+                {
+                    Image Average = Map1.GetCopy();
+                    Average.Add(Map2);
+
+                    if (masks != null)
+                        Average.Multiply(masks[imap]);
+
+                    float[] Spectrum = Average.AsAmplitudes1D(true, 1, (Average.Dims.X + Average.Dims.Y + Average.Dims.Z) / 6);
+                    Average.Dispose();
+
+                    int i10A = Math.Min((int)(angpix * 2 / 10 * Spectrum.Length), Spectrum.Length - 1);
+                    float Amp10A = Spectrum[i10A];
+
+                    for (int i = 0; i < Spectrum.Length; i++)
+                        Spectrum[i] = i < i10A ? 1 : (Amp10A / Math.Max(1e-10f, Spectrum[i]));
+
+                    Image Map1Flat = Map1.AsSpectrumMultiplied(true, Spectrum);
+                    Map1.FreeDevice();
+                    Map1 = Map1Flat;
+                    Map1.FreeDevice();
+
+                    Image Map2Flat = Map2.AsSpectrumMultiplied(true, Spectrum);
+                    Map2.FreeDevice();
+                    Map2 = Map2Flat;
+                    Map2.FreeDevice();
+                }
+
+                if (lowpass > 0)
+                {
+                    Map1.Bandpass(0, angpix * 2 / lowpass, true, 0.01f);
+                    Map2.Bandpass(0, angpix * 2 / lowpass, true, 0.01f);
+                }
+
+                if (upsample != 1f)
+                {
+                    Image Map1Scaled = Map1.AsScaled(Map1.Dims * upsample / 2 * 2);
+                    Map1.FreeDevice();
+                    Map1 = Map1Scaled;
+                    Map1.FreeDevice();
+
+                    Image Map2Scaled = Map2.AsScaled(Map2.Dims * upsample / 2 * 2);
+                    Map2.FreeDevice();
+                    Map2 = Map2Scaled;
+                    Map2.FreeDevice();
+                }
+
+                Image ForDenoising1 = Map1.GetCopy();
+                Image ForDenoising2 = Map2.GetCopy();
+
+                if (BoundingBox[imap].X > 0)
+                {
+                    Image Map1Cropped = Map1.AsPadded(BoundingBox[imap]);
+                    Map1.FreeDevice();
+                    Map1 = Map1Cropped;
+                    Map1.FreeDevice();
+
+                    Image Map2Cropped = Map2.AsPadded(BoundingBox[imap]);
+                    Map2.FreeDevice();
+                    Map2 = Map2Cropped;
+                    Map2.FreeDevice();
+                }
+
+                float2 MeanStd = MathHelper.MeanAndStd(Helper.Combine(Map1.GetHostContinuousCopy(), Map2.GetHostContinuousCopy()));
+
+                Map1.TransformValues(v => (v - MeanStd.X) / MeanStd.Y);
+                Map2.TransformValues(v => (v - MeanStd.X) / MeanStd.Y);
+
+                ForDenoising1.TransformValues(v => (v - MeanStd.X) / MeanStd.Y);
+                ForDenoising2.TransformValues(v => (v - MeanStd.X) / MeanStd.Y);
+
+                HalvesForDenoising1.Add(ForDenoising1);
+                HalvesForDenoising2.Add(ForDenoising2);
+                StatsForDenoising.Add(MeanStd);
+
+                GPU.PrefilterForCubic(Map1.GetDevice(Intent.ReadWrite), Map1.Dims);
+                Map1.FreeDevice();
+                Maps1.Add(Map1);
+                
+                GPU.PrefilterForCubic(Map2.GetDevice(Intent.ReadWrite), Map2.Dims);
+                Map2.FreeDevice();
+                Maps2.Add(Map2);
+                
+                Debug.WriteLine(" Done.");
+            }
+
+            if (masks != null)
+                foreach (var mask in masks)
+                    mask.FreeDevice();
+
+            #endregion
+
+            int Dim = network.BoxDimensions.X;
+
+            progressCallback?.Invoke($"0/{niterations}");
+
+            if (performTraining)
+            {
+                GPU.SetDevice(gpuprocess);
+
+                #region Training
+
+                Random Rand = new Random(123);
+
+                int NMaps = Maps1.Count;
+                int NMapsPerBatch = Math.Min(128, NMaps);
+                int MapSamples = batchsize;
+
+                Image[] ExtractedSource = Helper.ArrayOfFunction(i => new Image(new int3(Dim, Dim, Dim * MapSamples)), NMapsPerBatch);
+                Image[] ExtractedTarget = Helper.ArrayOfFunction(i => new Image(new int3(Dim, Dim, Dim * MapSamples)), NMapsPerBatch);
+
+                for (int iter = (int)(startFrom * niterations); iter < niterations; iter++)
+                {
+                    int[] ShuffledMapIDs = Helper.RandomSubset(Helper.ArrayOfSequence(0, NMaps, 1), NMapsPerBatch, Rand.Next(9999));
+
+                    for (int m = 0; m < NMapsPerBatch; m++)
+                    {
+                        int MapID = ShuffledMapIDs[m];
+
+                        Image Map1 = Maps1[MapID];
+                        Image Map2 = Maps2[MapID];
+
+                        int3 DimsMap = Map1.Dims;
+
+                        int3 Margin = new int3((int)(Dim / 2 * 1.5f));
+                        //Margin.Z = 0;
+                        float3[] Position = Helper.ArrayOfFunction(i => new float3((float)Rand.NextDouble() * (DimsMap.X - Margin.X * 2) + Margin.X,
+                                                                                   (float)Rand.NextDouble() * (DimsMap.Y - Margin.Y * 2) + Margin.Y,
+                                                                                   (float)Rand.NextDouble() * (DimsMap.Z - Margin.Z * 2) + Margin.Z), MapSamples);
+
+                        float3[] Angle = Helper.ArrayOfFunction(i => new float3((float)Rand.NextDouble() * 360,
+                                                                                (float)Rand.NextDouble() * 360,
+                                                                                (float)Rand.NextDouble() * 360) * Helper.ToRad, MapSamples);
+
+                        {
+                            ulong[] Texture = new ulong[1], TextureArray = new ulong[1];
+                            GPU.CreateTexture3D(Map1.GetDevice(Intent.Read), Map1.Dims, Texture, TextureArray, true);
+                            //Map1.FreeDevice();
+
+                            GPU.Rotate3DExtractAt(Texture[0],
+                                                  Map1.Dims,
+                                                  ExtractedSource[m].GetDevice(Intent.Write),
+                                                  new int3(Dim),
+                                                  Helper.ToInterleaved(Angle),
+                                                  Helper.ToInterleaved(Position),
+                                                  (uint)MapSamples);
+
+                            //ExtractedSource[MapID].WriteMRC("d_extractedsource.mrc", true);
+
+                            GPU.DestroyTexture(Texture[0], TextureArray[0]);
+                        }
+
+                        {
+                            ulong[] Texture = new ulong[1], TextureArray = new ulong[1];
+                            GPU.CreateTexture3D(Map2.GetDevice(Intent.Read), Map2.Dims, Texture, TextureArray, true);
+                            //Map2.FreeDevice();
+
+                            GPU.Rotate3DExtractAt(Texture[0],
+                                                  Map2.Dims,
+                                                  ExtractedTarget[m].GetDevice(Intent.Write),
+                                                  new int3(Dim),
+                                                  Helper.ToInterleaved(Angle),
+                                                  Helper.ToInterleaved(Position),
+                                                  (uint)MapSamples);
+
+                            //ExtractedTarget.WriteMRC("d_extractedtarget.mrc", true);
+
+                            GPU.DestroyTexture(Texture[0], TextureArray[0]);
+                        }
+
+                        //Map1.FreeDevice();
+                        //Map2.FreeDevice();
+                    }
+
+                    float[] PredictedData = null, Loss = null;
+
+                    {
+                        float CurrentLearningRate = 0.0001f * (float)Math.Pow(10, -iter / (float)niterations * 2);
+
+                        for (int m = 0; m < ShuffledMapIDs.Length; m++)
+                        {
+                            int MapID = m;
+
+                            bool Twist = Rand.Next(2) == 0;
+
+                            if (Twist)
+                                network.Train(ExtractedSource[MapID].GetDevice(Intent.Read),
+                                              ExtractedTarget[MapID].GetDevice(Intent.Read),
+                                              CurrentLearningRate,
+                                              0,
+                                              out PredictedData,
+                                              out Loss);
+                            else
+                                network.Train(ExtractedTarget[MapID].GetDevice(Intent.Read),
+                                              ExtractedSource[MapID].GetDevice(Intent.Read),
+                                              CurrentLearningRate,
+                                              0,
+                                              out PredictedData,
+                                              out Loss);
+                        }
+                    }
+
+                    Debug.WriteLine($"{iter + 1}/{niterations}");
+                    progressCallback?.Invoke($"{iter + 1}/{niterations}");
+                }
+
+                Debug.WriteLine("\nDone training!\n");
+
+                #endregion
+            }
+
+            return (HalvesForDenoising1.ToArray(), HalvesForDenoising2.ToArray(), StatsForDenoising.ToArray());
         }
     }
 }

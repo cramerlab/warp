@@ -10,6 +10,7 @@ using Warp.Tools;
 
 namespace Warp.Sociology
 {
+    [Serializable]
     public class DataSource : WarpBase
     {
         private Guid _GUID = Guid.NewGuid();
@@ -161,7 +162,17 @@ namespace Warp.Sociology
             set { if (value != _DimensionsZ) { _DimensionsZ = value; OnPropertyChanged(); } }
         }
 
+        private int _FrameLimit = -1;
+        [WarpSerializable]
+        public int FrameLimit
+        {
+            get { return _FrameLimit; }
+            set { if (value != _FrameLimit) { _FrameLimit = value; OnPropertyChanged(); } }
+        }
+
         #endregion
+
+        #region Gain
 
         private string _GainPath = "";
         [WarpSerializable]
@@ -195,6 +206,16 @@ namespace Warp.Sociology
             set { if (value != _GainTranspose) { _GainTranspose = value; OnPropertyChanged(); } }
         }
 
+        #endregion
+
+        private decimal _DosePerAngstromFrame = 0;
+        [WarpSerializable]
+        public decimal DosePerAngstromFrame
+        {
+            get { return _DosePerAngstromFrame; }
+            set { if (value != _DosePerAngstromFrame) { _DosePerAngstromFrame = value; OnPropertyChanged(); } }
+        }
+
         public Dictionary<string, string> Files = new Dictionary<string, string>();
 
         public Dictionary<Guid, string> UsedSpecies = new Dictionary<Guid, string>();
@@ -204,33 +225,7 @@ namespace Warp.Sociology
 
         }
 
-        public string GetDataHash()
-        {
-            StringBuilder Builder = new StringBuilder();
-            foreach (var file in Files)
-                Builder.Append(file.Key);
-
-            return MathHelper.GetSHA1(Helper.ToBytes(Builder.ToString().ToCharArray()));
-        }
-
-        public void ComputeVersionHash()
-        {
-            StringBuilder Builder = new StringBuilder();
-
-            foreach (var file in Files)
-            {
-                Movie Movie = IsTiltSeries ? new TiltSeries(FolderPath + file.Value) : new Movie(FolderPath + file.Value);
-                Builder.Append(Movie.GetProcessingHash());
-            }
-
-            foreach (var species in UsedSpecies)
-            {
-                Builder.Append(species.Key);
-                Builder.Append(species.Value);
-            }
-
-            Version = MathHelper.GetSHA1(Helper.ToBytes(Builder.ToString().ToCharArray()));
-        }
+        #region Load & save
 
         public void Save()
         {
@@ -302,6 +297,38 @@ namespace Warp.Sociology
             }
         }
 
+        #endregion
+
+        #region Version control
+
+        public string GetDataHash()
+        {
+            StringBuilder Builder = new StringBuilder();
+            foreach (var file in Files)
+                Builder.Append(file.Key);
+
+            return MathHelper.GetSHA1(Helper.ToBytes(Builder.ToString().ToCharArray()));
+        }
+
+        public void ComputeVersionHash()
+        {
+            StringBuilder Builder = new StringBuilder();
+
+            foreach (var file in Files)
+            {
+                Movie Movie = IsTiltSeries ? new TiltSeries(FolderPath + file.Value) : new Movie(FolderPath + file.Value);
+                Builder.Append(Movie.GetProcessingHash());
+            }
+
+            foreach (var species in UsedSpecies)
+            {
+                Builder.Append(species.Key);
+                Builder.Append(species.Value);
+            }
+
+            Version = MathHelper.GetSHA1(Helper.ToBytes(Builder.ToString().ToCharArray()));
+        }
+
         public void Commit()
         {
             PreviousVersion = Version;
@@ -322,19 +349,39 @@ namespace Warp.Sociology
             foreach (var file in Files)
             {
                 string NameXML = Helper.PathToName(file.Value) + ".xml";
-                File.Copy(OriginalFolderPath + NameXML, VersionFolderPath + NameXML);
+                if (!File.Exists(VersionFolderPath + NameXML))
+                    File.Copy(OriginalFolderPath + NameXML, VersionFolderPath + NameXML);
             }
 
             Path = OriginalFolderPath + FileName;
             Save();
         }
 
+        #endregion
+
+        public Image LoadAndPrepareGainReference()
+        {
+            if (string.IsNullOrEmpty(GainPath))
+                return null;
+
+            Image Gain = Image.FromFile(GainPath, new int2(1), 0, typeof(float));
+
+            if (GainFlipX)
+                Gain = Gain.AsFlippedX();
+            if (GainFlipY)
+                Gain = Gain.AsFlippedY();
+            if (GainTranspose)
+                Gain = Gain.AsTransposed();
+
+            return Gain;
+        }
+
         public static DataSource FromFile(string path)
         {
-            DataSource Loaded = new DataSource();
-            Loaded.Load(path);
+            DataSource Result = new DataSource();
+            Result.Load(path);
 
-            return Loaded;
+            return Result;
         }
     }
 }

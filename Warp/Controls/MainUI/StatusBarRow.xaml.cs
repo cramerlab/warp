@@ -131,7 +131,7 @@ namespace Warp.Controls
 
             List<Tuple<Movie, ProcessingStatus>> WithStatus = new List<Tuple<Movie, ProcessingStatus>>(RowItems.Count);
             foreach (var item in RowItems)
-                WithStatus.Add(new Tuple<Movie, ProcessingStatus>(item, GetMovieProcessingStatus(item, OptionsCTF, OptionsMovement, OptionsBoxNet, OptionsExport, MainWindow.Options)));
+                WithStatus.Add(new Tuple<Movie, ProcessingStatus>(item, StatusBar.GetMovieProcessingStatus(item, OptionsCTF, OptionsMovement, OptionsBoxNet, OptionsExport, MainWindow.Options)));
 
 
             if (RowItems.Count == 0 || AllItems == null || ActualWidth == 0 || ItemWidth == 0) // Hide unnecessary elements.
@@ -156,7 +156,7 @@ namespace Warp.Controls
                         {
                             Width = CurrentSteps * ItemWidth + 0.3,
                             Height = 12,
-                            Fill = StatusToBrush(CurrentStatus),
+                            Fill = StatusBar.StatusToBrush(CurrentStatus),
                             SnapsToDevicePixels = false
                         };
                         PanelSegments.Children.Add(Segment);
@@ -175,7 +175,7 @@ namespace Warp.Controls
                     {
                         Width = CurrentSteps * ItemWidth,
                         Height = 12,
-                        Fill = StatusToBrush(CurrentStatus),
+                        Fill = StatusBar.StatusToBrush(CurrentStatus),
                         SnapsToDevicePixels = false
                     };
                     PanelSegments.Children.Add(Segment);
@@ -227,7 +227,7 @@ namespace Warp.Controls
                 ProcessingOptionsBoxNet OptionsBoxNet = MainWindow.Options.GetProcessingBoxNet();
                 ProcessingOptionsMovieExport OptionsExport = MainWindow.Options.GetProcessingMovieExport();
 
-                PenCurrentName.Brush = StatusToBrush(GetMovieProcessingStatus(ActiveItem, OptionsCTF, OptionsMovement, OptionsBoxNet, OptionsExport, MainWindow.Options));
+                PenCurrentName.Brush = StatusBar.StatusToBrush(StatusBar.GetMovieProcessingStatus(ActiveItem, OptionsCTF, OptionsMovement, OptionsBoxNet, OptionsExport, MainWindow.Options));
                 //PenCurrentName.Brush.Opacity = 0.3;
             }
             else
@@ -268,7 +268,7 @@ namespace Warp.Controls
                 ProcessingOptionsBoxNet OptionsBoxNet = MainWindow.Options.GetProcessingBoxNet();
                 ProcessingOptionsMovieExport OptionsExport = MainWindow.Options.GetProcessingMovieExport();
 
-                PenHighlightCurrentName.Brush = StatusToBrush(GetMovieProcessingStatus(HighlightItem, OptionsCTF, OptionsMovement, OptionsBoxNet, OptionsExport, MainWindow.Options));
+                PenHighlightCurrentName.Brush = StatusBar.StatusToBrush(StatusBar.GetMovieProcessingStatus(HighlightItem, OptionsCTF, OptionsMovement, OptionsBoxNet, OptionsExport, MainWindow.Options));
 
                 PanelSegmentHighlight.Children.Clear();
                 Rectangle Segment = new Rectangle
@@ -321,21 +321,21 @@ namespace Warp.Controls
 
                 if (HighlightItem.OptionsMovement != null)
                     IndicatorMotion.Foreground = NeedsNewMotion ? (DoMovement ? BrushOutdatedOpaque : BrushDeselected) : BrushProcessedOpaque;
-                else if (DoMovement)
+                else if (DoMovement && HighlightItem.GetType() == typeof(Movie))
                     IndicatorMotion.Foreground = BrushUnprocessedOpaque;
                 else
                     IndicatorMotion.Foreground = BrushDeselected;
 
                 if (HighlightItem.OptionsBoxNet != null)
                     IndicatorPicking.Foreground = NeedsNewPicking ? (DoPicking ? BrushOutdatedOpaque : BrushDeselected) : BrushProcessedOpaque;
-                else if (DoPicking)
+                else if (DoPicking && HighlightItem.GetType() == typeof(Movie))
                     IndicatorPicking.Foreground = BrushUnprocessedOpaque;
                 else
                     IndicatorPicking.Foreground = BrushDeselected;
 
                 if (HighlightItem.OptionsMovieExport != null)
                     IndicatorExport.Foreground = NeedsNewExport ? (DoExport ? BrushOutdatedOpaque : BrushDeselected) : BrushProcessedOpaque;
-                else if (DoExport)
+                else if (DoExport && HighlightItem.GetType() == typeof(Movie))
                     IndicatorExport.Foreground = BrushUnprocessedOpaque;
                 else
                     IndicatorExport.Foreground = BrushDeselected;
@@ -377,20 +377,6 @@ namespace Warp.Controls
             CheckCurrentName.Visibility = Visibility.Hidden;
         }
 
-        private static Brush StatusToBrush(ProcessingStatus status)
-        {
-            if (status == ProcessingStatus.Processed)
-                return BrushProcessed.CloneCurrentValue();
-            else if (status == ProcessingStatus.Outdated)
-                return BrushOutdated.CloneCurrentValue();
-            else if (status == ProcessingStatus.Unprocessed)
-                return BrushUnprocessed.CloneCurrentValue();
-            else if (status == ProcessingStatus.FilteredOut)
-                return BrushFilteredOut.CloneCurrentValue();
-            else
-                return BrushDeselected.CloneCurrentValue();
-        }
-
         private void MainGrid_OnMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
         {
             if (RowItems.Count == 0)
@@ -419,41 +405,6 @@ namespace Warp.Controls
         {
             HighlightItem = null;
             UpdateHighlightTracker();
-        }
-
-        public static ProcessingStatus GetMovieProcessingStatus(Movie movie, ProcessingOptionsMovieCTF optionsCTF, ProcessingOptionsMovieMovement optionsMovement, ProcessingOptionsBoxNet optionsBoxNet, ProcessingOptionsMovieExport optionsExport, Options options, bool considerFilter = true)
-        {
-            bool DoCTF = options.ProcessCTF;
-            bool DoMovement = options.ProcessMovement;
-            bool DoBoxNet = options.ProcessPicking;
-            bool DoExport = optionsExport.DoAverage || optionsExport.DoStack || optionsExport.DoDeconv;
-
-            ProcessingStatus Status = ProcessingStatus.Processed;
-
-            if (movie.UnselectManual != null && (bool)movie.UnselectManual)
-            {
-                Status = ProcessingStatus.LeaveOut;
-            }
-            else if (movie.OptionsCTF == null && movie.OptionsMovement == null && movie.OptionsMovieExport == null)
-            {
-                Status = ProcessingStatus.Unprocessed;
-            }
-            else
-            {
-                if (DoCTF && (movie.OptionsCTF == null || movie.OptionsCTF != optionsCTF))
-                    Status = ProcessingStatus.Outdated;
-                else if (DoMovement && (movie.OptionsMovement == null || movie.OptionsMovement != optionsMovement))
-                    Status = ProcessingStatus.Outdated;
-                else if (DoBoxNet && (movie.OptionsBoxNet == null || movie.OptionsBoxNet != optionsBoxNet))
-                    Status = ProcessingStatus.Outdated;
-                else if (DoExport && (movie.OptionsMovieExport == null || movie.OptionsMovieExport != optionsExport))
-                    Status = ProcessingStatus.Outdated;
-            }
-
-            if (Status == ProcessingStatus.Processed && movie.UnselectFilter && movie.UnselectManual == null && considerFilter)
-                Status = ProcessingStatus.FilteredOut;
-
-            return Status;
         }
 
         private void CheckCurrentName_OnClick(object sender, RoutedEventArgs e)

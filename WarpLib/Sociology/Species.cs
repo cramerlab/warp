@@ -239,7 +239,7 @@ namespace Warp.Sociology
 
         #region Resolution
 
-        private decimal _GlobalResolution = 2M;
+        private decimal _GlobalResolution = -1M;
         [WarpSerializable]
         public decimal GlobalResolution
         {
@@ -425,6 +425,24 @@ namespace Warp.Sociology
             }
             set { if (value != _AnisoResolution) { _AnisoResolution = value; OnPropertyChanged(); } }
         }
+
+        #endregion
+
+        #region Denoising
+
+        private decimal _DenoisedAtResolution = -1M;
+        [WarpSerializable]
+        public decimal DenoisedAtResolution
+        {
+            get { return _DenoisedAtResolution; }
+            set { if (value != _DenoisedAtResolution) { _DenoisedAtResolution = value; OnPropertyChanged(); } }
+        }
+
+        private const string SuffixNoiseNet = "_noisenet";
+        public string NameNoiseNet => NameSafe + SuffixNoiseNet;
+        public string PathNoiseNet => FolderPath + NameNoiseNet;
+
+        private NoiseNet3D Denoiser = null;
 
         #endregion
 
@@ -648,6 +666,44 @@ namespace Warp.Sociology
             }
         }
 
+        private const string SuffixMapDenoised = "_denoised.mrc";
+        public string NameMapDenoised => NameSafe + SuffixMapDenoised;
+        public string PathMapDenoised => FolderPath + NameMapDenoised;
+
+        private Image _MapDenoised = null;
+        public Image MapDenoised
+        {
+            get
+            {
+                if (_MapDenoised == null)
+                {
+                    if (!File.Exists(PathMapDenoised))
+                        return null;
+                    _MapDenoised = Image.FromFile(PathMapDenoised);
+                }
+                return _MapDenoised;
+            }
+            set { if (value != _MapDenoised) { _MapDenoised = value; OnPropertyChanged(); } }
+        }
+        public Image MapDenoisedAsync
+        {
+            get
+            {
+                if (_MapDenoised == null)
+                {
+                    if (!File.Exists(PathMapDenoised))
+                        return null;
+                    Task.Run(() =>
+                    {
+                        _MapDenoised = Image.FromFile(PathMapDenoised);
+                        OnPropertyChanged(nameof(MapDenoised));
+                    });
+                    return null;
+                }
+                return _MapDenoised;
+            }
+        }
+
         private const string SuffixHalfMap1 = "_half1.mrc";
         public string NameHalfMap1 => NameSafe + SuffixHalfMap1;
         public string PathHalfMap1 => FolderPath + NameHalfMap1;
@@ -737,25 +793,18 @@ namespace Warp.Sociology
             set { if (value != _ResolutionRefinement) { _ResolutionRefinement = value; OnPropertyChanged(); } }
         }
 
-        private Projector _HalfMap1Projector = null;
-        public Projector HalfMap1Projector
+        private Projector[] _HalfMap1Projector = null;
+        public Projector[] HalfMap1Projector
         {
             get { return _HalfMap1Projector; }
             set { if (value != _HalfMap1Projector) { _HalfMap1Projector = value; OnPropertyChanged(); } }
         }
 
-        private Projector _HalfMap2Projector = null;
-        public Projector HalfMap2Projector
+        private Projector[] _HalfMap2Projector = null;
+        public Projector[] HalfMap2Projector
         {
             get { return _HalfMap2Projector; }
             set { if (value != _HalfMap2Projector) { _HalfMap2Projector = value; OnPropertyChanged(); } }
-        }
-
-        private Projector _SamplingProjector = null;
-        public Projector SamplingProjector
-        {
-            get { return _SamplingProjector; }
-            set { if (value != _SamplingProjector) { _SamplingProjector = value; OnPropertyChanged(); } }
         }
 
         #endregion
@@ -769,15 +818,15 @@ namespace Warp.Sociology
             set { if (value != _ResolutionReconstruction) { _ResolutionReconstruction = value; OnPropertyChanged(); } }
         }
 
-        private Projector _HalfMap1Reconstruction = null;
-        public Projector HalfMap1Reconstruction
+        private Projector[] _HalfMap1Reconstruction = null;
+        public Projector[] HalfMap1Reconstruction
         {
             get { return _HalfMap1Reconstruction; }
             set { if (value != _HalfMap1Reconstruction) { _HalfMap1Reconstruction = value; OnPropertyChanged(); } }
         }
 
-        private Projector _HalfMap2Reconstruction = null;
-        public Projector HalfMap2Reconstruction
+        private Projector[] _HalfMap2Reconstruction = null;
+        public Projector[] HalfMap2Reconstruction
         {
             get { return _HalfMap2Reconstruction; }
             set { if (value != _HalfMap2Reconstruction) { _HalfMap2Reconstruction = value; OnPropertyChanged(); } }
@@ -1088,9 +1137,52 @@ namespace Warp.Sociology
 
         #region Processing
 
-        public void CalculateResolutionAndFilter(float fixedResolution = -1)
+        public void CalculateResolutionAndFilter(float fixedResolution = -1, Action<string> progressCallback = null)
         {
-            Image MaskSoft = FSC.MakeSoftMask(Mask, 3, 3);
+            GPU.SetDevice(0);
+
+            //_HalfMap1 = Image.FromFile("d_half1.mrc");
+            //Image Cropped1 = HalfMap1.AsPadded(new int3(400));
+            //HalfMap1.Dispose();
+            //_HalfMap1 = Cropped1;
+            //_HalfMap2 = Image.FromFile("d_half2.mrc");
+            //Image Cropped2 = HalfMap2.AsPadded(new int3(400));
+            //HalfMap2.Dispose();
+            //_HalfMap2 = Cropped2;
+
+            progressCallback?.Invoke("1/5: Global FSC");
+
+            #region If there is no resolution estimate yet, make one with a soft spherical mask
+
+            if (GlobalResolution <= 0)
+            {
+                Image MaskSpherical = new Image(HalfMap1.Dims);
+                MaskSpherical.Fill(1);
+                MaskSpherical.MaskSpherically((float)DiameterAngstrom / (float)PixelSize, 16, true);
+
+                float TempShellGlobal;
+                float[] TempFSCUnmasked, TempFSCMasked, TempFSCRandomized, TempFSCCorrected;
+
+                FSC.GetCorrectedFSC(HalfMap1,
+                                    HalfMap2,
+                                    MaskSpherical,
+                                    0.143f,
+                                    0.8f,
+                                    out TempShellGlobal,
+                                    out TempFSCUnmasked,
+                                    out TempFSCMasked,
+                                    out TempFSCRandomized,
+                                    out TempFSCCorrected);
+
+                GlobalResolution = (decimal)((float)PixelSize * HalfMap1.Dims.X / TempShellGlobal);
+
+                MaskSpherical.Dispose();
+            }
+
+            #endregion
+
+            float Softness = Math.Max(1, (float)GlobalResolution / (float)(PixelSize * 2));
+            Image MaskSoft = FSC.MakeSoftMask(Mask, (int)(3 * Softness + 0.5f), (int)(3 * Softness + 0.5f));
 
             if (MaskSoft.Dims != HalfMap1.Dims)
             {
@@ -1144,6 +1236,8 @@ namespace Warp.Sociology
             #endregion
 
             #region Anisotropic FSC
+
+            progressCallback?.Invoke("2/5: Anisotropic FSC");
 
             if (fixedResolution <= 0)
                 _AnisoResolution = FSC.GetAnisotropicFSC(HalfMap1,
@@ -1211,10 +1305,13 @@ namespace Warp.Sociology
 
             #region Local resolution
 
+            progressCallback?.Invoke("3/5: Local resolution");
+
             _LocalResolution = new Image(MapSum.Dims);
             _LocalBFactor = new Image(MapSum.Dims);
 
             // If fixed resolution is desired, locally filtered map will be identical with globally filtered one
+            //if (false)
             if (fixedResolution <= 0)
             {
                 int LocalResolutionWindow = Math.Max(30, (int)(GlobalResolution * 5 / PixelSize / 2 + 0.5M) * 2);
@@ -1452,6 +1549,65 @@ namespace Warp.Sociology
 
             #endregion
 
+            #region Denoising
+
+            progressCallback?.Invoke("4/5: Training denoising");
+
+            HalfMap1.FreeDevice();
+            HalfMap2.FreeDevice();
+            MaskSoft.FreeDevice();
+
+            bool TrainingFromScratch = DenoisedAtResolution <= 0;
+            string DenoiserPath = TrainingFromScratch ? "noisenet3dmodel" : PathNoiseNet;
+            Denoiser = new NoiseNet3D(DenoiserPath, new int3(64), 1, 3, true, GPU.GetDeviceWithMostMemory());
+
+            List<float> LocalResSorted = LocalResolution.GetHostContinuousCopy().ToList();
+            LocalResSorted.Sort();
+            DenoisedAtResolution = Math.Max(PixelSize * 2, (decimal)LocalResSorted[(int)(0.005 * LocalResSorted.Count)]);
+
+            HalfMap1.PixelSize = (float)PixelSize;
+            HalfMap2.PixelSize = (float)PixelSize;
+
+            (var ForDenoising1, var ForDenoising2, var ForDenoisingStats) = NoiseNet3D.TrainOnVolumes(Denoiser, 
+                                                                                                      new[] { HalfMap1 },
+                                                                                                      new[] { HalfMap2 },
+                                                                                                      new[] { MaskSoft },
+                                                                                                      (float)PixelSize,
+                                                                                                      (float)DenoisedAtResolution,
+                                                                                                      1.0f,
+                                                                                                      false,
+                                                                                                      true,
+                                                                                                      TrainingFromScratch ? 600 : 600,
+                                                                                                      0,
+                                                                                                      Denoiser.BatchSize,
+                                                                                                      (GPU.GetDeviceWithMostMemory() + 1) % GPU.GetDeviceCount(),
+                                                                                                      s => progressCallback?.Invoke($"4/5: Training denoising: {s}"));
+
+            GPU.SetDevice(0);
+
+            Denoiser.Export(PathNoiseNet);
+            Denoiser.Dispose();
+            TFHelper.TF_FreeAllMemory();
+
+            progressCallback?.Invoke("5/5: Applying denoising");
+
+            Denoiser = new NoiseNet3D(PathNoiseNet, new int3(64), 1, 3, false, GPU.GetDeviceWithMostMemory());
+
+            MapDenoised = ForDenoising1[0];
+            MapDenoised.Add(ForDenoising2[0]);
+            ForDenoising2[0].Dispose();
+            MapDenoised.Multiply(0.5f);
+
+            NoiseNet3D.Denoise(MapDenoised, new[] { Denoiser });
+            Denoiser.Dispose();
+            Denoiser = null;
+            TFHelper.TF_FreeAllMemory();
+
+            MapDenoised.TransformValues(v => v * ForDenoisingStats[0].Y + ForDenoisingStats[0].X);
+            MapDenoised.FreeDevice();
+
+            #endregion
+
             MapSum.Dispose();
             MaskSoft.Dispose();
         }
@@ -1543,129 +1699,224 @@ namespace Warp.Sociology
             _AngularDistribution = new Image(PlotData, new int3(DimsPlot));
         }
 
-        public void PrepareRefinementRequisites()
+        public void PrepareRefinementRequisites(bool makeRefs = true, int singleGPU = -1)
         {
+            //CalculateResolutionAndFilter();
+
             int3 DimsCurrent = HalfMap1.Dims;
             int3 DimsDesired = new int3(Size);
 
-            Image HalfMap1Padded = HalfMap1;
-            Image HalfMap2Padded = HalfMap2;
-            Image MaskPadded = Mask;
-
-            // Pad maps if size isn't 2 * particle diameter
-            if (DimsDesired != HalfMap1.Dims)
+            if (makeRefs)
             {
-                HalfMap1Padded = HalfMap1.AsPadded(DimsDesired);
-                HalfMap1.FreeDevice();
+                Image HalfMap1Padded = HalfMap1;
+                Image HalfMap2Padded = HalfMap2;
+                Image MaskPadded = Mask;
+
+                // Pad maps if size isn't 2 * particle diameter
+                if (DimsDesired != HalfMap1.Dims)
+                {
+                    HalfMap1Padded = HalfMap1.AsPadded(DimsDesired);
+                    HalfMap1.FreeDevice();
+                }
+                if (DimsDesired != HalfMap2.Dims)
+                {
+                    HalfMap2Padded = HalfMap2.AsPadded(DimsDesired);
+                    HalfMap2.FreeDevice();
+                }
+                if (DimsDesired != Mask.Dims)
+                {
+                    MaskPadded = Mask.AsPadded(DimsDesired);
+                    Mask.FreeDevice();
+                }
+
+                // Refinement resolution is at FSC = 0.5
+                //ResolutionRefinement = 15f;// MathHelper.Min(TempRes.GetHostContinuousCopy());// MathHelper.Min(PolarResolution.GetHostContinuousCopy());
+                ResolutionRefinement = (float)GlobalResolution;// ResolutionAtFSC05;
+                int SizeRefinement = (int)Math.Round((float)PixelSize * 2 / ResolutionRefinement * DimsDesired.X / 2) * 2;
+                ResolutionRefinement = DimsDesired.X / (float)SizeRefinement * (float)PixelSize * 2;    // Adjust resolution/pixel size to match multiple-of-2-sized box
+
+                #region Denoise half-maps
+
+                // TF will mess up all previously allocated device memory, need to rescue data
+                HalfMap1Padded.FreeDevice();
+                HalfMap2Padded.FreeDevice();
+                MaskPadded.FreeDevice();
+
+                Denoiser = new NoiseNet3D(PathNoiseNet, new int3(64), 1, 3, false, singleGPU < 0 ? GPU.GetDeviceWithMostMemory() : singleGPU);
+
+                HalfMap1Padded.PixelSize = (float)PixelSize;
+                HalfMap2Padded.PixelSize = (float)PixelSize;
+
+                (var ForDenoising1, var ForDenoising2, var ForDenoisingStats) = NoiseNet3D.TrainOnVolumes(Denoiser,
+                                                                                                          new[] { HalfMap1Padded },
+                                                                                                          new[] { HalfMap2Padded },
+                                                                                                          new[] { MaskPadded },
+                                                                                                          (float)PixelSize,
+                                                                                                          (float)DenoisedAtResolution,
+                                                                                                          1.0f,
+                                                                                                          false,
+                                                                                                          false,
+                                                                                                          0,
+                                                                                                          0,
+                                                                                                          Denoiser.BatchSize,
+                                                                                                          singleGPU < 0 ? ((GPU.GetDeviceWithMostMemory() + 1) % GPU.GetDeviceCount()) : singleGPU,
+                                                                                                          null);
+
+                GPU.SetDevice(Math.Max(0, singleGPU));
+
+                //HalfMap1Padded = Image.FromFile($"d_denoised_half1_{Name}_{GPU.GetDevice()}.mrc");
+                //HalfMap2Padded = Image.FromFile($"d_denoised_half2_{Name}_{GPU.GetDevice()}.mrc");
+
+                NoiseNet3D.Denoise(ForDenoising1[0], new[] { Denoiser });
+                NoiseNet3D.Denoise(ForDenoising2[0], new[] { Denoiser });
+
+                Denoiser.Dispose();
+                Denoiser = null;
+                TFHelper.TF_FreeAllMemory();
+
+                GPU.CheckGPUExceptions();
+
+                ForDenoising1[0].TransformValues(v => v * ForDenoisingStats[0].Y + ForDenoisingStats[0].X);
+                HalfMap1Padded.FreeDevice();
+                HalfMap1Padded = ForDenoising1[0];
+                HalfMap1Padded.WriteMRC($"d_denoised_half1_{Name}_{GPU.GetDevice()}.mrc", true);
+
+                ForDenoising2[0].TransformValues(v => v * ForDenoisingStats[0].Y + ForDenoisingStats[0].X);
+                HalfMap2Padded.FreeDevice();
+                HalfMap2Padded = ForDenoising2[0];
+                HalfMap2Padded.WriteMRC($"d_denoised_half2_{Name}_{GPU.GetDevice()}.mrc", true);
+
+                #endregion
+
+                GPU.SetDevice(Math.Max(0, singleGPU));
+
+                // Scale down to refinement resolution
+                Image HalfMap1Scaled = HalfMap1Padded.AsScaled(new int3(SizeRefinement));
+                HalfMap1Padded.FreeDevice();
+                Image HalfMap2Scaled = HalfMap2Padded.AsScaled(new int3(SizeRefinement));
+                HalfMap2Padded.FreeDevice();
+
+                GPU.CheckGPUExceptions();
+
+                // Filter maps according to SSNR
+                // Weight by the masked, uncorrected FSC to avoid the artifacts near randomization limit
+                //float[] SpectralWeighting = GlobalFSC.Select(v => Math.Max(0, v.V)).Take(SizeRefinement / 2).ToArray();    
+                //Image HalfMap1SSNRFiltered = HalfMap1Scaled.AsSpectrumMultiplied(true, SpectralWeighting);
+                //HalfMap1SSNRFiltered.WriteMRC("d_filt1.mrc", true);
+                //HalfMap1Scaled.FreeDevice();
+                //Image HalfMap2SSNRFiltered = HalfMap2Scaled.AsSpectrumMultiplied(true, SpectralWeighting);
+                //HalfMap2SSNRFiltered.WriteMRC("d_filt2.mrc", true);
+                //HalfMap2Scaled.FreeDevice();
+
+                // Average halves up to 40 A
+                Image HalfMap1Averaged, HalfMap2Averaged;
+                int Shell40A = (int)Math.Round((float)PixelSize / 40 * Size);
+                FSC.AverageLowFrequencies(HalfMap1Scaled, HalfMap2Scaled, Shell40A, out HalfMap1Averaged, out HalfMap2Averaged);
+                HalfMap1Scaled.Dispose();
+                HalfMap2Scaled.Dispose();
+
+                GPU.CheckGPUExceptions();
+
+                // Scale mask to refinement size and make it soft
+                Image MaskScaled = MaskPadded.AsScaled(new int3(SizeRefinement));
+                MaskPadded.FreeDevice();
+                MaskScaled.Binarize(0.25f);
+                Image MaskSoft = FSC.MakeSoftMask(MaskScaled, 4, 4);
+                MaskScaled.Dispose();
+
+                GPU.CheckGPUExceptions();
+
+                // Multiply half-maps with mask
+                HalfMap1Averaged.Multiply(MaskSoft);
+                HalfMap1Averaged.WriteMRC($"d_reference_half1_{Name}_{singleGPU}.mrc", true);
+
+                HalfMap2Averaged.Multiply(MaskSoft);
+                HalfMap2Averaged.WriteMRC($"d_reference_half2_{Name}_{singleGPU}.mrc", true);
+
+                MaskSoft.Dispose();
+
+                GPU.CheckGPUExceptions();
+
+                // Create reference projectors for refinement
+                HalfMap1Projector = Helper.ArrayOfFunction(i => (singleGPU < 0 || singleGPU == i) ? new Projector(HalfMap1Averaged, 1) : null, GPU.GetDeviceCount());
+                HalfMap1Averaged.Dispose();
+                HalfMap2Projector = Helper.ArrayOfFunction(i => (singleGPU < 0 || singleGPU == i) ? new Projector(HalfMap2Averaged, 1) : null, GPU.GetDeviceCount());
+                HalfMap2Averaged.Dispose();
+
+                GPU.CheckGPUExceptions();
             }
-            if (DimsDesired != HalfMap2.Dims)
-            {
-                HalfMap2Padded = HalfMap2.AsPadded(DimsDesired);
-                HalfMap2.FreeDevice();
-            }
-            if (DimsDesired != Mask.Dims)
-            {
-                MaskPadded = Mask.AsPadded(DimsDesired);
-                Mask.FreeDevice();
-            }
-
-            // Calculate anisotropic resolution at FSC = 0.5
-            //Image MaskSoftFull = FSC.MakeSoftMask(MaskPadded, 3, 6);
-            //Image PolarResolution = FSC.GetAnisotropicFSC(HalfMap1Padded, 
-            //                                              HalfMap2Padded, 
-            //                                              MaskSoftFull, 
-            //                                              (float)PixelSize, 
-            //                                              0.5f, 
-            //                                              1, 
-            //                                              SizeAtFSC05 / 2);
-            //MaskSoftFull.Dispose();
-            //Image HalfMap1Aniso = FSC.FilterToAnisotropicResolution(HalfMap1Padded, PolarResolution, (float)PixelSize);
-            //HalfMap1Padded.Dispose();
-            //Image HalfMap2Aniso = FSC.FilterToAnisotropicResolution(HalfMap2Padded, PolarResolution, (float)PixelSize);
-            //HalfMap2Padded.Dispose();
-
-            Image MaskSoftFull = FSC.MakeSoftMask(MaskPadded, 3, 6);
-            Image LocalFilt1, LocalFilt2, TempRes, TempBfac;
-            FSC.LocalFSCFilter(HalfMap1Padded,
-                               HalfMap2Padded,
-                               MaskSoftFull,
-                               (float)PixelSize,
-                               30,
-                               0.5f,
-                               ResolutionAtFSC05,
-                               0,
-                               ResolutionAtFSC05 / (float)(PixelSize * 2),
-                               false,
-                               false,
-                               true,
-                               out LocalFilt1,
-                               out LocalFilt2,
-                               out TempRes,
-                               out TempBfac);
-            MaskSoftFull.Dispose();
-            TempBfac.Dispose();
-            HalfMap1Padded.FreeDevice();
-            HalfMap2Padded.FreeDevice();
-
-            // Refinement resolution is at FSC = 0.5
-            ResolutionRefinement = MathHelper.Min(TempRes.GetHostContinuousCopy());// MathHelper.Min(PolarResolution.GetHostContinuousCopy());
-            int SizeRefinement = (int)Math.Round((float)PixelSize * 2 / ResolutionRefinement * DimsDesired.X / 2) * 2;
-            ResolutionRefinement = DimsDesired.X / (float)SizeRefinement * (float)PixelSize * 2;
-
-            // Scale down to refinement resolution
-            Image HalfMap1Scaled = LocalFilt1.AsScaled(new int3(SizeRefinement));
-            LocalFilt1.FreeDevice();
-            Image HalfMap2Scaled = LocalFilt2.AsScaled(new int3(SizeRefinement));
-            LocalFilt2.FreeDevice();
-
-            // Filter maps according to SSNR
-            // Weight by the masked, uncorrected FSC to avoid the artifacts near randomization limit
-            //float[] SpectralWeighting = GlobalFSC.Select(v => Math.Max(0, v.V)).Take(SizeRefinement / 2).ToArray();    
-            //Image HalfMap1SSNRFiltered = HalfMap1Scaled.AsSpectrumMultiplied(true, SpectralWeighting);
-            //HalfMap1SSNRFiltered.WriteMRC("d_filt1.mrc", true);
-            //HalfMap1Scaled.FreeDevice();
-            //Image HalfMap2SSNRFiltered = HalfMap2Scaled.AsSpectrumMultiplied(true, SpectralWeighting);
-            //HalfMap2SSNRFiltered.WriteMRC("d_filt2.mrc", true);
-            //HalfMap2Scaled.FreeDevice();
-
-            // Average halves up to 40 A
-            Image HalfMap1Averaged, HalfMap2Averaged;
-            int Shell40A = (int)Math.Round((float)PixelSize / 40 * Size);
-            FSC.AverageLowFrequencies(HalfMap1Scaled, HalfMap2Scaled, Shell40A, out HalfMap1Averaged, out HalfMap2Averaged);
-            HalfMap1Scaled.Dispose();
-            HalfMap2Scaled.Dispose();
-
-            // Scale mask to refinement size and make it soft
-            Image MaskScaled = MaskPadded.AsScaled(new int3(SizeRefinement));
-            MaskPadded.FreeDevice();
-            MaskScaled.Binarize(0.25f);
-            Image MaskSoft = FSC.MakeSoftMask(MaskScaled, 3, 4);
-            MaskScaled.Dispose();
-
-            // Multiply half-maps with mask
-            HalfMap1Averaged.Multiply(MaskSoft);
-            HalfMap2Averaged.Multiply(MaskSoft);
-            MaskSoft.Dispose();
-
-            // Create reference projectors for refinement
-            HalfMap1Projector = new Projector(HalfMap1Averaged, 1);
-            HalfMap1Averaged.Dispose();
-            HalfMap2Projector = new Projector(HalfMap2Averaged, 1);
-            HalfMap2Averaged.Dispose();
 
             // Initialize reconstructions at full Nyquist
             ResolutionReconstruction = (float)PixelSize * 2;
             int SizeReconstruction = DimsDesired.X;
 
-            HalfMap1Reconstruction = new Projector(new int3(SizeReconstruction), 1);
-            HalfMap2Reconstruction = new Projector(new int3(SizeReconstruction), 1);
+            HalfMap1Reconstruction = Helper.ArrayOfFunction(i => (singleGPU < 0 || singleGPU == i) ? new Projector(new int3(SizeReconstruction), 1) : null, GPU.GetDeviceCount());
+            HalfMap2Reconstruction = Helper.ArrayOfFunction(i => (singleGPU < 0 || singleGPU == i) ? new Projector(new int3(SizeReconstruction), 1) : null, GPU.GetDeviceCount());
         }
 
         public void FinishRefinement()
         {
-            HalfMap1 = HalfMap1Reconstruction.ReconstructCPU(false, Symmetry);
-            HalfMap2 = HalfMap2Reconstruction.ReconstructCPU(false, Symmetry);
+            //HalfMap1Reconstruction.Data.Fill(new float2(1, 0));
+            //HalfMap1Reconstruction.Weights.Fill(1);
 
+            for (int i = 0; i < HalfMap1Reconstruction.Length; i++)
+            {
+                HalfMap1Reconstruction[i]?.FreeDevice();
+                HalfMap2Reconstruction[i]?.FreeDevice();
+
+                if (HalfMap1Projector != null)
+                {
+                    HalfMap1Projector[i]?.Dispose();
+                    HalfMap2Projector[i]?.Dispose();
+                }
+            }
+
+            GPU.SetDevice(0);
+
+            for (int i = 1; i < HalfMap1Reconstruction.Length; i++)
+            {
+                if (HalfMap1Reconstruction[i] == null)
+                    continue;
+
+                HalfMap1Reconstruction[0].Data.Add(HalfMap1Reconstruction[i].Data);
+                HalfMap1Reconstruction[0].Weights.Add(HalfMap1Reconstruction[i].Weights);
+                HalfMap1Reconstruction[i].Dispose();
+                HalfMap1Reconstruction[0].FreeDevice();
+
+                HalfMap2Reconstruction[0].Data.Add(HalfMap2Reconstruction[i].Data);
+                HalfMap2Reconstruction[0].Weights.Add(HalfMap2Reconstruction[i].Weights);
+                HalfMap2Reconstruction[i].Dispose();
+                HalfMap2Reconstruction[0].FreeDevice();
+            }
+
+            //HalfMap1Reconstruction[0].Data = new Image(Helper.Zip(Image.FromFile($"d_half1_re_{Name}.mrc").GetHostContinuousCopy(), Image.FromFile($"d_half1_im_{Name}.mrc").GetHostContinuousCopy()), HalfMap1Reconstruction[0].DimsOversampled, true);
+            //HalfMap2Reconstruction[0].Data = new Image(Helper.Zip(Image.FromFile($"d_half2_re_{Name}.mrc").GetHostContinuousCopy(), Image.FromFile($"d_half2_im_{Name}.mrc").GetHostContinuousCopy()), HalfMap1Reconstruction[0].DimsOversampled, true);
+
+            //HalfMap1Reconstruction[0].Weights = new Image(Image.FromFile($"d_half1_weights_{Name}.mrc").GetHostContinuousCopy(), HalfMap1Reconstruction[0].DimsOversampled, true);
+            //HalfMap2Reconstruction[0].Weights = new Image(Image.FromFile($"d_half2_weights_{Name}.mrc").GetHostContinuousCopy(), HalfMap1Reconstruction[0].DimsOversampled, true);
+
+            //HalfMap1Reconstruction[0].Data.AsReal().WriteMRC($"d_half1_re_{Name}.mrc");
+            //HalfMap1Reconstruction[0].Data.AsImaginary().WriteMRC($"d_half1_im_{Name}.mrc");
+            //HalfMap1Reconstruction[0].Weights.WriteMRC($"d_half1_weights_{Name}.mrc");
+
+            //HalfMap2Reconstruction[0].Data.AsReal().WriteMRC($"d_half2_re_{Name}.mrc");
+            //HalfMap2Reconstruction[0].Data.AsImaginary().WriteMRC($"d_half2_im_{Name}.mrc");
+            //HalfMap2Reconstruction[0].Weights.WriteMRC($"d_half2_weights_{Name}.mrc");
+
+            SaveParticles();
+
+            HalfMap1 = HalfMap1Reconstruction[0].Reconstruct(false, Symmetry);
+            HalfMap1Reconstruction[0].Dispose();
+            HalfMap1Reconstruction[0] = null;
+            HalfMap1.MaskSpherically(HalfMap1.Dims.X - 32, 15, true);
+            HalfMap1.WriteMRC($"d_half1_{Name}.mrc", true);
+
+            HalfMap2 = HalfMap2Reconstruction[0].Reconstruct(false, Symmetry);
+            HalfMap2Reconstruction[0].Dispose();
+            HalfMap2Reconstruction[0] = null;
+            HalfMap2.MaskSpherically(HalfMap2.Dims.X - 32, 15, true);
+            HalfMap2.WriteMRC($"d_half2_{Name}.mrc", true);
+            
             CalculateResolutionAndFilter();
         }
 
@@ -1727,11 +1978,22 @@ namespace Warp.Sociology
             string FileName = Helper.PathToNameWithExtension(Path);
             string OriginalFolderPath = FolderPath;
 
+            if (Directory.Exists(PathNoiseNet))
+                Denoiser = new NoiseNet3D(PathNoiseNet, new int3(64), 1, 1, true, GPU.GetDeviceWithMostMemory());
+
             Path = VersionFolderPath + FileName;
-            Save();
+            try
+            {
+                Save();
+            }
+            catch { }
 
             Path = OriginalFolderPath + FileName;
             Save();
+
+            Denoiser?.Dispose();
+            Denoiser = null;
+            TFHelper.TF_FreeAllMemory();
         }
 
         public void Save()
@@ -1775,6 +2037,7 @@ namespace Warp.Sociology
             _MapFilteredSharpened?.WriteMRC(PathMapFilteredSharpened, (float)PixelSize, true);
             _MapFilteredAnisotropic?.WriteMRC(PathMapFilteredAnisotropic, (float)PixelSize, true);
             _MapLocallyFiltered?.WriteMRC(PathMapLocallyFiltered, (float)PixelSize, true);
+            _MapDenoised?.WriteMRC(PathMapDenoised, (float)PixelSize, true);
             
             _AnisoResolution?.WriteMRC(PathAnisoResolution, true);
             _LocalResolution?.WriteMRC(PathLocalResolution, (float)PixelSize, true);
@@ -1787,6 +2050,8 @@ namespace Warp.Sociology
                 new Star(_GlobalFSC, "wrpResolution", "wrpFSCUnmasked", "wrpFSCRandomized", "wrpFSCCorrected", "wrpFSCMasked").Save(PathGlobalFSC);
             if (_ResolutionHistogram != null)
                 new Star(_ResolutionHistogram, "wrpResolution", "wrpSamples").Save(PathResolutionHistogram);
+
+            Denoiser?.Export(PathNoiseNet);
         }
 
         public void SaveParticles()
@@ -1811,7 +2076,7 @@ namespace Warp.Sociology
             Builder.Append(MathHelper.GetSHA1(Helper.ToBytes(HalfMap2.GetHostContinuousCopy())));
             Builder.Append(MathHelper.GetSHA1(Helper.ToBytes(Mask.GetHostContinuousCopy())));
 
-            Version = MathHelper.GetSHA1(Helper.ToBytes(Builder.ToString().ToCharArray()));
+            Version = MathHelper.GetSHA1(Helper.ToBytes(Builder.ToString().ToCharArray())).Substring(0, 8);
         }
 
         #endregion

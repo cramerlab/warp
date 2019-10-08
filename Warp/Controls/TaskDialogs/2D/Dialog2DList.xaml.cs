@@ -26,13 +26,12 @@ namespace Warp.Controls
         public Options Options;
         public event Action Close;
 
-        public Dialog2DList(Movie[] movies, string exportPath, Options options)
+        public Dialog2DList(Movie[] movies, Options options)
         {
             InitializeComponent();
 
             Movies = movies;
             Options = options;
-            ExportPath = exportPath;
 
             DataContext = Options;
         }
@@ -44,6 +43,21 @@ namespace Warp.Controls
 
         private async void ButtonWrite_OnClick(object sender, RoutedEventArgs e)
         {
+            System.Windows.Forms.SaveFileDialog FileDialog = new System.Windows.Forms.SaveFileDialog
+            {
+                Filter = "STAR Files|*.star"
+            };
+            System.Windows.Forms.DialogResult Result = FileDialog.ShowDialog();
+
+            if (Result.ToString() == "OK")
+            {
+                ExportPath = FileDialog.FileName;
+            }
+            else
+            {
+                return;
+            }
+
             bool Relative = (bool)CheckRelative.IsChecked;
             bool Filter = (bool)CheckFilter.IsChecked;
             bool Manual = (bool)CheckManual.IsChecked;
@@ -58,6 +72,8 @@ namespace Warp.Controls
                     if (!Filter && v.UnselectFilter && v.UnselectManual == null)
                         return false;
                     if (!Manual && v.UnselectManual != null && (bool)v.UnselectManual)
+                        return false;
+                    if (Options.Tasks.MicListMakePolishing && (v.OptionsMovement == null || v.GridMovementX.Dimensions.Z <= 1))
                         return false;
                     return true;
                 }).ToList();
@@ -74,7 +90,16 @@ namespace Warp.Controls
 
                     if (!string.IsNullOrEmpty(Options.Import.GainPath) && Options.Import.CorrectGain)
                     {
-                        GainPath = UriStar.MakeRelativeUri(new Uri(Options.Import.GainPath)).ToString();
+                        // Since RELION can't read DM4 or flip/transpose the gain, save a transformed version as MRC.
+
+                        string TransformedGainPath = Helper.PathToFolder(Options.Import.GainPath) + "gain/transformed.mrc";
+                        Directory.CreateDirectory(Helper.PathToFolder(TransformedGainPath));
+
+                        Image TransformedGain = MainWindow.LoadAndPrepareGainReference();
+                        TransformedGain.WriteMRC(TransformedGainPath, (float)Options.PixelSizeMean, true);
+                        TransformedGain.Dispose();
+
+                        GainPath = UriStar.MakeRelativeUri(new Uri(TransformedGainPath)).ToString();
                     }
                 }
 
@@ -96,12 +121,19 @@ namespace Warp.Controls
                     TableOut.AddColumn("rlnDefocusV");
                     TableOut.AddColumn("rlnDefocusAngle");
                     TableOut.AddColumn("rlnCtfMaxResolution");
+                    TableOut.AddColumn("rlnBeamTiltX");
+                    TableOut.AddColumn("rlnBeamTiltY");
                 }
                 if (IncludePolishing)
                     TableOut.AddColumn("rlnMicrographMetadata");
 
+                List<Action> TablesToWrite = new List<Action>();
+
+                if (IncludePolishing && ValidMovies.Count > 0)
+                    Directory.CreateDirectory(ValidMovies[0].DirectoryName + "motion");
+
                 int r = 0;
-                foreach (var movie in ValidMovies)
+                Parallel.ForEach(ValidMovies, new ParallelOptions() { MaxDegreeOfParallelism = 4 }, movie =>
                 {
                     List<string> Row = new List<string>() { PathPrefixAverage + movie.RootName + ".mrc" };
 
@@ -117,22 +149,25 @@ namespace Warp.Controls
                             ((movie.CTF.Defocus + movie.CTF.DefocusDelta / 2) * 1e4M).ToString("F1", CultureInfo.InvariantCulture),
                             ((movie.CTF.Defocus - movie.CTF.DefocusDelta / 2) * 1e4M).ToString("F1", CultureInfo.InvariantCulture),
                             movie.CTF.DefocusAngle.ToString("F1", CultureInfo.InvariantCulture),
-                            movie.CTFResolutionEstimate.ToString("F1", CultureInfo.InvariantCulture)
-                        });
+                            movie.CTFResolutionEstimate.ToString("F1", CultureInfo.InvariantCulture),
+                            movie.CTF.BeamTilt.X.ToString("F2", CultureInfo.InvariantCulture),
+                            movie.CTF.BeamTilt.Y.ToString("F2", CultureInfo.InvariantCulture)
+                         });
                     else
-                        Row.AddRange(Helper.ArrayOfFunction(i => "0.0", 10));
+                        Row.AddRange(Helper.ArrayOfFunction(i => "0.0", 12));
 
                     if (IncludePolishing)
                         Row.Add(PathPrefix + "motion/" + movie.RootName + ".star");
 
-                    TableOut.AddRow(Row);
+                    lock (TableOut)
+                        TableOut.AddRow(Row);
 
                     if (IncludePolishing)
                     {
                         MapHeader Header = MapHeader.ReadFromFile(movie.Path);
 
                         List<string> HeaderNames = new List<string>()
-                        {
+                         {
                             "rlnImageSizeX",
                             "rlnImageSizeY",
                             "rlnImageSizeZ",
@@ -144,10 +179,10 @@ namespace Warp.Controls
                             "rlnVoltage",
                             "rlnMicrographStartFrame",
                             "rlnMotionModelVersion"
-                        };
+                         };
 
                         List<string> HeaderValues = new List<string>()
-                        {
+                         {
                             Header.Dimensions.X.ToString(),
                             Header.Dimensions.Y.ToString(),
                             Header.Dimensions.Z.ToString(),
@@ -159,7 +194,7 @@ namespace Warp.Controls
                             Options.CTF.Voltage.ToString(),
                             "1",
                             "0"
-                        };
+                         };
 
                         if (!string.IsNullOrEmpty(GainPath))
                         {
@@ -175,7 +210,7 @@ namespace Warp.Controls
                             Helper.ArrayOfSequence(1, MotionTrack.Length + 1, 1).Select(v => v.ToString()).ToArray(),
                             MotionTrack.Select(v => (-v.X).ToString("F5")).ToArray(),
                             MotionTrack.Select(v => (-v.Y).ToString("F5")).ToArray()
-                        },
+                         },
                         new[]
                         {
                             "rlnMicrographFrameNumber",
@@ -183,16 +218,20 @@ namespace Warp.Controls
                             "rlnMicrographShiftY"
                         });
 
-                        Directory.CreateDirectory(movie.DirectoryName + "motion");
                         Star.SaveMultitable(movie.DirectoryName + "motion/" + movie.RootName + ".star", new Dictionary<string, Star>()
-                        {
+                         {
                             { "general", ParamsTable },
                             { "global_shift", TrackTable },
-                        });
+                         });
                     }
 
-                    Dispatcher.Invoke(() => ProgressWrite.Value = ++r);
-                }
+                    lock (this)
+                    {
+                        r++;
+                        if (r % 10 == 0 || r == ValidMovies.Count)
+                            Dispatcher.Invoke(() => ProgressWrite.Value = r);
+                    }
+                });
 
                 TableOut.Save(ExportPath);
             });

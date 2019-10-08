@@ -46,7 +46,7 @@ __declspec(dllexport) void CreateShift(float* d_frame,
 
 	cufftHandle planforw = d_FFTR2CGetPlan(2, toInt3(dimsregion), norigins);
 
-	for (uint z = 0; z < nframes; z++)
+	for (size_t z = 0; z < nframes; z++)
 	{
 		d_Norm(d_frame + Elements2(dimsframe) * z, d_framenorm, Elements2(dimsframe), (float*)NULL, gtom::T_NORM_MEAN01STD, 0.0f);
 

@@ -68,9 +68,9 @@
             </Grid>
         <!--</ScrollViewer>-->
         <StackPanel Grid.Row="2" Orientation="Horizontal" VerticalAlignment="Top" HorizontalAlignment="Left" Margin="0,4,0,0">
-            <Button Name="ButtonAddLocal" Content="ADD LOCAL" FontSize="18" FontWeight="Medium" Foreground="CornflowerBlue" Style="{StaticResource ChromelessButtonStyle}" Click="ButtonAddLocal_OnClick" />
-            <Button Name="ButtonAddRemote" Content="ADD REMOTE" FontSize="18" FontWeight="Medium" Margin="20,0,0,0" Foreground="CornflowerBlue" Style="{StaticResource ChromelessButtonStyle}" Click="ButtonAddRemote_OnClick" />
+            <Button Name="ButtonAddLocal" Content="ADD LOCAL" FontSize="18" Click="ButtonAddLocal_OnClick" />
+            <Button Name="ButtonAddRemote" Content="ADD REMOTE" FontSize="18" Margin="20,0,0,0" Click="ButtonAddRemote_OnClick" />
         </StackPanel>
-        <Button Name="ButtonClose" Grid.Row="2" Content="CLOSE" FontSize="20" FontWeight="Medium" Foreground="CornflowerBlue" Margin="24,0,0,0" VerticalAlignment="Bottom" HorizontalAlignment="Right" Style="{StaticResource ChromelessButtonStyle}" Click="ButtonCancel_OnClick" />
+        <Button Name="ButtonClose" Grid.Row="2" Content="CLOSE" FontSize="20" Margin="24,0,0,0" VerticalAlignment="Bottom" HorizontalAlignment="Right" Click="ButtonCancel_OnClick" />
     </Grid>
 </UserControl>

@@ -47,7 +47,7 @@ namespace Warp.Controls
             get { return (bool)GetValue(IsFilterEnabledProperty); }
             set { SetValue(IsFilterEnabledProperty, value); }
         }
-        public static readonly DependencyProperty IsFilterEnabledProperty = DependencyProperty.Register("IsFilterEnabled", typeof(bool), typeof(StatusBar), new PropertyMetadata(false, (sender, e) => ((StatusBar)sender).IsFilterEnabledChanged(sender, e)));
+        public static readonly DependencyProperty IsFilterEnabledProperty = DependencyProperty.Register("IsFilterEnabled", typeof(bool), typeof(StatusBar), new PropertyMetadata(true, (sender, e) => ((StatusBar)sender).IsFilterEnabledChanged(sender, e)));
 
         public string FilterSearchPattern
         {
@@ -272,7 +272,7 @@ namespace Warp.Controls
             PanelRows.Visibility = Visibility.Hidden;
         }
 
-        private static Brush StatusToBrush(ProcessingStatus status)
+        public static Brush StatusToBrush(ProcessingStatus status)
         {
             if (status == ProcessingStatus.Processed)
                 return BrushProcessed.CloneCurrentValue();
@@ -321,10 +321,10 @@ namespace Warp.Controls
         public static ProcessingStatus GetMovieProcessingStatus(Movie movie, ProcessingOptionsMovieCTF optionsCTF, ProcessingOptionsMovieMovement optionsMovement, ProcessingOptionsBoxNet optionsBoxNet, ProcessingOptionsMovieExport optionsExport, Options options, bool considerFilter = true)
         {
             bool DoCTF = options.ProcessCTF;
-            bool DoMovement = options.ProcessMovement;
-            bool DoBoxNet = options.ProcessPicking;
-            bool DoExport = optionsExport.DoAverage || optionsExport.DoStack || optionsExport.DoDeconv;
-            
+            bool DoMovement = options.ProcessMovement && movie.GetType() == typeof(Movie);
+            bool DoBoxNet = options.ProcessPicking && movie.GetType() == typeof(Movie);
+            bool DoExport = (optionsExport.DoAverage || optionsExport.DoStack || optionsExport.DoDeconv) && movie.GetType() == typeof(Movie);
+
             ProcessingStatus Status = ProcessingStatus.Processed;
 
             if (movie.UnselectManual != null && (bool)movie.UnselectManual)

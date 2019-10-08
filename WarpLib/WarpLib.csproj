@@ -27,7 +27,7 @@
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
-    <Optimize>true</Optimize>
+    <Optimize>false</Optimize>
     <OutputPath>..\Release\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
@@ -74,14 +74,17 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="BoxNet.cs" />
+    <Compile Include="CubeNet.cs" />
     <Compile Include="BoxNet2.cs" />
     <Compile Include="CPU.cs" />
     <Compile Include="CTF.cs" />
     <Compile Include="Cubic1D.cs" />
     <Compile Include="Cubic1DShort.cs" />
     <Compile Include="CubicGrid.cs" />
+    <Compile Include="FlexNet3D.cs" />
     <Compile Include="GPUQueue.cs" />
     <Compile Include="Headers\DM4.cs" />
+    <Compile Include="LinearGrid4D.cs" />
     <Compile Include="Movie.cs" />
     <Compile Include="NoiseNet2D.cs" />
     <Compile Include="NoiseNet3D.cs" />
@@ -97,9 +100,13 @@
     <Compile Include="TensorFlowSharp\Variable.cs" />
     <Compile Include="TiltSeries.cs" />
     <Compile Include="Tools\BenchmarkTimer.cs" />
+    <Compile Include="Tools\ColorScale.cs" />
+    <Compile Include="Tools\ImodHelper.cs" />
+    <Compile Include="Tools\NamedSerializableObject.cs" />
     <Compile Include="Tools\Quaternion.cs" />
     <Compile Include="Tools\Symmetry.cs" />
     <Compile Include="Tools\TFHelper.cs" />
+    <Compile Include="Tools\TiffNative.cs" />
     <Compile Include="WarpBase.cs" />
     <Compile Include="FSC.cs" />
     <Compile Include="GPU.cs" />
@@ -130,6 +137,7 @@
     <Compile Include="Tools\PhysicsHelper.cs" />
     <Compile Include="Tools\RandomNormal.cs" />
     <Compile Include="Tools\XMLHelper.cs" />
+    <Compile Include="WorkerWrapper.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="app.config" />

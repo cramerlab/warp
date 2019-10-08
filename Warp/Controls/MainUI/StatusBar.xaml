@@ -36,7 +36,7 @@
                         </Path.Fill>
                     </Path>
                 </Button>
-                <StackPanel Name="PanelFilterOptions" Orientation="Horizontal" Margin="16,0" Visibility="Collapsed">
+                <StackPanel Name="PanelFilterOptions" Orientation="Horizontal" Margin="16,0" Visibility="Visible">
                     <TextBox Text="{Binding FilterSearchPattern, RelativeSource={RelativeSource AncestorType=UserControl}, UpdateSourceTrigger=PropertyChanged}" Width="200" m:TextBoxHelper.Watermark="Search pattern" m:TextBoxHelper.ClearTextButton="True" FontSize="14" />
                     <CheckBox IsChecked="{Binding FilterIncludeProcessed, RelativeSource={RelativeSource AncestorType=UserControl}}" ToolTip="Processed" Margin="20,0,0,0" Background="#cc77cd77" BorderBrush="#cc77cd77" />
                     <CheckBox IsChecked="{Binding FilterIncludeOutdated, RelativeSource={RelativeSource AncestorType=UserControl}}" ToolTip="Outdated" Margin="16,0,0,0" Background="#ccffc456" BorderBrush="#ccffc456" />

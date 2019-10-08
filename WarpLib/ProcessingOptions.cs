@@ -7,6 +7,7 @@ using Warp.Tools;
 
 namespace Warp
 {
+    [Serializable]
     public abstract class ProcessingOptionsBase : WarpBase
     {
         [WarpSerializable]

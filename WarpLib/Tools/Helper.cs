@@ -97,6 +97,20 @@ namespace Warp.Tools
             return Interleaved;
         }
 
+        public static float[] ToInterleaved(float4[] array)
+        {
+            float[] Interleaved = new float[array.Length * 4];
+            for (int i = 0; i < array.Length; i++)
+            {
+                Interleaved[i * 4] = array[i].X;
+                Interleaved[i * 4 + 1] = array[i].Y;
+                Interleaved[i * 4 + 2] = array[i].Z;
+                Interleaved[i * 4 + 3] = array[i].W;
+            }
+
+            return Interleaved;
+        }
+
         public static int[] ToInterleaved(int2[] array)
         {
             int[] Interleaved = new int[array.Length * 2];
@@ -480,8 +494,10 @@ namespace Warp.Tools
 
         public static void ForEachGPU<T>(IEnumerable<T> items, GPUTaskIterator<T> iterator, int perDevice = 1, List<int> deviceList = null)
         {
+            int NDevices = GPU.GetDeviceCount();
+
             if (deviceList == null)
-                deviceList = Helper.ArrayOfSequence(0, Math.Min(GPU.GetDeviceCount(), items.Count()), 1).ToList();
+                deviceList = Helper.ArrayOfSequence(0, Math.Min(NDevices, items.Count()), 1).ToList();
 
             Queue<DeviceToken> Devices = new Queue<DeviceToken>();
             for (int i = 0; i < perDevice; i++)
@@ -501,7 +517,7 @@ namespace Warp.Tools
 
                 Thread DeviceThread = new Thread(() =>
                 {
-                    GPU.SetDevice(CurrentDevice.ID);
+                    GPU.SetDevice(CurrentDevice.ID % NDevices);
 
                     iterator(item, CurrentDevice.ID);
 
@@ -518,8 +534,10 @@ namespace Warp.Tools
 
         public static void ForEachGPU<T>(IEnumerable<T> items, GPUTaskCancelableIterator<T> iterator, int perDevice = 1, List<int> deviceList = null)
         {
+            int NDevices = GPU.GetDeviceCount();
+
             if (deviceList == null)
-                deviceList = Helper.ArrayOfSequence(0, Math.Min(GPU.GetDeviceCount(), items.Count()), 1).ToList();
+                deviceList = Helper.ArrayOfSequence(0, Math.Min(NDevices, items.Count()), 1).ToList();
 
             Queue<DeviceToken> Devices = new Queue<DeviceToken>();
             for (int i = 0; i < perDevice; i++)
@@ -543,7 +561,7 @@ namespace Warp.Tools
 
                 Thread DeviceThread = new Thread(() =>
                 {
-                    GPU.SetDevice(CurrentDevice.ID);
+                    GPU.SetDevice(CurrentDevice.ID % NDevices);
 
                     IsCanceled = iterator(item, CurrentDevice.ID);
 
@@ -561,8 +579,10 @@ namespace Warp.Tools
 
         public static void ForEachGPUOnce(Action<int> iterator, List<int> deviceList = null)
         {
+            int NDevices = GPU.GetDeviceCount();
+
             if (deviceList == null)
-                deviceList = Helper.ArrayOfSequence(0, GPU.GetDeviceCount(), 1).ToList();
+                deviceList = Helper.ArrayOfSequence(0, NDevices, 1).ToList();
 
             Queue<DeviceToken> Devices = new Queue<DeviceToken>();
             for (int d = deviceList.Count - 1; d >= 0; d--)
@@ -578,7 +598,7 @@ namespace Warp.Tools
 
                 Thread DeviceThread = new Thread(() =>
                 {
-                    GPU.SetDevice(CurrentDevice.ID);
+                    GPU.SetDevice(CurrentDevice.ID % NDevices);
 
                     iterator(CurrentDevice.ID);
 
@@ -790,6 +810,15 @@ namespace Warp.Tools
             return ToSort.ToArray();
         }
 
+        public static int[] AsSortedIndices<T>(T[] values, Comparison<T> comparison)
+        {
+            List<(T, int)> ToSort = new List<(T, int)>(Helper.ArrayOfFunction(i => (values[i], i), values.Length));
+
+            ToSort.Sort((a, b) => comparison(a.Item1, b.Item1));
+
+            return ToSort.Select(t => t.Item2).ToArray();
+        }
+
         public static float[] AsSortedDescending(float[] values)
         {
             List<float> ToSort = new List<float>(values);
@@ -844,6 +873,13 @@ namespace Warp.Tools
                 path = path.Substring(0, Math.Max(path.LastIndexOf("\\"), path.LastIndexOf("/")) + 1);
 
             return path;
+        }
+
+        public static string NormalizePath(string path)
+        {
+            return Path.GetFullPath(new Uri(path).LocalPath)
+                       .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                       .ToUpperInvariant();
         }
 
         private static object TimeSync = new object();
@@ -935,6 +971,26 @@ namespace Warp.Tools
             int SecondLength = maxLength - FirstLength - ellipsis.Length;
 
             return value.Substring(0, FirstLength) + ellipsis + value.Substring(value.Length - SecondLength, SecondLength);
+        }
+
+        public static HashSet<T> GetUniqueElements<T>(IEnumerable<T> elements)
+        {
+            HashSet<T> Unique = new HashSet<T>();
+            foreach (var element in elements)
+                if (!Unique.Contains(element))
+                    Unique.Add(element);
+
+            return Unique;
+        }
+
+        public static int[] GetIndicesOf<T>(T[] elements, Func<T, bool> qualifier)
+        {
+            List<int> Indices = new List<int>();
+            for (int i = 0; i < elements.Length; i++)
+                if (qualifier(elements[i]))
+                    Indices.Add(i);
+
+            return Indices.ToArray();
         }
     }
 

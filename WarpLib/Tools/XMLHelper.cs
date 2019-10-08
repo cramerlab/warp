@@ -118,6 +118,14 @@ namespace Warp.Tools
             writer.WriteEndElement();
         }
 
+        public static void WriteParamNode(XmlTextWriter writer, string name, int4 value)
+        {
+            writer.WriteStartElement("Param");
+            XMLHelper.WriteAttribute(writer, "Name", name);
+            XMLHelper.WriteAttribute(writer, "Value", $"{value.X},{value.Y},{value.Z},{value.W}");
+            writer.WriteEndElement();
+        }
+
         public static void WriteParamNode(XmlTextWriter writer, string name, float2 value)
         {
             writer.WriteStartElement("Param");
@@ -143,6 +151,28 @@ namespace Warp.Tools
             Iterator.MoveNext();
             string Value = Iterator.Current.GetAttribute("Value", "");
             return Value;
+        }
+
+        public static object LoadParamNode(XPathNavigator nav, Type type, string name, object defaultValue)
+        {
+            if (!type.IsEnum)
+                throw new Exception("Unknown type must be an enumeration.");
+
+            XPathNodeIterator Iterator = nav.Select($"Param[@Name = \"{name}\"]");
+            if (Iterator.Count == 0)
+                return defaultValue;
+
+            Iterator.MoveNext();
+            string Value = Iterator.Current.GetAttribute("Value", "");
+            if (Value.Length > 0)
+                try
+                {
+                    return Enum.Parse(type, Value);
+                }
+                catch (Exception)
+                { }
+
+            return defaultValue;
         }
 
         public static bool LoadParamNode(XPathNavigator nav, string name, bool defaultValue)
@@ -292,6 +322,26 @@ namespace Warp.Tools
                 {
                     string[] Parts = Value.Split(new[] { "," }, StringSplitOptions.RemoveEmptyEntries);
                     return new int3(int.Parse(Parts[0]), int.Parse(Parts[1]), int.Parse(Parts[2]));
+                }
+                catch (Exception)
+                { }
+
+            return defaultValue;
+        }
+
+        public static int4 LoadParamNode(XPathNavigator nav, string name, int4 defaultValue)
+        {
+            XPathNodeIterator Iterator = nav.Select($"Param[@Name = \"{name}\"]");
+            if (Iterator.Count == 0)
+                return defaultValue;
+
+            Iterator.MoveNext();
+            string Value = Iterator.Current.GetAttribute("Value", "");
+            if (Value.Length > 0)
+                try
+                {
+                    string[] Parts = Value.Split(new[] { "," }, StringSplitOptions.RemoveEmptyEntries);
+                    return new int4(int.Parse(Parts[0]), int.Parse(Parts[1]), int.Parse(Parts[2]), int.Parse(Parts[3]));
                 }
                 catch (Exception)
                 { }

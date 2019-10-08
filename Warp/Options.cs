@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Newtonsoft.Json;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics.Contracts;
@@ -12,6 +13,7 @@ using Warp.Tools;
 
 namespace Warp
 {
+    [JsonObject(MemberSerialization.OptIn)]
     public class Options : WarpBase
     {
         public ObservableCollection<string> _InputDatTypes = new ObservableCollection<string>
@@ -27,6 +29,7 @@ namespace Warp
 
         private decimal _PixelSizeX = 1.35M;
         [WarpSerializable]
+        [JsonProperty]
         public decimal PixelSizeX
         {
             get { return _PixelSizeX; }
@@ -43,6 +46,7 @@ namespace Warp
 
         private decimal _PixelSizeY = 1.35M;
         [WarpSerializable]
+        [JsonProperty]
         public decimal PixelSizeY
         {
             get { return _PixelSizeY; }
@@ -59,6 +63,7 @@ namespace Warp
 
         private decimal _PixelSizeAngle = 0M;
         [WarpSerializable]
+        [JsonProperty]
         public decimal PixelSizeAngle
         {
             get { return _PixelSizeAngle; }
@@ -78,6 +83,7 @@ namespace Warp
 
         private bool _ProcessCTF = true;
         [WarpSerializable]
+        [JsonProperty]
         public bool ProcessCTF
         {
             get { return _ProcessCTF; }
@@ -86,6 +92,7 @@ namespace Warp
 
         private bool _ProcessMovement = true;
         [WarpSerializable]
+        [JsonProperty]
         public bool ProcessMovement
         {
             get { return _ProcessMovement; }
@@ -94,6 +101,7 @@ namespace Warp
 
         private bool _ProcessPicking = false;
         [WarpSerializable]
+        [JsonProperty]
         public bool ProcessPicking
         {
             get { return _ProcessPicking; }
@@ -188,6 +196,11 @@ namespace Warp
         private void RecalcBinnedPixelSize()
         {
             Runtime.BinnedPixelSizeMean = PixelSizeMean * (decimal)Math.Pow(2.0, (double)Import.BinTimes);
+
+            CTF.OnPropertyChanged("RangeMin");
+            CTF.OnPropertyChanged("RangeMax");
+            Movement.OnPropertyChanged("RangeMin");
+            Movement.OnPropertyChanged("RangeMax");
         }
 
         public decimal PixelSizeMean => (PixelSizeX + PixelSizeY) * 0.5M;
@@ -256,7 +269,7 @@ namespace Warp
         public void Save(string path)
         {
             XmlTextWriter Writer = new XmlTextWriter(File.Create(path), Encoding.Unicode);
-            Writer.Formatting = Formatting.Indented;
+            Writer.Formatting = System.Xml.Formatting.Indented;
             Writer.IndentChar = '\t';
             Writer.Indentation = 1;
             Writer.WriteStartDocument();
@@ -369,10 +382,7 @@ namespace Warp
                 Amplitude = CTF.Amplitude,
                 DoPhase = CTF.DoPhase,
                 DoIce = false, //CTF.DoIce,
-                DoSimultaneous = CTF.DoSimultaneous,
                 UseMovieSum = CTF.UseMovieSum,
-                Astigmatism = CTF.Astigmatism,
-                AstigmatismAngle = CTF.AstigmatismAngle,
                 ZMin = CTF.ZMin,
                 ZMax = CTF.ZMax,
                 GridDims = new int3(Grids.CTFX, Grids.CTFY, Grids.CTFZ)
@@ -403,11 +413,7 @@ namespace Warp
             CTF.Thickness = options.Thickness;
             CTF.Amplitude = options.Amplitude;
             CTF.DoPhase = options.DoPhase;
-            //CTF.DoIce = options.DoIce;
-            CTF.DoSimultaneous = options.DoSimultaneous;
             CTF.UseMovieSum = options.UseMovieSum;
-            CTF.Astigmatism = options.Astigmatism;
-            CTF.AstigmatismAngle = options.AstigmatismAngle;
             CTF.ZMin = options.ZMin;
             CTF.ZMax = options.ZMax;
 
@@ -533,6 +539,7 @@ namespace Warp
 
                 DoAverage = Tasks.Export2DDoAverages,
                 DoStack = Tasks.Export2DDoMovies,
+                DoDenoisingPairs = Tasks.Export2DDoDenoisingPairs,
                 StackGroupSize = Export.StackGroupSize,
                 SkipFirstN = Export.SkipFirstN,
                 SkipLastN = Export.SkipLastN,
@@ -638,10 +645,13 @@ namespace Warp
                 DeconvFalloff = Tasks.TomoFullReconstructDeconvFalloff,
                 DeconvHighpass = Tasks.TomoFullReconstructDeconvHighpass,
 
-                Invert = Tasks.TomoFullReconstructInvert,
-                Normalize = Tasks.TomoFullReconstructNormalize,
+                Invert = Tasks.InputInvert,
+                Normalize = Tasks.InputNormalize,
                 SubVolumeSize = 64,
                 SubVolumePadding = 2,
+
+                PrepareDenoising = Tasks.TomoFullReconstructPrepareDenoising,
+
                 KeepOnlyFullVoxels = Tasks.TomoFullReconstructOnlyFullVoxels
             };
         }
@@ -680,6 +690,8 @@ namespace Warp
                 KeepOnlyFullVoxels = true,
                 NResults = (int)Tasks.TomoMatchNResults,
 
+                ReuseCorrVolumes = Tasks.ReuseCorrVolumes,
+
                 WhitenSpectrum = Tasks.TomoMatchWhitenSpectrum
             };
         }
@@ -714,17 +726,21 @@ namespace Warp
 
                 PrerotateParticles = Tasks.TomoSubReconstructPrerotated,
                 DoLimitDose = Tasks.TomoSubReconstructDoLimitDose,
-                NTilts = Tasks.TomoSubReconstructNTilts
+                NTilts = Tasks.TomoSubReconstructNTilts,
+
+                MakeSparse = Tasks.TomoSubReconstructMakeSparse
             };
         }
 
         #endregion
     }
 
+    [JsonObject(MemberSerialization.OptIn)]
     public class OptionsImport : WarpBase
     {
         private string _Folder = "";
         [WarpSerializable]
+        [JsonProperty]
         public string Folder
         {
             get { return _Folder; }
@@ -740,6 +756,7 @@ namespace Warp
 
         private string _Extension = "*.mrc";
         [WarpSerializable]
+        [JsonProperty]
         public string Extension
         {
             get { return _Extension; }
@@ -754,6 +771,7 @@ namespace Warp
                     OnPropertyChanged("ExtensionMRCS");
                     OnPropertyChanged("ExtensionEM");
                     OnPropertyChanged("ExtensionTIFF");
+                    OnPropertyChanged("ExtensionTIFFF");
                     OnPropertyChanged("ExtensionDAT");
                     OnPropertyChanged("ExtensionTomoSTAR");
                 }
@@ -815,7 +833,22 @@ namespace Warp
                 }
             }
         }
-        
+
+        private bool _ExtensionTIFFF = false;
+        public bool ExtensionTIFFF
+        {
+            get { return Extension == "*.tiff"; }
+            set
+            {
+                if (value != (Extension == "*.tiff"))
+                {
+                    if (value)
+                        Extension = "*.tiff";
+                    OnPropertyChanged();
+                }
+            }
+        }
+
         public bool ExtensionTomoSTAR
         {
             get { return Extension == "*.tomostar"; }
@@ -846,6 +879,7 @@ namespace Warp
 
         private int _HeaderlessWidth = 7676;
         [WarpSerializable]
+        [JsonProperty]
         public int HeaderlessWidth
         {
             get { return _HeaderlessWidth; }
@@ -854,6 +888,7 @@ namespace Warp
 
         private int _HeaderlessHeight = 7420;
         [WarpSerializable]
+        [JsonProperty]
         public int HeaderlessHeight
         {
             get { return _HeaderlessHeight; }
@@ -862,6 +897,7 @@ namespace Warp
 
         private string _HeaderlessType = "int8";
         [WarpSerializable]
+        [JsonProperty]
         public string HeaderlessType
         {
             get { return _HeaderlessType; }
@@ -870,6 +906,7 @@ namespace Warp
 
         private long _HeaderlessOffset = 0;
         [WarpSerializable]
+        [JsonProperty]
         public long HeaderlessOffset
         {
             get { return _HeaderlessOffset; }
@@ -878,6 +915,7 @@ namespace Warp
 
         private decimal _BinTimes = 0;
         [WarpSerializable]
+        [JsonProperty]
         public decimal BinTimes
         {
             get { return _BinTimes; }
@@ -893,6 +931,7 @@ namespace Warp
 
         private string _GainPath = "";
         [WarpSerializable]
+        [JsonProperty]
         public string GainPath
         {
             get { return _GainPath; }
@@ -908,6 +947,7 @@ namespace Warp
 
         private bool _GainFlipX = false;
         [WarpSerializable]
+        [JsonProperty]
         public bool GainFlipX
         {
             get { return _GainFlipX; }
@@ -916,6 +956,7 @@ namespace Warp
 
         private bool _GainFlipY = false;
         [WarpSerializable]
+        [JsonProperty]
         public bool GainFlipY
         {
             get { return _GainFlipY; }
@@ -924,6 +965,7 @@ namespace Warp
 
         private bool _GainTranspose = false;
         [WarpSerializable]
+        [JsonProperty]
         public bool GainTranspose
         {
             get { return _GainTranspose; }
@@ -932,6 +974,7 @@ namespace Warp
 
         private bool _CorrectGain = false;
         [WarpSerializable]
+        [JsonProperty]
         public bool CorrectGain
         {
             get { return _CorrectGain; }
@@ -947,6 +990,7 @@ namespace Warp
 
         private decimal _DosePerAngstromFrame = 0;
         [WarpSerializable]
+        [JsonProperty]
         public decimal DosePerAngstromFrame
         {
             get { return _DosePerAngstromFrame; }
@@ -954,10 +998,12 @@ namespace Warp
         }
     }
 
+    [JsonObject(MemberSerialization.OptIn)]
     public class OptionsCTF : WarpBase
     {
         private int _Window = 512;
         [WarpSerializable]
+        [JsonProperty]
         public int Window
         {
             get { return _Window; }
@@ -973,6 +1019,7 @@ namespace Warp
 
         private decimal _RangeMin = 0.10M;
         [WarpSerializable]
+        [JsonProperty]
         public decimal RangeMin
         {
             get { return _RangeMin; }
@@ -988,6 +1035,7 @@ namespace Warp
 
         private decimal _RangeMax = 0.6M;
         [WarpSerializable]
+        [JsonProperty]
         public decimal RangeMax
         {
             get { return _RangeMax; }
@@ -1003,6 +1051,7 @@ namespace Warp
 
         private decimal _MinQuality = 0.8M;
         [WarpSerializable]
+        [JsonProperty]
         public decimal MinQuality
         {
             get { return _MinQuality; }
@@ -1018,6 +1067,7 @@ namespace Warp
 
         private int _Voltage = 300;
         [WarpSerializable]
+        [JsonProperty]
         public int Voltage
         {
             get { return _Voltage; }
@@ -1033,6 +1083,7 @@ namespace Warp
 
         private decimal _Cs = 2.7M;
         [WarpSerializable]
+        [JsonProperty]
         public decimal Cs
         {
             get { return _Cs; }
@@ -1056,6 +1107,7 @@ namespace Warp
 
         private decimal _Amplitude = 0.07M;
         [WarpSerializable]
+        [JsonProperty]
         public decimal Amplitude
         {
             get { return _Amplitude; }
@@ -1095,6 +1147,7 @@ namespace Warp
 
         private bool _DoPhase = true;
         [WarpSerializable]
+        [JsonProperty]
         public bool DoPhase
         {
             get { return _DoPhase; }
@@ -1109,54 +1162,18 @@ namespace Warp
         //    set { if (value != _DoIce) { _DoIce = value; OnPropertyChanged(); } }
         //}
 
-        private bool _DoSimultaneous = false;
-        [WarpSerializable]
-        public bool DoSimultaneous
-        {
-            get { return _DoSimultaneous; }
-            set { if (value != _DoSimultaneous) { _DoSimultaneous = value; OnPropertyChanged(); } }
-        }
-
         private bool _UseMovieSum = false;
         [WarpSerializable]
+        [JsonProperty]
         public bool UseMovieSum
         {
             get { return _UseMovieSum; }
             set { if (value != _UseMovieSum) { _UseMovieSum = value; OnPropertyChanged(); } }
         }
 
-        private decimal _Astigmatism = 0M;
-        [WarpSerializable]
-        public decimal Astigmatism
-        {
-            get { return _Astigmatism; }
-            set
-            {
-                if (value != _Astigmatism)
-                {
-                    _Astigmatism = value;
-                    OnPropertyChanged();
-                }
-            }
-        }
-
-        private decimal _AstigmatismAngle = 0M;
-        [WarpSerializable]
-        public decimal AstigmatismAngle
-        {
-            get { return _AstigmatismAngle; }
-            set
-            {
-                if (value != _AstigmatismAngle)
-                {
-                    _AstigmatismAngle = value;
-                    OnPropertyChanged();
-                }
-            }
-        }
-
         private decimal _ZMin = 0M;
         [WarpSerializable]
+        [JsonProperty]
         public decimal ZMin
         {
             get { return _ZMin; }
@@ -1172,6 +1189,7 @@ namespace Warp
 
         private decimal _ZMax = 5M;
         [WarpSerializable]
+        [JsonProperty]
         public decimal ZMax
         {
             get { return _ZMax; }
@@ -1186,10 +1204,12 @@ namespace Warp
         }
     }
 
+    [JsonObject(MemberSerialization.OptIn)]
     public class OptionsMovement : WarpBase
     {
         private decimal _RangeMin = 0.05M;
         [WarpSerializable]
+        [JsonProperty]
         public decimal RangeMin
         {
             get { return _RangeMin; }
@@ -1205,6 +1225,7 @@ namespace Warp
 
         private decimal _RangeMax = 0.25M;
         [WarpSerializable]
+        [JsonProperty]
         public decimal RangeMax
         {
             get { return _RangeMax; }
@@ -1220,6 +1241,7 @@ namespace Warp
 
         private decimal _Bfactor = -500;
         [WarpSerializable]
+        [JsonProperty]
         public decimal Bfactor
         {
             get { return _Bfactor; }
@@ -1227,10 +1249,12 @@ namespace Warp
         }
     }
 
+    [JsonObject(MemberSerialization.OptIn)]
     public class OptionsGrids : WarpBase
     {
         private int _CTFX = 5;
         [WarpSerializable]
+        [JsonProperty]
         public int CTFX
         {
             get { return _CTFX; }
@@ -1239,6 +1263,7 @@ namespace Warp
 
         private int _CTFY = 5;
         [WarpSerializable]
+        [JsonProperty]
         public int CTFY
         {
             get { return _CTFY; }
@@ -1247,6 +1272,7 @@ namespace Warp
 
         private int _CTFZ = 1;
         [WarpSerializable]
+        [JsonProperty]
         public int CTFZ
         {
             get { return _CTFZ; }
@@ -1255,6 +1281,7 @@ namespace Warp
 
         private int _MovementX = 5;
         [WarpSerializable]
+        [JsonProperty]
         public int MovementX
         {
             get { return _MovementX; }
@@ -1263,6 +1290,7 @@ namespace Warp
 
         private int _MovementY = 5;
         [WarpSerializable]
+        [JsonProperty]
         public int MovementY
         {
             get { return _MovementY; }
@@ -1271,6 +1299,7 @@ namespace Warp
 
         private int _MovementZ = 20;
         [WarpSerializable]
+        [JsonProperty]
         public int MovementZ
         {
             get { return _MovementZ; }
@@ -1278,10 +1307,12 @@ namespace Warp
         }
     }
 
+    [JsonObject(MemberSerialization.OptIn)]
     public class OptionsPicking : WarpBase
     {
         private string _ModelPath = "";
         [WarpSerializable]
+        [JsonProperty]
         public string ModelPath
         {
             get { return _ModelPath; }
@@ -1290,6 +1321,7 @@ namespace Warp
 
         private string _DataStyle = "cryo";
         [WarpSerializable]
+        [JsonProperty]
         public string DataStyle
         {
             get { return _DataStyle; }
@@ -1298,6 +1330,7 @@ namespace Warp
 
         private int _Diameter = 200;
         [WarpSerializable]
+        [JsonProperty]
         public int Diameter
         {
             get { return _Diameter; }
@@ -1306,6 +1339,7 @@ namespace Warp
 
         private decimal _MinimumScore = 0.95M;
         [WarpSerializable]
+        [JsonProperty]
         public decimal MinimumScore
         {
             get { return _MinimumScore; }
@@ -1314,6 +1348,7 @@ namespace Warp
 
         private decimal _MinimumMaskDistance = 0;
         [WarpSerializable]
+        [JsonProperty]
         public decimal MinimumMaskDistance
         {
             get { return _MinimumMaskDistance; }
@@ -1322,6 +1357,7 @@ namespace Warp
 
         private bool _DoExport = false;
         [WarpSerializable]
+        [JsonProperty]
         public bool DoExport
         {
             get { return _DoExport; }
@@ -1330,6 +1366,7 @@ namespace Warp
 
         private int _BoxSize = 128;
         [WarpSerializable]
+        [JsonProperty]
         public int BoxSize
         {
             get { return _BoxSize; }
@@ -1338,6 +1375,7 @@ namespace Warp
 
         private bool _Invert = true;
         [WarpSerializable]
+        [JsonProperty]
         public bool Invert
         {
             get { return _Invert; }
@@ -1346,6 +1384,7 @@ namespace Warp
 
         private bool _Normalize = true;
         [WarpSerializable]
+        [JsonProperty]
         public bool Normalize
         {
             get { return _Normalize; }
@@ -1354,6 +1393,7 @@ namespace Warp
 
         private bool _DoRunningWindow = true;
         [WarpSerializable]
+        [JsonProperty]
         public bool DoRunningWindow
         {
             get { return _DoRunningWindow; }
@@ -1362,6 +1402,7 @@ namespace Warp
 
         private int _RunningWindowLength = 10000;
         [WarpSerializable]
+        [JsonProperty]
         public int RunningWindowLength
         {
             get { return _RunningWindowLength; }
@@ -1369,10 +1410,12 @@ namespace Warp
         }
     }
 
+    [JsonObject(MemberSerialization.OptIn)]
     public class OptionsTomo : WarpBase
     {
         private decimal _DimensionsX = 3712;
         [WarpSerializable]
+        [JsonProperty]
         public decimal DimensionsX
         {
             get { return _DimensionsX; }
@@ -1381,6 +1424,7 @@ namespace Warp
 
         private decimal _DimensionsY = 3712;
         [WarpSerializable]
+        [JsonProperty]
         public decimal DimensionsY
         {
             get { return _DimensionsY; }
@@ -1389,6 +1433,7 @@ namespace Warp
 
         private decimal _DimensionsZ = 1400;
         [WarpSerializable]
+        [JsonProperty]
         public decimal DimensionsZ
         {
             get { return _DimensionsZ; }
@@ -1396,10 +1441,12 @@ namespace Warp
         }
     }
 
+    [JsonObject(MemberSerialization.OptIn)]
     public class OptionsExport : WarpBase
     {
         private bool _DoAverage = true;
         [WarpSerializable]
+        [JsonProperty]
         public bool DoAverage
         {
             get { return _DoAverage; }
@@ -1415,6 +1462,7 @@ namespace Warp
 
         private bool _DoStack = false;
         [WarpSerializable]
+        [JsonProperty]
         public bool DoStack
         {
             get { return _DoStack; }
@@ -1454,6 +1502,7 @@ namespace Warp
 
         private int _StackGroupSize = 1;
         [WarpSerializable]
+        [JsonProperty]
         public int StackGroupSize
         {
             get { return _StackGroupSize; }
@@ -1469,6 +1518,7 @@ namespace Warp
 
         private int _SkipFirstN = 0;
         [WarpSerializable]
+        [JsonProperty]
         public int SkipFirstN
         {
             get { return _SkipFirstN; }
@@ -1477,6 +1527,7 @@ namespace Warp
 
         private int _SkipLastN = 0;
         [WarpSerializable]
+        [JsonProperty]
         public int SkipLastN
         {
             get { return _SkipLastN; }
@@ -1668,6 +1719,14 @@ namespace Warp
             set { if (value != _Export2DDoOnlyTable) { _Export2DDoOnlyTable = value; OnPropertyChanged(); } }
         }
 
+        private bool _Export2DDoDenoisingPairs = false;
+        [WarpSerializable]
+        public bool Export2DDoDenoisingPairs
+        {
+            get { return _Export2DDoDenoisingPairs; }
+            set { if (value != _Export2DDoDenoisingPairs) { _Export2DDoDenoisingPairs = value; OnPropertyChanged(); } }
+        }
+
         private bool _Export2DPreflip = false;
         [WarpSerializable]
         public bool Export2DPreflip
@@ -1738,6 +1797,14 @@ namespace Warp
             set { if (value != _TomoFullReconstructNormalize) { _TomoFullReconstructNormalize = value; OnPropertyChanged(); } }
         }
 
+        private bool _TomoFullReconstructPrepareDenoising = false;
+        [WarpSerializable]
+        public bool TomoFullReconstructPrepareDenoising
+        {
+            get { return _TomoFullReconstructPrepareDenoising; }
+            set { if (value != _TomoFullReconstructPrepareDenoising) { _TomoFullReconstructPrepareDenoising = value; OnPropertyChanged(); } }
+        }
+
         private bool _TomoFullReconstructOnlyFullVoxels = false;
         [WarpSerializable]
         public bool TomoFullReconstructOnlyFullVoxels
@@ -1798,6 +1865,30 @@ namespace Warp
             set { if (value != _TomoSubReconstructSeries) { _TomoSubReconstructSeries = value; OnPropertyChanged(); } }
         }
 
+        private decimal _TomoSubReconstructShiftX = 0M;
+        [WarpSerializable]
+        public decimal TomoSubReconstructShiftX
+        {
+            get { return _TomoSubReconstructShiftX; }
+            set { if (value != _TomoSubReconstructShiftX) { _TomoSubReconstructShiftX = value; OnPropertyChanged(); } }
+        }
+
+        private decimal _TomoSubReconstructShiftY = 0M;
+        [WarpSerializable]
+        public decimal TomoSubReconstructShiftY
+        {
+            get { return _TomoSubReconstructShiftY; }
+            set { if (value != _TomoSubReconstructShiftY) { _TomoSubReconstructShiftY = value; OnPropertyChanged(); } }
+        }
+
+        private decimal _TomoSubReconstructShiftZ = 0M;
+        [WarpSerializable]
+        public decimal TomoSubReconstructShiftZ
+        {
+            get { return _TomoSubReconstructShiftZ; }
+            set { if (value != _TomoSubReconstructShiftZ) { _TomoSubReconstructShiftZ = value; OnPropertyChanged(); } }
+        }
+
         private bool _TomoSubReconstructPrerotated = false;
         [WarpSerializable]
         public bool TomoSubReconstructPrerotated
@@ -1820,6 +1911,14 @@ namespace Warp
         {
             get { return _TomoSubReconstructNTilts; }
             set { if (value != _TomoSubReconstructNTilts) { _TomoSubReconstructNTilts = value; OnPropertyChanged(); } }
+        }
+
+        private bool _TomoSubReconstructMakeSparse = true;
+        [WarpSerializable]
+        public bool TomoSubReconstructMakeSparse
+        {
+            get { return _TomoSubReconstructMakeSparse; }
+            set { if (value != _TomoSubReconstructMakeSparse) { _TomoSubReconstructMakeSparse = value; OnPropertyChanged(); } }
         }
 
         #endregion
@@ -1930,15 +2029,25 @@ namespace Warp
             set { if (value != _TomoMatchNResults) { _TomoMatchNResults = value; OnPropertyChanged(); } }
         }
 
+        private bool _ReuseCorrVolumes = false;
+        [WarpSerializable]
+        public bool ReuseCorrVolumes
+        {
+            get { return _ReuseCorrVolumes; }
+            set { if (value != _ReuseCorrVolumes) { _ReuseCorrVolumes = value; OnPropertyChanged(); } }
+        }
+
         #endregion
 
         #endregion
     }
 
+    [JsonObject(MemberSerialization.OptIn)]
     public class OptionsFilter : WarpBase
     {
         private decimal _AstigmatismMax = 3;
         [WarpSerializable]
+        [JsonProperty]
         public decimal AstigmatismMax
         {
             get { return _AstigmatismMax; }
@@ -1947,6 +2056,7 @@ namespace Warp
 
         private decimal _DefocusMin = 0;
         [WarpSerializable]
+        [JsonProperty]
         public decimal DefocusMin
         {
             get { return _DefocusMin; }
@@ -1955,6 +2065,7 @@ namespace Warp
 
         private decimal _DefocusMax = 5;
         [WarpSerializable]
+        [JsonProperty]
         public decimal DefocusMax
         {
             get { return _DefocusMax; }
@@ -1963,6 +2074,7 @@ namespace Warp
 
         private decimal _PhaseMin = 0;
         [WarpSerializable]
+        [JsonProperty]
         public decimal PhaseMin
         {
             get { return _PhaseMin; }
@@ -1971,6 +2083,7 @@ namespace Warp
 
         private decimal _PhaseMax = 1;
         [WarpSerializable]
+        [JsonProperty]
         public decimal PhaseMax
         {
             get { return _PhaseMax; }
@@ -1979,6 +2092,7 @@ namespace Warp
 
         private decimal _ResolutionMax = 5;
         [WarpSerializable]
+        [JsonProperty]
         public decimal ResolutionMax
         {
             get { return _ResolutionMax; }
@@ -1987,6 +2101,7 @@ namespace Warp
 
         private decimal _MotionMax = 5;
         [WarpSerializable]
+        [JsonProperty]
         public decimal MotionMax
         {
             get { return _MotionMax; }
@@ -1995,6 +2110,7 @@ namespace Warp
 
         private string _ParticlesSuffix = "";
         [WarpSerializable]
+        [JsonProperty]
         public string ParticlesSuffix
         {
             get { return _ParticlesSuffix; }
@@ -2003,6 +2119,7 @@ namespace Warp
 
         private int _ParticlesMin = 1;
         [WarpSerializable]
+        [JsonProperty]
         public int ParticlesMin
         {
             get { return _ParticlesMin; }
@@ -2011,6 +2128,7 @@ namespace Warp
 
         private decimal _MaskPercentage = 10;
         [WarpSerializable]
+        [JsonProperty]
         public decimal MaskPercentage
         {
             get { return _MaskPercentage; }

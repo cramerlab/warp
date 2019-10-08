@@ -1,0 +1,56 @@
+﻿<UserControl x:Class="M.Controls.DialogRefinementSettings"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:s="clr-namespace:Sparta;assembly=WarpControls"
+             xmlns:w="clr-namespace:Warp;assembly=WarpControls"
+             xmlns:local="clr-namespace:M.Controls"
+             mc:Ignorable="d" >
+    <StackPanel Orientation="Vertical">
+        <TextBlock Text="Refinement settings" FontSize="24" Margin="0,20" />
+
+        <s:ValueSlider Name="SliderNIterations" TextFormat="Refine for {0} sub-iterations" Value="3" MinValue="1" MaxValue="5" FontSize="18" VerticalAlignment="Center" Height="30" Margin="0,0,0,10" />
+
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="350" />
+                <ColumnDefinition />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0" Orientation="Vertical">
+                <TextBlock Text="Geometry:" FontSize="24" Margin="0,0,0,10"  />
+                <StackPanel Orientation="Horizontal" Height="30">
+                    <CheckBox Name="CheckImageWarp" IsChecked="True" Content="Image warp" FontSize="18" VerticalAlignment="Center" />
+                    <s:ValueSlider Name="SliderImageWarpWidth" TextFormat=", grid: {0}" ToolTip="Resolution in X dimension" Value="5" MinValue="1" MaxValue="10" FontSize="18" VerticalAlignment="Center" />
+                    <s:ValueSlider Name="SliderImageWarpHeight" TextFormat=" x {0}" ToolTip="Resolution in Y dimension" Value="5" MinValue="1" MaxValue="10" FontSize="18" VerticalAlignment="Center" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Height="30" Visibility="Visible">
+                    <CheckBox Name="CheckVolumeWarp" IsChecked="True" Content="Volume warp" FontSize="18" VerticalAlignment="Center" />
+                    <s:ValueSlider Name="SliderVolumeWarpWidth" TextFormat=", grid: {0}" ToolTip="Resolution in X dimension" Value="6" MinValue="1" MaxValue="20" FontSize="18" VerticalAlignment="Center" />
+                    <s:ValueSlider Name="SliderVolumeWarpHeight" TextFormat=" x {0}" ToolTip="Resolution in Y dimension" Value="6" MinValue="1" MaxValue="20" FontSize="18" VerticalAlignment="Center" />
+                    <s:ValueSlider Name="SliderVolumeWarpDepth" TextFormat=" x {0}" ToolTip="Resolution in Z dimension" Value="2" MinValue="1" MaxValue="10" FontSize="18" VerticalAlignment="Center" />
+                    <s:ValueSlider Name="SliderVolumeWarpDuration" TextFormat=" x {0}" ToolTip="Resolution in temporal dimension" Value="20" MinValue="2" MaxValue="100" FontSize="18" VerticalAlignment="Center" />
+                </StackPanel>
+                <CheckBox Name="CheckStageAngles" IsChecked="True" Content="Stage angles" FontSize="18" VerticalAlignment="Center" Height="30" />
+                <CheckBox Name="CheckParticlePositions" IsChecked="True" Content="Particle positions" FontSize="18" VerticalAlignment="Center" Height="30" />
+                <CheckBox Name="CheckParticleAngles" IsChecked="True" Content="Particle angles" FontSize="18" VerticalAlignment="Center" Height="30" />
+                <CheckBox Name="CheckRefineTiltMovies" IsChecked="False" Content="Refine tilt movies" FontSize="18" VerticalAlignment="Center" Height="30" />
+            </StackPanel>
+
+            <StackPanel Grid.Column="1" Orientation="Vertical">
+                <TextBlock Text="CTF:" FontSize="24" Margin="0,0,0,10" />
+                <s:ValueSlider Name="SliderCTFResolution" TextFormat="Use species with at least {0} A resolution" Value="7" MinValue="1" MaxValue="10" StepSize="0.1" FontSize="18" VerticalAlignment="Center" Height="30" />
+                <CheckBox Name="CheckDefocus" IsChecked="False" Content="Defocus and astigmatism" FontSize="18" VerticalAlignment="Center" Height="30" />
+                <CheckBox Name="CheckPhaseShift" IsChecked="False" Content="Phase shift" FontSize="18" VerticalAlignment="Center" Height="30" />
+                <CheckBox Name="CheckBeamTilt" IsChecked="False" Content="Beam tilt" FontSize="18" VerticalAlignment="Center" Height="30" />
+                <CheckBox Name="CheckMagnification" IsChecked="False" Content="Anisotropic pixel size" FontSize="18" VerticalAlignment="Center" Height="30" />
+            </StackPanel>
+        </Grid>
+
+        <StackPanel Name="PanelButtons" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,30">
+            <Button Name="ButtonRefine" Content="REFINE" FontSize="20" VerticalAlignment="Bottom" Click="ButtonRefine_Click" />
+            <Button Name="ButtonCancel" Content="CANCEL" FontSize="20" Margin="24,0,0,0" VerticalAlignment="Bottom" Click="ButtonCancel_OnClick" />
+        </StackPanel>
+    </StackPanel>
+</UserControl>

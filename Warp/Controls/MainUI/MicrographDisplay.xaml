@@ -118,7 +118,7 @@
             <Grid Name="PanelVisuals">
                 <Image Name="ImageDisplay" PreviewMouseMove="ImageDisplay_OnPreviewMouseMove" PreviewMouseDown="ImageDisplay_OnMouseDown" PreviewMouseUp="ImageDisplay_OnMouseUp" />
                 <Image Name="ImageMask" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Stretch="Fill" IsHitTestVisible="False" RenderOptions.BitmapScalingMode="Fant" />
-                <Image Name="ImageElevation" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Stretch="Fill" IsHitTestVisible="False" Visibility="Hidden" />
+                <Image Name="ImageElevation" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Stretch="Fill" IsHitTestVisible="False" Visibility="Collapsed" />
                 <Canvas Name="CanvasTrack" />
                 <Canvas Name="CanvasTrackMouse" />
                 <Canvas Name="CanvasParticles" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />

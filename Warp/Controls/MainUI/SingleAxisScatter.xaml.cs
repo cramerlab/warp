@@ -416,31 +416,35 @@ namespace Warp.Controls
         {
             HighlightIDChanged?.Invoke(this, null);
 
-            CanvasPlot.Children.Clear();
-
-            if (Points == null ||
-                HighlightID < 0 ||
-                HighlightID >= Points.Count ||
-                double.IsNaN(Points[HighlightID].Value))
-                return;
-
-            Ellipse PointOutline = new Ellipse
+            try
             {
-                Width = PointRadius * 2 + 4,
-                Height = PointRadius * 2 + 4,
-                Stroke = Brushes.Gray,
-                StrokeThickness = 3,
-                IsHitTestVisible = false
-            };
-            CanvasPlot.Children.Add(PointOutline);
-            Canvas.SetLeft(PointOutline, PointCenters[HighlightID].X - PointRadius - 2);
-            Canvas.SetTop(PointOutline, PointCenters[HighlightID].Y - PointRadius - 2);
+                CanvasPlot.Children.Clear();
 
-            if (Zoom > 1 && !IsMouseOver)
-            {
-                double ScrollFraction = PointCenters[HighlightID].X / ImagePlot.ActualWidth;
-                ScrollViewerPlot.ScrollToHorizontalOffset(ScrollFraction * ScrollViewerPlot.ScrollableWidth);
+                if (Points == null ||
+                    HighlightID < 0 ||
+                    HighlightID >= Points.Count ||
+                    double.IsNaN(Points[HighlightID].Value))
+                    return;
+
+                Ellipse PointOutline = new Ellipse
+                {
+                    Width = PointRadius * 2 + 4,
+                    Height = PointRadius * 2 + 4,
+                    Stroke = Brushes.Gray,
+                    StrokeThickness = 3,
+                    IsHitTestVisible = false
+                };
+                CanvasPlot.Children.Add(PointOutline);
+                Canvas.SetLeft(PointOutline, PointCenters[HighlightID].X - PointRadius - 2);
+                Canvas.SetTop(PointOutline, PointCenters[HighlightID].Y - PointRadius - 2);
+
+                if (Zoom > 1 && !IsMouseOver)
+                {
+                    double ScrollFraction = PointCenters[HighlightID].X / ImagePlot.ActualWidth;
+                    ScrollViewerPlot.ScrollToHorizontalOffset(ScrollFraction * ScrollViewerPlot.ScrollableWidth);
+                }
             }
+            catch { }
         }
     }
 

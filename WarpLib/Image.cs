@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
@@ -20,7 +21,15 @@ namespace Warp
     public class Image : IDisposable
     {
         private readonly object Sync = new object();
+        private static readonly object GlobalSync = new object();
         public static object FFT_CPU_Sync = new object();
+
+        private readonly int ObjectID = -1;
+        private readonly StackTrace ObjectCreationLocation = null;
+        private static int LifetimeObjectCounter = 0;
+        private static readonly List<int> LifetimeObjectIDs = new List<int>();
+        private static readonly List<Image> LifetimeObjects = new List<Image>();
+        private static readonly bool EnableObjectLogging = false;
         
         public int3 Dims;
         public int3 DimsFT => new int3(Dims.X / 2 + 1, Dims.Y, Dims.Z);
@@ -101,11 +110,20 @@ namespace Warp
             IsComplex = iscomplex;
             IsHalf = ishalf;
 
-            if (data.Length != dims.Z || data[0].Length != ElementsSliceComplex)
+            if (data.Length != dims.Z || data[0].Length != ElementsSliceReal)
                 throw new DimensionMismatchException();
 
-            _HostData = data.Select(v => v.ToArray()).ToArray();
+            _HostData = data.ToArray();
             IsHostDirty = true;
+
+            if (EnableObjectLogging)
+                lock (GlobalSync)
+                {
+                    ObjectID = LifetimeObjectCounter++;
+                    LifetimeObjectIDs.Add(ObjectID);
+                    LifetimeObjects.Add(this);
+                    ObjectCreationLocation = new StackTrace();
+                }
         }
 
         public Image(float2[][] data, int3 dims, bool isft = false, bool ishalf = false)
@@ -120,6 +138,15 @@ namespace Warp
 
             UpdateHostWithComplex(data);
             IsHostDirty = true;
+
+            if (EnableObjectLogging)
+                lock (GlobalSync)
+                {
+                    ObjectID = LifetimeObjectCounter++;
+                    LifetimeObjectIDs.Add(ObjectID);
+                    LifetimeObjects.Add(this);
+                    ObjectCreationLocation = new StackTrace();
+                }
         }
 
         public Image(float[] data, int3 dims, bool isft = false, bool iscomplex = false, bool ishalf = false)
@@ -143,6 +170,15 @@ namespace Warp
 
             _HostData = Slices;
             IsHostDirty = true;
+
+            if (EnableObjectLogging)
+                lock (GlobalSync)
+                {
+                    ObjectID = LifetimeObjectCounter++;
+                    LifetimeObjectIDs.Add(ObjectID);
+                    LifetimeObjects.Add(this);
+                    ObjectCreationLocation = new StackTrace();
+                }
         }
 
         public Image(float2[] data, int3 dims, bool isft = false, bool ishalf = false)
@@ -170,6 +206,15 @@ namespace Warp
 
             _HostData = Slices;
             IsHostDirty = true;
+
+            if (EnableObjectLogging)
+                lock (GlobalSync)
+                {
+                    ObjectID = LifetimeObjectCounter++;
+                    LifetimeObjectIDs.Add(ObjectID);
+                    LifetimeObjects.Add(this);
+                    ObjectCreationLocation = new StackTrace();
+                }
         }
 
         public Image(float[] data, bool isft = false, bool iscomplex = false, bool ishalf = false) : 
@@ -187,6 +232,15 @@ namespace Warp
 
             _HostData = HostData; // Initializes new array since _HostData is null
             IsHostDirty = true;
+
+            if (EnableObjectLogging)
+                lock (GlobalSync)
+                {
+                    ObjectID = LifetimeObjectCounter++;
+                    LifetimeObjectIDs.Add(ObjectID);
+                    LifetimeObjects.Add(this);
+                    ObjectCreationLocation = new StackTrace();
+                }
         }
 
         public Image(IntPtr deviceData, int3 dims, bool isft = false, bool iscomplex = false, bool ishalf = false, bool fromPinned = false)
@@ -215,6 +269,15 @@ namespace Warp
                 _HostPinnedData = GPU.MallocHostPinned(ElementsReal);
                 IsHostPinnedDirty = true;
             }
+
+            if (EnableObjectLogging)
+                lock (GlobalSync)
+                {
+                    ObjectID = LifetimeObjectCounter++;
+                    LifetimeObjectIDs.Add(ObjectID);
+                    LifetimeObjects.Add(this);
+                    ObjectCreationLocation = new StackTrace();
+                }
         }
 
         ~Image()
@@ -469,6 +532,12 @@ namespace Warp
                     _DeviceData = IntPtr.Zero;
                     IsDeviceDirty = false;
                 }
+                //if (_HostPinnedData != IntPtr.Zero)
+                //{
+                //    GPU.FreeHostPinned(HostPinnedData);
+                //    _HostPinnedData = IntPtr.Zero;
+                //    IsHostPinnedDirty = false;
+                //}
 
                 IsHostDirty = true;
             }
@@ -488,7 +557,7 @@ namespace Warp
             {
                 float[][] Data = GetHost(Intent.Read);
                 float Min = float.MaxValue, Max = -float.MaxValue;
-                Parallel.For(0, Data.Length, z =>
+                Parallel.For(0, Dims.Z, z =>
                 {
                     float LocalMin = MathHelper.Min(Data[z]);
                     float LocalMax = MathHelper.Max(Data[z]);
@@ -515,7 +584,7 @@ namespace Warp
             string FlipYEnvVar = Environment.GetEnvironmentVariable("WARP_DONT_FLIPY");
             bool DoFlipY = string.IsNullOrEmpty(FlipYEnvVar);
 
-            int Width = Dims.X;
+            int Width = (int)ElementsLineReal;
             int Height = Dims.Y;
             int SamplesPerPixel = 1;
             int BitsPerSample = 8;
@@ -550,7 +619,7 @@ namespace Warp
                 using (Tiff output = Tiff.Open(path, "w"))
                 {
                     float[] DataFlipped = DoFlipY ? new float[Data[0].Length] : null;
-                    byte[] BytesData = new byte[Dims.ElementsSlice() * BytesPerSample];
+                    byte[] BytesData = new byte[ElementsSliceReal * BytesPerSample];
 
                     for (int z = 0; z < Dims.Z; z++)
                     {
@@ -704,6 +773,15 @@ namespace Warp
                 _HostData = null;
                 IsHostDirty = false;
             }
+
+            if (EnableObjectLogging)
+                lock (GlobalSync)
+                {
+                    if (LifetimeObjectIDs.Contains(ObjectID))
+                        LifetimeObjectIDs.Remove(ObjectID);
+                    if (LifetimeObjects.Contains(this))
+                        LifetimeObjects.Remove(this);
+                }
         }
 
         public Image GetCopy()
@@ -728,11 +806,67 @@ namespace Warp
         {
             float[][] Data = GetHost(Intent.ReadWrite);
             int Width = IsFT ? Dims.X / 2 + 1 : Dims.X;
+            if (IsComplex)
+                Width *= 2;
+
             for (int z = 0; z < Dims.Z; z++)
                 for (int y = 0; y < Dims.Y; y++)
                     for (int x = 0; x < Width; x++)
                         Data[z][y * Width + x] = f(x, y, z, Data[z][y * Width + x]);
         }
+
+        public float GetInterpolatedValue(float3 pos)
+        {
+            float3 Weights = new float3(pos.X - (float)Math.Floor(pos.X),
+                                        pos.Y - (float)Math.Floor(pos.Y),
+                                        pos.Z - (float)Math.Floor(pos.Z));
+
+            float[][] Data = GetHost(Intent.Read);
+
+            int3 Pos0 = new int3(Math.Max(0, Math.Min(Dims.X - 1, (int)pos.X)),
+                                 Math.Max(0, Math.Min(Dims.Y - 1, (int)pos.Y)),
+                                 Math.Max(0, Math.Min(Dims.Z - 1, (int)pos.Z)));
+            int3 Pos1 = new int3(Math.Min(Dims.X - 1, Pos0.X + 1),
+                                 Math.Min(Dims.Y - 1, Pos0.Y + 1),
+                                 Math.Min(Dims.Z - 1, Pos0.Z + 1));
+
+            if (Dims.Z == 1)
+            {
+                float v00 = Data[0][Pos0.Y * Dims.X + Pos0.X];
+                float v01 = Data[0][Pos0.Y * Dims.X + Pos1.X];
+                float v10 = Data[0][Pos1.Y * Dims.X + Pos0.X];
+                float v11 = Data[0][Pos1.Y * Dims.X + Pos1.X];
+
+                float v0 = MathHelper.Lerp(v00, v01, Weights.X);
+                float v1 = MathHelper.Lerp(v10, v11, Weights.X);
+
+                return MathHelper.Lerp(v0, v1, Weights.Y);
+            }
+            else
+            {
+                float v000 = Data[Pos0.Z][Pos0.Y * Dims.X + Pos0.X];
+                float v001 = Data[Pos0.Z][Pos0.Y * Dims.X + Pos1.X];
+                float v010 = Data[Pos0.Z][Pos1.Y * Dims.X + Pos0.X];
+                float v011 = Data[Pos0.Z][Pos1.Y * Dims.X + Pos1.X];
+
+                float v100 = Data[Pos1.Z][Pos0.Y * Dims.X + Pos0.X];
+                float v101 = Data[Pos1.Z][Pos0.Y * Dims.X + Pos1.X];
+                float v110 = Data[Pos1.Z][Pos1.Y * Dims.X + Pos0.X];
+                float v111 = Data[Pos1.Z][Pos1.Y * Dims.X + Pos1.X];
+
+                float v00 = MathHelper.Lerp(v000, v001, Weights.X);
+                float v01 = MathHelper.Lerp(v010, v011, Weights.X);
+                float v10 = MathHelper.Lerp(v100, v101, Weights.X);
+                float v11 = MathHelper.Lerp(v110, v111, Weights.X);
+
+                float v0 = MathHelper.Lerp(v00, v01, Weights.Y);
+                float v1 = MathHelper.Lerp(v10, v11, Weights.Y);
+
+                return MathHelper.Lerp(v0, v1, Weights.Z);
+            }
+        }
+
+        #region As...
 
         public Image AsHalf()
         {
@@ -808,9 +942,9 @@ namespace Warp
 
         public Image AsRegion(int3 origin, int3 dimensions)
         {
-            if (origin.X + dimensions.X >= Dims.X || 
-                origin.Y + dimensions.Y >= Dims.Y || 
-                origin.Z + dimensions.Z >= Dims.Z)
+            if (origin.X + dimensions.X > Dims.X || 
+                origin.Y + dimensions.Y > Dims.Y || 
+                origin.Z + dimensions.Z > Dims.Z)
                 throw new IndexOutOfRangeException();
 
             float[][] Source = GetHost(Intent.Read);
@@ -887,6 +1021,19 @@ namespace Warp
                 else
                     GPU.CropFT(GetDevice(Intent.Read), Padded.GetDevice(Intent.Write), Dims.Slice(), new int3(dimensions), (uint)Dims.Z);
             }
+
+            return Padded;
+        }
+
+        public Image AsPaddedClamped(int2 dimensions)
+        {
+            if (IsHalf || IsComplex || IsFT)
+                throw new Exception("Wrong data format, only real-valued non-FT supported.");
+
+            Image Padded = null;
+
+            Padded = new Image(IntPtr.Zero, new int3(dimensions.X, dimensions.Y, Dims.Z), false, false, false);
+            GPU.PadClamped(GetDevice(Intent.Read), Padded.GetDevice(Intent.Write), Dims.Slice(), new int3(dimensions), (uint)Dims.Z);
 
             return Padded;
         }
@@ -1097,7 +1244,9 @@ namespace Warp
                           new int3(newSliceDims),
                           1,
                           planForw,
-                          planBack);
+                          planBack,
+                          IntPtr.Zero,
+                          IntPtr.Zero);
             }
 
             return Output;
@@ -1114,7 +1263,9 @@ namespace Warp
                       new int3(newSliceDims),
                       (uint)Dims.Z,
                       planForw,
-                      planBack);
+                      planBack,
+                      IntPtr.Zero,
+                      IntPtr.Zero);
 
             return Output;
         }
@@ -1129,7 +1280,9 @@ namespace Warp
                       new int3(newDims),
                       1,
                       planForw,
-                      planBack);
+                      planBack,
+                      IntPtr.Zero,
+                      IntPtr.Zero);
 
             return Output;
         }
@@ -1571,8 +1724,9 @@ namespace Warp
 
                         float WeightLow = 1f - (r - (int)r);
                         float WeightHigh = 1f - WeightLow;
-                        float Val = FTAmpData[z][y * (Dims.X / 2 + 1) + x];
-                        //Val *= Val;
+                        float Val = FTAmpData[z][y * (Dims.X / 2 + 1) + x]; ;
+                        if (Math.Abs(Val) < 1e-10f)
+                            continue;
 
                         Spectrum[(int)r] += WeightLow * Val;
                         Samples[(int)r] += WeightLow;
@@ -1590,6 +1744,134 @@ namespace Warp
                 Spectrum[i] = Spectrum[i] / Math.Max(1e-5f, Samples[i]);
 
             return Spectrum;
+        }
+
+        public float[] AsAmplitudeVariance1D(bool isVolume = true, float nyquistLowpass = 1f, int spectrumLength = -1)
+        {
+            if (IsHalf)
+                throw new Exception("Not implemented for half data.");
+            //if (IsFT)
+            //    throw new DimensionMismatchException();
+
+            Image FT = IsFT ? this : (isVolume ? AsFFT_CPU() : AsFFT(false));
+            Image FTAmp = (IsFT && !IsComplex) ? this : FT.AsAmplitudes();
+            FTAmp.FreeDevice();
+            if (!IsFT)
+                FT.Dispose();
+
+            int SpectrumLength = Math.Min(Dims.X, Dims.Z > 1 ? Math.Min(Dims.Y, Dims.Z) : Dims.Y) / 2;
+            if (spectrumLength > 0)
+                SpectrumLength = Math.Min(spectrumLength, SpectrumLength);
+
+            float[] Spectrum = new float[SpectrumLength];
+            float[] Samples = new float[SpectrumLength];
+
+            float[][] FTAmpData = FTAmp.GetHost(Intent.ReadWrite);
+            for (int z = 0; z < Dims.Z; z++)
+            {
+                int zz = z < Dims.Z / 2 ? z : z - Dims.Z;
+                float fz = (float)zz / (Dims.Z / 2);
+                fz *= fz;
+                if (!isVolume)
+                    fz = 0;
+
+                for (int y = 0; y < Dims.Y; y++)
+                {
+                    int yy = y < Dims.Y / 2 ? y : y - Dims.Y;
+                    float fy = (float)yy / (Dims.Y / 2);
+                    fy *= fy;
+
+                    for (int x = 0; x < Dims.X / 2 + 1; x++)
+                    {
+                        float fx = (float)x / (Dims.X / 2);
+                        fx *= fx;
+
+                        float r = (float)Math.Sqrt(fx + fy + fz);
+                        //if (r > nyquistLowpass)
+                        //    continue;
+
+                        r *= SpectrumLength;
+                        if (r > SpectrumLength - 1)
+                            continue;
+
+                        float WeightLow = 1f - (r - (int)r);
+                        float WeightHigh = 1f - WeightLow;
+                        float Val = FTAmpData[z][y * (Dims.X / 2 + 1) + x];
+                        if (Math.Abs(Val) < 1e-10f)
+                            continue;
+                        //Val *= Val;
+
+                        Spectrum[(int)r] += WeightLow * Val;
+                        Samples[(int)r] += WeightLow;
+
+                        if ((int)r < SpectrumLength - 1)
+                        {
+                            Spectrum[(int)r + 1] += WeightHigh * Val;
+                            Samples[(int)r + 1] += WeightHigh;
+                        }
+                    }
+                }
+            }
+
+            for (int i = 0; i < Spectrum.Length; i++)
+                Spectrum[i] = Spectrum[i] / Math.Max(1e-5f, Samples[i]);
+
+            float[] Variance = new float[SpectrumLength];
+            float[] VarianceSamples = new float[SpectrumLength];
+
+            for (int z = 0; z < Dims.Z; z++)
+            {
+                int zz = z < Dims.Z / 2 ? z : z - Dims.Z;
+                float fz = (float)zz / (Dims.Z / 2);
+                fz *= fz;
+                if (!isVolume)
+                    fz = 0;
+
+                for (int y = 0; y < Dims.Y; y++)
+                {
+                    int yy = y < Dims.Y / 2 ? y : y - Dims.Y;
+                    float fy = (float)yy / (Dims.Y / 2);
+                    fy *= fy;
+
+                    for (int x = 0; x < Dims.X / 2 + 1; x++)
+                    {
+                        float fx = (float)x / (Dims.X / 2);
+                        fx *= fx;
+
+                        float r = (float)Math.Sqrt(fx + fy + fz);
+                        //if (r > nyquistLowpass)
+                        //    continue;
+
+                        r *= SpectrumLength;
+                        if (r > SpectrumLength - 1)
+                            continue;
+
+                        float WeightLow = 1f - (r - (int)r);
+                        float WeightHigh = 1f - WeightLow;
+                        float Val = FTAmpData[z][y * (Dims.X / 2 + 1) + x];
+                        if (Math.Abs(Val) < 1e-10f)
+                            continue;
+
+                        float Mean = Spectrum[(int)r] * WeightLow + Spectrum[Math.Min(Spectrum.Length - 1, (int)r + 1)] * WeightHigh;
+                        float Diff = Val - Mean;
+                        Diff *= Diff;
+
+                        Variance[(int)r] += WeightLow * Diff;
+                        VarianceSamples[(int)r] += WeightLow;
+
+                        if ((int)r < SpectrumLength - 1)
+                        {
+                            Variance[(int)r + 1] += WeightHigh * Diff;
+                            VarianceSamples[(int)r + 1] += WeightHigh;
+                        }
+                    }
+                }
+            }
+
+            for (int i = 0; i < Spectrum.Length; i++)
+                Variance[i] = Variance[i] / Math.Max(1e-5f, VarianceSamples[i]);
+
+            return Variance;
         }
 
         public Image AsSpectrumMultiplied(bool isVolume, float[] spectrumMultiplicators)
@@ -1792,6 +2074,31 @@ namespace Warp
             return Flipped;
         }
 
+        public Image AsFlippedZ()
+        {
+            if (IsComplex || IsFT || IsHalf)
+                throw new Exception("Format not supported.");
+
+            Image Flipped = new Image(Dims);
+
+            float[][] Data = GetHost(Intent.Read);
+            float[][] FlippedData = Flipped.GetHost(Intent.Write);
+
+            for (int z = 0; z < Dims.Z; z++)
+            {
+                int zz = Dims.Z - 1 - z;
+                for (int y = 0; y < Dims.Y; y++)
+                {
+                    for (int x = 0; x < Dims.X; x++)
+                    {
+                        FlippedData[z][y * Dims.X + x] = Data[zz][y * Dims.X + x];
+                    }
+                }
+            }
+
+            return Flipped;
+        }
+
         public Image AsTransposed()
         {
             if (IsComplex || IsFT || IsHalf)
@@ -1823,6 +2130,17 @@ namespace Warp
             BinaryExpanded.Binarize(-expandDistance + 1e-6f);
 
             return BinaryExpanded;
+        }
+
+        public Image AsExpandedSmooth(int expandDistance)
+        {
+            Image ExpandedSmooth = AsDistanceMapExact(expandDistance);
+            ExpandedSmooth.Multiply((float)Math.PI / expandDistance);
+            ExpandedSmooth.Cos();
+            ExpandedSmooth.Add(1);
+            ExpandedSmooth.Multiply(0.5f);
+
+            return ExpandedSmooth;
         }
 
         public Image AsComplex()
@@ -1867,6 +2185,10 @@ namespace Warp
 
             return Slice;
         }
+
+        #endregion
+
+        #region In-place
 
         public void RemapToFT(bool isvolume = false)
         {
@@ -1969,6 +2291,17 @@ namespace Warp
                 throw new Exception("Does not work for fp16.");
 
             GPU.Abs(GetDevice(Intent.Read), GetDevice(Intent.Write), ElementsReal);
+        }
+
+        public void MaskSpherically(float diameter, float softEdge, bool isVolume)
+        {
+            GPU.SphereMask(GetDevice(Intent.Read),
+                           GetDevice(Intent.Write),
+                           isVolume ? Dims : Dims.Slice(),
+                           diameter / 2,
+                           softEdge,
+                           false,
+                           isVolume ? 1 : (uint)Dims.Z);
         }
 
         private void Add(Image summands, uint elements, uint batch)
@@ -2318,6 +2651,97 @@ namespace Warp
             GPU.Bandpass(GetDevice(Intent.Read), GetDevice(Intent.Write), isVolume ? Dims : Dims.Slice(), nyquistLow, nyquistHigh, nyquistsoftedge, isVolume ? 1 : (uint)Dims.Z);
         }
 
+        public void Binarize(float threshold)
+        {
+            foreach (var slice in GetHost(Intent.ReadWrite))
+                for (int i = 0; i < slice.Length; i++)
+                    slice[i] = slice[i] >= threshold ? 1 : 0;
+        }
+
+        public void SubtractMeanGrid(int2 gridDims)
+        {
+            //if (Dims.Z > 1)
+            //    throw new Exception("Does not work for volumes or stacks.");
+
+            foreach (var MicData in GetHost(Intent.ReadWrite))
+                if (gridDims.Elements() <= 1)
+                    MathHelper.FitAndSubtractPlane(MicData, DimsSlice);
+                else
+                    MathHelper.FitAndSubtractGrid(MicData, DimsSlice, gridDims);
+        }
+
+        public void Taper(float distance, bool isVolume = false)
+        {
+            if (!isVolume)
+            {
+                Image MaskTaper = new Image(Dims.Slice());
+                MaskTaper.TransformValues((x, y, z, v) =>
+                {
+                    float dx = 0, dy = 0;
+
+                    if (x < distance)
+                        dx = distance - x;
+                    else if (x > Dims.X - 1 - distance)
+                        dx = x - (Dims.X - 1 - distance);
+
+                    if (y < distance)
+                        dy = distance - y;
+                    else if (y > Dims.Y - 1 - distance)
+                        dy = y - (Dims.Y - 1 - distance);
+
+                    float R = (float)Math.Sqrt(dx * dx + dy * dy) / distance;
+
+                    return Math.Max(0.01f, (float)Math.Cos(Math.Max(0, Math.Min(1, R)) * Math.PI) * 0.5f + 0.5f);
+                });
+
+                MultiplySlices(MaskTaper);
+                MaskTaper.Dispose();
+            }
+            else
+            {
+                Image MaskTaper = new Image(Dims);
+                MaskTaper.TransformValues((x, y, z, v) =>
+                {
+                    float dx = 0, dy = 0, dz = 0;
+
+                    if (x < distance)
+                        dx = distance - x;
+                    else if (x > Dims.X - 1 - distance)
+                        dx = x - (Dims.X - 1 - distance);
+
+                    if (y < distance)
+                        dy = distance - y;
+                    else if (y > Dims.Y - 1 - distance)
+                        dy = y - (Dims.Y - 1 - distance);
+
+                    if (z < distance)
+                        dz = distance - z;
+                    else if (z > Dims.Z - 1 - distance)
+                        dz = z - (Dims.Z - 1 - distance);
+
+                    float R = (float)Math.Sqrt(dx * dx + dy * dy + dz * dz) / distance;
+
+                    return Math.Max(0, (float)Math.Cos(Math.Max(0, Math.Min(1, R)) * Math.PI) * 0.5f + 0.5f);
+                });
+
+                Multiply(MaskTaper);
+                MaskTaper.Dispose();
+            }
+        }
+
+        public void Normalize()
+        {
+            if (IsHalf || IsComplex)
+                throw new Exception("Wrong format, only real-valued input supported.");
+
+            GPU.Normalize(GetDevice(Intent.Read),
+                          GetDevice(Intent.Write),
+                          (uint)ElementsSliceReal,
+                          (uint)Dims.Z);
+        }
+
+        #endregion
+
         public int3[] GetLocalPeaks(int localExtent, float threshold)
         {
             int[] NPeaks = new int[1];
@@ -2339,23 +2763,152 @@ namespace Warp
             }
         }
 
-        public void Binarize(float threshold)
+        public void RealspaceProject(float3[] angles, Image result, int supersample)
         {
-            foreach (var slice in GetHost(Intent.ReadWrite))
-                for (int i = 0; i < slice.Length; i++)
-                    slice[i] = slice[i] >= threshold ? 1 : 0;
+            GPU.RealspaceProjectForward(GetDevice(Intent.Read),
+                                        Dims,
+                                        result.GetDevice(Intent.ReadWrite),
+                                        new int2(result.Dims),
+                                        supersample,
+                                        Helper.ToInterleaved(angles),
+                                        angles.Length);
         }
 
-        public void SubtractMeanGrid(int2 gridDims)
+        public void RealspaceBackproject(Image projections, float3[] angles, int supersample, bool normalizesamples = true)
+        {
+            GPU.RealspaceProjectBackward(GetDevice(Intent.Write),
+                                         Dims,
+                                         projections.GetDevice(Intent.Read),
+                                         new int2(projections.Dims),
+                                         supersample,
+                                         Helper.ToInterleaved(angles),
+                                         normalizesamples,
+                                         angles.Length);
+        }
+
+        public (int[] ComponentIndices, int[] NeighborhoodIndices)[] GetConnectedComponents(int neighborhoodExtent = 0, int[] labelsBuffer = null)
         {
             if (Dims.Z > 1)
-                throw new Exception("Does not work for volumes or stacks.");
+                throw new Exception("No volumetric data supported!");
 
-            float[] MicData = GetHost(Intent.ReadWrite)[0];
-            if (gridDims.Elements() <= 1)
-                MathHelper.FitAndSubtractPlane(MicData, DimsSlice);
-            else
-                MathHelper.FitAndSubtractGrid(MicData, DimsSlice, gridDims);
+            float[] PixelData = GetHost(Intent.Read)[0];
+
+            List<List<int>> Components = new List<List<int>>();
+            List<List<int>> Neighborhoods = new List<List<int>>();
+            if (labelsBuffer == null)
+                labelsBuffer = new int[PixelData.Length];
+
+            for (int i = 0; i < labelsBuffer.Length; i++)
+                labelsBuffer[i] = -1;
+
+            List<int> Peaks = new List<int>();
+            for (int i = 0; i < PixelData.Length; i++)
+                if (PixelData[i] != 0)
+                    Peaks.Add(i);
+
+            Queue<int> Expansion = new Queue<int>(100);
+
+
+            foreach (var peak in Peaks)
+            {
+                if (labelsBuffer[peak] >= 0)
+                    continue;
+
+                #region Connected component
+
+                List<int> Component = new List<int>() { peak };
+                int CN = Components.Count;
+
+                labelsBuffer[peak] = CN;
+                Expansion.Clear();
+                Expansion.Enqueue(peak);
+
+                while (Expansion.Count > 0)
+                {
+                    int PosElement = Expansion.Dequeue();
+                    int2 pos = new int2(PosElement % Dims.X, PosElement / Dims.X);
+
+                    if (pos.X > 0 && PixelData[PosElement - 1] != 0 && labelsBuffer[PosElement - 1] < 0)
+                    {
+                        labelsBuffer[PosElement - 1] = CN;
+                        Component.Add(PosElement + (-1));
+                        Expansion.Enqueue(PosElement + (-1));
+                    }
+                    if (pos.X < Dims.X - 1 && PixelData[PosElement + 1] > 0 && labelsBuffer[PosElement + 1] < 0)
+                    {
+                        labelsBuffer[PosElement + 1] = CN;
+                        Component.Add(PosElement + (1));
+                        Expansion.Enqueue(PosElement + (1));
+                    }
+
+                    if (pos.Y > 0 && PixelData[PosElement - Dims.X] > 0 && labelsBuffer[PosElement - Dims.X] < 0)
+                    {
+                        labelsBuffer[PosElement - Dims.X] = CN;
+                        Component.Add(PosElement + (-Dims.X));
+                        Expansion.Enqueue(PosElement + (-Dims.X));
+                    }
+                    if (pos.Y < Dims.Y - 1 && PixelData[PosElement + Dims.X] > 0 && labelsBuffer[PosElement + Dims.X] < 0)
+                    {
+                        labelsBuffer[PosElement + Dims.X] = CN;
+                        Component.Add(PosElement + (Dims.X));
+                        Expansion.Enqueue(PosElement + (Dims.X));
+                    }
+                }
+
+                Components.Add(Component);
+
+                #endregion
+
+                #region Optional neighborhood around component
+
+                List<int> CurrentFrontier = new List<int>(Component);
+                List<int> NextFrontier = new List<int>();
+                List<int> Neighborhood = new List<int>();
+                int NN = -(CN + 2);
+
+                for (int iexpansion = 0; iexpansion < neighborhoodExtent; iexpansion++)
+                {
+                    foreach (int PosElement in CurrentFrontier)
+                    {
+                        int2 pos = new int2(PosElement % Dims.X, PosElement / Dims.X);
+
+                        if (pos.X > 0 && PixelData[PosElement - 1] == 0 && labelsBuffer[PosElement - 1] != NN)
+                        {
+                            labelsBuffer[PosElement - 1] = NN;
+                            Neighborhood.Add(PosElement + (-1));
+                            NextFrontier.Add(PosElement + (-1));
+                        }
+                        if (pos.X < Dims.X - 1 && PixelData[PosElement + 1] == 0 && labelsBuffer[PosElement + 1] != NN)
+                        {
+                            labelsBuffer[PosElement + 1] = NN;
+                            Neighborhood.Add(PosElement + (1));
+                            NextFrontier.Add(PosElement + (1));
+                        }
+
+                        if (pos.Y > 0 && PixelData[PosElement - Dims.X] == 0 && labelsBuffer[PosElement - Dims.X] != NN)
+                        {
+                            labelsBuffer[PosElement - Dims.X] = NN;
+                            Neighborhood.Add(PosElement + (-Dims.X));
+                            NextFrontier.Add(PosElement + (-Dims.X));
+                        }
+                        if (pos.Y < Dims.Y - 1 && PixelData[PosElement + Dims.X] == 0 && labelsBuffer[PosElement + Dims.X] != NN)
+                        {
+                            labelsBuffer[PosElement + Dims.X] = NN;
+                            Neighborhood.Add(PosElement + (Dims.X));
+                            NextFrontier.Add(PosElement + (Dims.X));
+                        }
+                    }
+
+                    CurrentFrontier = NextFrontier;
+                    NextFrontier = new List<int>();
+                }
+
+                Neighborhoods.Add(Neighborhood);
+
+                #endregion
+            }
+
+            return Helper.ArrayOfFunction(i => (Components[i].ToArray(), Neighborhoods[i].ToArray()), Components.Count);
         }
 
         public bool IsSameAs(Image other, float error = 0.001f)
@@ -2386,7 +2939,12 @@ namespace Warp
 
         public override string ToString()
         {
-            return Dims.ToString() + ", " + PixelSize + " A/px";
+            return Dims.ToString() + ", " + 
+                   (IsFT ? "FT, " : "normal, ") + 
+                   (IsComplex ? "complex, " : "real, ") + 
+                   PixelSize + " A/px, " + 
+                   "ID = " + ObjectID +
+                   (_DeviceData == IntPtr.Zero ? "" : ", on device");
         }
 
         public static Image Stack(Image[] images)
@@ -2401,11 +2959,140 @@ namespace Warp
             {
                 float[][] ImageData = image.GetHost(Intent.Read);
                 for (int i = 0; i < ImageData.Length; i++)
-                    StackedData[i + OffsetZ] = ImageData[i].ToArray();
+                    Array.Copy(ImageData[i], 0, StackedData[i + OffsetZ], 0, ImageData[i].Length);
                 OffsetZ += ImageData.Length;
             }
 
             return Stacked;
+        }
+
+        public static Image ReconstructSIRT(Image data, float3[] angles, int3 dimsrec, int supersample, int niterations, Image residuals = null)
+        {
+            int2 DimsProj = new int2(data.Dims);
+            int2 DimsProjSuper = DimsProj * supersample;
+
+            int PlanForwUp = GPU.CreateFFTPlan(new int3(DimsProj), (uint)angles.Length);
+            int PlanBackUp = GPU.CreateIFFTPlan(new int3(DimsProjSuper), (uint)angles.Length);
+
+            int PlanForwDown = GPU.CreateFFTPlan(new int3(DimsProjSuper), (uint)angles.Length);
+            int PlanBackDown = GPU.CreateIFFTPlan(new int3(DimsProj), (uint)angles.Length);
+
+            Image Projections = new Image(new int3(DimsProj.X, DimsProj.Y, angles.Length));
+            Image ProjectionsSuper = new Image(new int3(DimsProjSuper.X, DimsProjSuper.Y, angles.Length));
+
+            Image ProjectionSamples = new Image(Projections.Dims);
+            
+            Image VolReconstruction = new Image(dimsrec);
+            Image VolCorrection = new Image(dimsrec);
+            VolCorrection.Fill(1f);
+
+            // Figure out number of samples per projection pixel
+            {
+                VolCorrection.RealspaceProject(angles, ProjectionsSuper, supersample);
+
+                GPU.Scale(ProjectionsSuper.GetDevice(Intent.Read),
+                            ProjectionSamples.GetDevice(Intent.Write),
+                            new int3(DimsProjSuper),
+                            new int3(DimsProj),
+                            (uint)angles.Length,
+                            PlanForwDown,
+                            PlanBackDown,
+                            IntPtr.Zero,
+                            IntPtr.Zero);
+
+                ProjectionSamples.Max(1f);
+                //ProjectionSamples.WriteMRC("d_samples.mrc", true);
+            }
+
+            // Supersample data and backproject to initialize volume
+            {
+                GPU.Scale(data.GetDevice(Intent.Read),
+                          ProjectionsSuper.GetDevice(Intent.Write),
+                          new int3(DimsProj),
+                          new int3(DimsProjSuper),
+                          (uint)angles.Length,
+                          PlanForwUp,
+                          PlanBackUp,
+                          IntPtr.Zero,
+                          IntPtr.Zero);
+
+                //ProjectionsSuper.WriteMRC("d_datasuper.mrc", true);
+
+                VolReconstruction.RealspaceBackproject(ProjectionsSuper, angles, supersample);
+            }
+
+            for (int i = 0; i < niterations; i++)
+            {
+                VolReconstruction.RealspaceProject(angles, ProjectionsSuper, supersample);
+                
+                GPU.Scale(ProjectionsSuper.GetDevice(Intent.Read),
+                            Projections.GetDevice(Intent.Write),
+                            new int3(DimsProjSuper),
+                            new int3(DimsProj),
+                            (uint)angles.Length,
+                            PlanForwDown,
+                            PlanBackDown,
+                            IntPtr.Zero,
+                            IntPtr.Zero);
+                //Projections.WriteMRC("d_projections.mrc", true);
+
+                GPU.SubtractFromSlices(data.GetDevice(Intent.Read),
+                                       Projections.GetDevice(Intent.Read),
+                                       Projections.GetDevice(Intent.Write),
+                                       Projections.ElementsReal,
+                                       1);
+
+                if (i == niterations - 1 && residuals != null)
+                    GPU.CopyDeviceToDevice(Projections.GetDevice(Intent.Read),
+                                           residuals.GetDevice(Intent.Write),
+                                           Projections.ElementsReal);
+
+                Projections.Divide(ProjectionSamples);
+                //Projections.WriteMRC("d_correction2d.mrc", true);
+                Projections.Taper(8);
+
+                GPU.Scale(Projections.GetDevice(Intent.Read),
+                          ProjectionsSuper.GetDevice(Intent.Write),
+                          new int3(DimsProj),
+                          new int3(DimsProjSuper),
+                          (uint)angles.Length,
+                          PlanForwUp,
+                          PlanBackUp,
+                          IntPtr.Zero,
+                          IntPtr.Zero);
+
+                VolCorrection.RealspaceBackproject(ProjectionsSuper, angles, supersample);
+                //VolCorrection.WriteMRC("d_correction3d.mrc", true);
+
+                VolReconstruction.Add(VolCorrection);
+                //VolReconstruction.WriteMRC($"d_reconstruction_{i:D3}.mrc", true);
+            }
+
+            //VolReconstruction.WriteMRC($"d_reconstruction_final.mrc", true);
+
+            VolCorrection.Dispose();
+            ProjectionSamples.Dispose();
+            ProjectionsSuper.Dispose();
+            Projections.Dispose();
+
+            GPU.DestroyFFTPlan(PlanForwUp);
+            GPU.DestroyFFTPlan(PlanForwDown);
+            GPU.DestroyFFTPlan(PlanBackUp);
+            GPU.DestroyFFTPlan(PlanBackDown);
+
+            return VolReconstruction;
+        }
+
+        public static void PrintObjectIDs()
+        {
+            lock (GlobalSync)
+            {
+                for (int i = 0; i < LifetimeObjects.Count; i++)
+                {
+                    Debug.WriteLine(LifetimeObjects[i].ToString());
+                    Debug.WriteLine(LifetimeObjects[i].ObjectCreationLocation.ToString() + "\n");
+                }
+            }
         }
     }
     

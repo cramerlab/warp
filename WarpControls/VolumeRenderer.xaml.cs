@@ -73,6 +73,7 @@ namespace Warp
             set { SetValue(SupersamplingLiveProperty, value); }
         }
         public static readonly DependencyProperty SupersamplingLiveProperty = DependencyProperty.Register("SupersamplingLive", typeof(int), typeof(VolumeRenderer), new PropertyMetadata(2));
+
         public int SupersamplingStill
         {
             get { return (int)GetValue(SupersamplingStillProperty); }
@@ -236,6 +237,22 @@ namespace Warp
                     BGRA[i] = 1;
                 }
                 BGRA = Helper.ArrayOfConstant((byte)1, (int)dimsImage.Elements() * 4);
+            }
+        }
+
+        public void SetVolumeFrom(Image data)
+        {
+            if (Volume == null || Volume.Dims != data.Dims)
+            {
+                Volume?.Dispose();
+                FreeOnDevice();
+                Volume = data.GetCopyGPU();
+            }
+            else
+            {
+                GPU.CopyDeviceToDevice(data.GetDevice(Intent.Read),
+                                       Volume.GetDevice(Intent.Write),
+                                       data.ElementsReal);
             }
         }
 
@@ -410,7 +427,7 @@ namespace Warp
         {
             float2 Position = new float2((float)point.X, (float)point.Y);
             float2 ViewportCenter = new float2((float)ActualWidth, (float)ActualHeight) * 0.5f;
-
+            
             viewport2DPixels = Position;
             viewport2DWorld = (Position - ViewportCenter) / (float)Camera.Zoom + new float2((float)Camera.PanX, (float)Camera.PanY);
 

@@ -49,8 +49,7 @@
                     <TextBlock Text=" symmetry" FontSize="18"/>
                 </StackPanel>
 
-                <sparta:ValueSlider Grid.Row="6" TextFormat="{}{0} temporal samples for movement" Value="{Binding TemporalResMov, Mode=TwoWay}" UpdateTrigger="PropertyChanged" MinValue="1" MaxValue="99" StepSize="1" FontSize="18" />
-                <sparta:ValueSlider Grid.Row="7" TextFormat="{}{0} temporal samples for rotation" Value="{Binding TemporalResRot, Mode=TwoWay}" UpdateTrigger="PropertyChanged" MinValue="1" MaxValue="99" StepSize="1" FontSize="18" />
+                <sparta:ValueSlider Grid.Row="6" TextFormat="{}{0} temporal samples for poses" Value="{Binding TemporalResMov, Mode=TwoWay}" UpdateTrigger="PropertyChanged" MinValue="1" MaxValue="99" StepSize="1" FontSize="18" />
             </Grid>
             
             <Grid Name="TabHalfmaps" HorizontalAlignment="Left" MinWidth="516" Visibility="Collapsed">
@@ -139,11 +138,11 @@
                         <RowDefinition Height="30" />
                     </Grid.RowDefinitions>
 
-                    <RadioButton Name="RadioParticlesWarp" Grid.Row="0" GroupName="Particles" IsChecked="True" Checked="RadioParticlesWarp_OnChecked">
-                        <Button Name="ButtonParticlesWarpPath" Content="Select .star file from Warp..." FontSize="18" Style="{StaticResource HyperlinkLikeButton}" Click="ButtonParticlesWarpPath_OnClick" />
+                    <RadioButton Name="RadioParticlesWarp" Grid.Row="0" GroupName="Particles" Checked="RadioParticlesWarp_OnChecked">
+                        <Button Name="ButtonParticlesWarpPath" Content="Select .star file from M..." FontSize="18" Style="{StaticResource HyperlinkLikeButton}" Click="ButtonParticlesWarpPath_OnClick" />
                     </RadioButton>
                 
-                    <RadioButton Name="RadioParticlesRelion" Grid.Row="2" GroupName="Particles" Checked="RadioParticlesWarp_OnChecked">
+                    <RadioButton Name="RadioParticlesRelion" Grid.Row="2" GroupName="Particles" IsChecked="True" Checked="RadioParticlesWarp_OnChecked">
                         <Button Name="ButtonParticlesRelionPath" Content="Select .star file from RELION..." FontSize="18" Style="{StaticResource HyperlinkLikeButton}" Click="ButtonParticlesRelionPath_OnClick" />
                     </RadioButton>
 
@@ -163,9 +162,9 @@
             </Grid>
         </Grid>
         <StackPanel Name="PanelButtons" Height="50" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,20">
-            <Button Name="ButtonPrevious" Content="PREVIOUS" FontSize="20" FontWeight="Medium" Foreground="CornflowerBlue" VerticalAlignment="Bottom" Style="{StaticResource ChromelessButtonStyle}" Visibility="Collapsed" Click="ButtonPrevious_OnClick" />
-            <Button Name="ButtonNext" Content="NEXT" FontSize="20" FontWeight="Medium" Foreground="CornflowerBlue" Margin="24,0,0,0" VerticalAlignment="Bottom" Style="{StaticResource ChromelessButtonStyle}" Click="ButtonNext_OnClick" />
-            <Button Name="ButtonCancel" Content="CANCEL" FontSize="20" FontWeight="Medium" Foreground="CornflowerBlue" Margin="24,0,0,0" VerticalAlignment="Bottom" Style="{StaticResource ChromelessButtonStyle}" Click="ButtonCancel_OnClick" />
+            <Button Name="ButtonPrevious" Content="PREVIOUS" FontSize="20" VerticalAlignment="Bottom" Visibility="Collapsed" Click="ButtonPrevious_OnClick" />
+            <Button Name="ButtonNext" Content="NEXT" FontSize="20" Margin="24,0,0,0" VerticalAlignment="Bottom" Click="ButtonNext_OnClick" />
+            <Button Name="ButtonCancel" Content="CANCEL" FontSize="20" Margin="24,0,0,0" VerticalAlignment="Bottom" Click="ButtonCancel_OnClick" />
         </StackPanel>
     </StackPanel>
 </UserControl>

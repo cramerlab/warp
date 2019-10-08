@@ -23,7 +23,9 @@
                 <RowDefinition Height="15" />
                 <RowDefinition Height="30" />
                 <RowDefinition Height="30" />
+                <RowDefinition Height="30" />
                 <RowDefinition Height="15" />
+                <RowDefinition Height="30" />
                 <RowDefinition Height="30" />
                 <RowDefinition Height="30" />
                 <RowDefinition Height="30" />
@@ -35,8 +37,10 @@
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
             <CheckBox Name="CheckOneInputPerItem" IsChecked="{Binding Tasks.InputOnePerItem}" Content="One input file per tilt series" FontSize="18" />
-            <s:ValueSlider Name="SliderImportAngPix"  Grid.Row="1" Value="{Binding Tasks.InputPixelSize, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="Coordinates use {0} Å/px" MinValue="0.01" MaxValue="1000" StepSize="0.0001" FontSize="18" />
-            <CheckBox Name="CheckNormalizedCoords" Grid.Row="2" IsChecked="{Binding Tasks.TomoSubReconstructNormalizedCoords}" Content="Coordinates are normalized" FontSize="18" />
+            <RadioButton Grid.Row="1" GroupName="CoordinateMode">
+                <s:ValueSlider Name="SliderImportAngPix"  Grid.Row="1" Value="{Binding Tasks.InputPixelSize, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="Coordinates use {0} Å/px" MinValue="0.01" MaxValue="1000" StepSize="0.0001" FontSize="18" />
+            </RadioButton>
+            <RadioButton Name="CheckNormalizedCoords" Grid.Row="2" GroupName="CoordinateMode" IsChecked="{Binding Tasks.TomoSubReconstructNormalizedCoords}" Content="Coordinates are normalized" FontSize="18" />
             <s:ValueSlider Name="TextPixelSizeExport"  Grid.Row="3" Value="{Binding Tasks.TomoSubReconstructPixel, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="Output will be scaled to {0} Å/px" MinValue="0.01" MaxValue="1000" StepSize="0.0001" FontSize="18" />
 
             <s:ValueSlider Name="SliderBoxSize" Grid.Row="5" Value="{Binding Tasks.TomoSubReconstructBox, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="Box size is {0} px" MinValue="2" MaxValue="10000" StepSize="2" FontSize="18" />
@@ -47,21 +51,29 @@
                 <RadioButton Name="RadioSeries" GroupName="VolumeSeries" IsChecked="{Binding Tasks.TomoSubReconstructSeries}" Content="Image series" FontSize="18" Margin="16,0,0,0" />
             </StackPanel>
 
-            <CheckBox Name="CheckPrerotate" Grid.Row="10" IsChecked="{Binding Tasks.TomoSubReconstructPrerotated}" Content="Pre-rotate particles" FontSize="18" />
-            <CheckBox Name="CheckLimitDose" Grid.Row="11" IsChecked="{Binding Tasks.TomoSubReconstructDoLimitDose}" FontSize="18">
-                <s:ValueSlider Name="SliderNTilts" Value="{Binding Tasks.TomoSubReconstructNTilts, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="Limit dose to first {0} tilts" MinValue="1" MaxValue="10000" StepSize="1" FontSize="18" />
+            <CheckBox Name="CheckShiftParticles" Grid.Row="10">
+                <StackPanel Orientation="Horizontal">
+                    <s:ValueSlider Name="SliderShiftParticlesX" TextFormat="Shift by {0}" Value="{Binding Tasks.TomoSubReconstructShiftX, Mode=TwoWay}" UpdateTrigger="PropertyChanged" MinValue="-9999" MaxValue="9999" FontSize="18" />
+                    <s:ValueSlider Name="SliderShiftParticlesY" TextFormat=", {0}" Value="{Binding Tasks.TomoSubReconstructShiftY, Mode=TwoWay}" UpdateTrigger="PropertyChanged" MinValue="-9999" MaxValue="9999" FontSize="18" />
+                    <s:ValueSlider Name="SliderShiftParticlesZ" TextFormat=", {0} Å" Value="{Binding Tasks.TomoSubReconstructShiftZ, Mode=TwoWay}" UpdateTrigger="PropertyChanged" MinValue="-9999" MaxValue="9999" FontSize="18" />
+                </StackPanel>
+            </CheckBox>
+            <CheckBox Name="CheckPrerotate" Grid.Row="11" IsChecked="{Binding Tasks.TomoSubReconstructPrerotated}" Content="Pre-rotate particles" FontSize="18" />
+            <CheckBox Name="CheckLimitDose" Grid.Row="12" IsChecked="{Binding Tasks.TomoSubReconstructDoLimitDose}" FontSize="18">
+                <s:ValueSlider Name="SliderNTilts" Value="{Binding Tasks.TomoSubReconstructNTilts, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="Limit to first {0} tilts by dose" MinValue="1" MaxValue="10000" StepSize="1" FontSize="18" />
             </CheckBox>
 
-            <CheckBox Name="CheckInvert" Grid.Row="13" IsChecked="{Binding Tasks.InputInvert}" Content="Invert contrast" FontSize="18" />
-            <CheckBox Name="CheckNormalize" Grid.Row="14" IsChecked="{Binding Tasks.InputNormalize}" Content="Normalize input images" FontSize="18" />
-            <CheckBox Name="CheckPreflip" Grid.Row="15" IsChecked="{Binding Tasks.OutputNormalize}" Content="Normalize output volumes" FontSize="18" />
+            <CheckBox Name="CheckInvert" Grid.Row="14" IsChecked="{Binding Tasks.InputInvert}" Content="Invert contrast" FontSize="18" />
+            <CheckBox Name="CheckNormalize" Grid.Row="15" IsChecked="{Binding Tasks.InputNormalize}" Content="Normalize input images" FontSize="18" />
+            <CheckBox Name="CheckPreflip" Grid.Row="16" IsChecked="{Binding Tasks.OutputNormalize}" Content="Normalize output volumes" FontSize="18" />
+            <CheckBox Name="CheckSparse" Grid.Row="17" IsChecked="{Binding Tasks.TomoSubReconstructMakeSparse}" Content="Make 3D CTF sparse" FontSize="18" />
 
-            <CheckBox Name="CheckRelative" Grid.Row="17" IsChecked="{Binding Tasks.UseRelativePaths}" Content="Make paths relative to STAR" FontSize="18" />
+            <CheckBox Name="CheckRelative" Grid.Row="19" IsChecked="{Binding Tasks.UseRelativePaths}" Content="Make paths relative to STAR" FontSize="18" />
 
-            <CheckBox Name="CheckFilter" Grid.Row="19" IsChecked="{Binding Tasks.IncludeFilteredOut}" Content="Include items outside of filter ranges" FontSize="18" />
-            <CheckBox Name="CheckManual" Grid.Row="20" IsChecked="{Binding Tasks.IncludeUnselected}" Content="Include manually excluded items" FontSize="18" />
+            <CheckBox Name="CheckFilter" Grid.Row="21" IsChecked="{Binding Tasks.IncludeFilteredOut}" Content="Include items outside of filter ranges" FontSize="18" />
+            <CheckBox Name="CheckManual" Grid.Row="22" IsChecked="{Binding Tasks.IncludeUnselected}" Content="Include manually excluded items" FontSize="18" />
 
-            <StackPanel Grid.Row="21" Orientation="Vertical">
+            <StackPanel Grid.Row="23" Orientation="Vertical">
                 <local:NyanBar x:Name="ProgressWrite" VerticalAlignment="Top" HorizontalAlignment="Stretch" Margin="0,12,0,8" Visibility="Collapsed" />
 
                 <StackPanel Name="PanelButtons" Orientation="Horizontal" HorizontalAlignment="Right" Height="50">

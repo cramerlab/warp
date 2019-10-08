@@ -134,7 +134,8 @@ namespace Warp.Headers
         K2Raw = 3,
         FEIRaw = 4,
         TIFF = 5,
-        DM4 = 6
+        TIFFF = 6,
+        DM4 = 7
     }
 
     public static class ImageFormatsHelper
@@ -155,6 +156,8 @@ namespace Warp.Headers
                     return ImageFormats.FEIRaw;
                 case "TIFF":
                     return ImageFormats.TIFF;
+                case "TIFFF":
+                    return ImageFormats.TIFFF;
                 case "DM4":
                     return ImageFormats.DM4;
                 default:
@@ -178,6 +181,8 @@ namespace Warp.Headers
                     return "FEIRaw";
                 case ImageFormats.TIFF:
                     return "TIFF";
+                case ImageFormats.TIFFF:
+                    return "TIFFF";
                 case ImageFormats.DM4:
                     return "DM4";
                 default:
@@ -201,6 +206,8 @@ namespace Warp.Headers
                     return ".raw";
                 case ImageFormats.TIFF:
                     return ".tif";
+                case ImageFormats.TIFFF:
+                    return ".tiff";
                 case ImageFormats.DM4:
                     return ".dm4";
                 default:
@@ -222,6 +229,10 @@ namespace Warp.Headers
                     return new HeaderRaw(new int3(1, 1, 1), 0, typeof(byte));
                 case ImageFormats.FEIRaw:
                     return new HeaderRaw(new int3(1, 1, 1), 49, typeof(int));
+                case ImageFormats.TIFF:
+                    return new HeaderTiff();
+                case ImageFormats.TIFFF:
+                    return new HeaderTiff();
                 case ImageFormats.DM4:
                     return new HeaderDM4();
                 default:

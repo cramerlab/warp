@@ -5,6 +5,7 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Security.AccessControl;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Warp.Headers;
 
@@ -46,19 +47,36 @@ namespace Warp.Tools
             return Dims;
         }
 
-        public static float[][] ReadMapFloat(string path, int2 headerlessSliceDims, long headerlessOffset, Type headerlessType, int layer = -1, Stream stream = null)
+        public static float[][] ReadMapFloatPatient(int attempts, int mswait, string path, int2 headerlessSliceDims, long headerlessOffset, Type headerlessType, int layer = -1, Stream stream = null, float[][] reuseBuffer = null)
+        {
+            for (int a = 0; a < attempts; a++)
+            {
+                try
+                {
+                    return ReadMapFloat(path, headerlessSliceDims, headerlessOffset, headerlessType, layer, stream, reuseBuffer);
+                }
+                catch
+                {
+                    Thread.Sleep(mswait);
+                }
+            }
+
+            throw new Exception("Could not successfully read file within the specified number of attempts.");
+        }
+
+        public static float[][] ReadMapFloat(string path, int2 headerlessSliceDims, long headerlessOffset, Type headerlessType, int layer = -1, Stream stream = null, float[][] reuseBuffer = null)
         {
             try
             {
-                return ReadMapFloat(path, headerlessSliceDims, headerlessOffset, headerlessType, false, layer, stream);
+                return ReadMapFloat(path, headerlessSliceDims, headerlessOffset, headerlessType, false, layer, stream, reuseBuffer);
             }
             catch
             {
-                return ReadMapFloat(path, headerlessSliceDims, headerlessOffset, headerlessType, true, layer, stream);
+                return ReadMapFloat(path, headerlessSliceDims, headerlessOffset, headerlessType, true, layer, stream, reuseBuffer);
             }
         }
 
-        public static float[][] ReadMapFloat(string path, int2 headerlessSliceDims, long headerlessOffset, Type headerlessType, bool isBigEndian, int layer = -1, Stream stream = null)
+        public static float[][] ReadMapFloat(string path, int2 headerlessSliceDims, long headerlessOffset, Type headerlessType, bool isBigEndian, int layer = -1, Stream stream = null, float[][] reuseBuffer = null)
         {
             MapHeader Header = null;
             Type ValueType = null;
@@ -69,79 +87,89 @@ namespace Warp.Tools
                 {
                     Header = MapHeader.ReadFromFile(Reader, path, headerlessSliceDims, headerlessOffset, headerlessType);
                     ValueType = Header.GetValueType();
-                    Data = new float[layer < 0 ? Header.Dimensions.Z : 1][];
+                    Data = reuseBuffer == null ? new float[layer < 0 ? Header.Dimensions.Z : 1][] : reuseBuffer;
+
+                    int ReadBatchSize = Math.Min((int)Header.Dimensions.ElementsSlice(), 1 << 20);
+                    int ValueSize = (int)ImageFormatsHelper.SizeOf(ValueType);
+                    byte[] Bytes = new byte[ReadBatchSize * ValueSize];
 
                     for (int z = 0; z < Data.Length; z++)
                     {
                         if (layer >= 0)
-                            Reader.BaseStream.Seek((long)Header.Dimensions.ElementsSlice() * (long)ImageFormatsHelper.SizeOf(ValueType) * layer, SeekOrigin.Current);
+                            Reader.BaseStream.Seek(Header.Dimensions.ElementsSlice() * ImageFormatsHelper.SizeOf(ValueType) * layer, SeekOrigin.Current);
 
-                        byte[] Bytes = Reader.ReadBytes((int)Header.Dimensions.ElementsSlice() * (int)ImageFormatsHelper.SizeOf(ValueType));
-                        Data[z] = new float[(int)Header.Dimensions.ElementsSlice()];
+                        if (reuseBuffer == null)
+                            Data[z] = new float[(int)Header.Dimensions.ElementsSlice()];
 
-                        if (isBigEndian)
-                        {
-                            if (ValueType == typeof(short) || ValueType == typeof(ushort))
-                            {
-                                for (int i = 0; i < Bytes.Length / 2; i++)
-                                    Array.Reverse(Bytes, i * 2, 2);
-                            }
-                            else if (ValueType == typeof(int) || ValueType == typeof(float))
-                            {
-                                for (int i = 0; i < Bytes.Length / 4; i++)
-                                    Array.Reverse(Bytes, i * 4, 4);
-                            }
-                            else if (ValueType == typeof(double))
-                            {
-                                for (int i = 0; i < Bytes.Length / 8; i++)
-                                    Array.Reverse(Bytes, i * 8, 8);
-                            }
-                        }
 
                         unsafe
                         {
-                            int Elements = (int)Header.Dimensions.ElementsSlice();
-
                             fixed (byte* BytesPtr = Bytes)
                             fixed (float* DataPtr = Data[z])
                             {
-                                float* DataP = DataPtr;
+                                for (int b = 0; b < (int)Header.Dimensions.ElementsSlice(); b += ReadBatchSize)
+                                {
+                                    int CurBatch = Math.Min(ReadBatchSize, (int)Header.Dimensions.ElementsSlice() - b);
 
-                                if (ValueType == typeof(byte))
-                                {
-                                    byte* BytesP = BytesPtr;
-                                    for (int i = 0; i < Elements; i++)
-                                        *DataP++ = (float)*BytesP++;
-                                }
-                                else if (ValueType == typeof(short))
-                                {
-                                    short* BytesP = (short*)BytesPtr;
-                                    for (int i = 0; i < Elements; i++)
-                                        *DataP++ = (float)*BytesP++;
-                                }
-                                else if (ValueType == typeof(ushort))
-                                {
-                                    ushort* BytesP = (ushort*)BytesPtr;
-                                    for (int i = 0; i < Elements; i++)
-                                        *DataP++ = (float)*BytesP++;
-                                }
-                                else if (ValueType == typeof(int))
-                                {
-                                    int* BytesP = (int*)BytesPtr;
-                                    for (int i = 0; i < Elements; i++)
-                                        *DataP++ = (float)*BytesP++;
-                                }
-                                else if (ValueType == typeof(float))
-                                {
-                                    float* BytesP = (float*)BytesPtr;
-                                    for (int i = 0; i < Elements; i++)
-                                        *DataP++ = *BytesP++;
-                                }
-                                else if (ValueType == typeof(double))
-                                {
-                                    double* BytesP = (double*)BytesPtr;
-                                    for (int i = 0; i < Elements; i++)
-                                        *DataP++ = (float)*BytesP++;
+                                    Reader.Read(Bytes, 0, CurBatch * ValueSize);
+
+                                    if (isBigEndian)
+                                    {
+                                        if (ValueType == typeof(short) || ValueType == typeof(ushort))
+                                        {
+                                            for (int i = 0; i < CurBatch * ValueSize / 2; i++)
+                                                Array.Reverse(Bytes, i * 2, 2);
+                                        }
+                                        else if (ValueType == typeof(int) || ValueType == typeof(float))
+                                        {
+                                            for (int i = 0; i < CurBatch * ValueSize / 4; i++)
+                                                Array.Reverse(Bytes, i * 4, 4);
+                                        }
+                                        else if (ValueType == typeof(double))
+                                        {
+                                            for (int i = 0; i < CurBatch * ValueSize / 8; i++)
+                                                Array.Reverse(Bytes, i * 8, 8);
+                                        }
+                                    }
+
+                                    float* DataP = DataPtr + b;
+
+                                    if (ValueType == typeof(byte))
+                                    {
+                                        byte* BytesP = BytesPtr;
+                                        for (int i = 0; i < CurBatch; i++)
+                                            *DataP++ = (float)*BytesP++;
+                                    }
+                                    else if (ValueType == typeof(short))
+                                    {
+                                        short* BytesP = (short*)BytesPtr;
+                                        for (int i = 0; i < CurBatch; i++)
+                                            *DataP++ = (float)*BytesP++;
+                                    }
+                                    else if (ValueType == typeof(ushort))
+                                    {
+                                        ushort* BytesP = (ushort*)BytesPtr;
+                                        for (int i = 0; i < CurBatch; i++)
+                                            *DataP++ = (float)*BytesP++;
+                                    }
+                                    else if (ValueType == typeof(int))
+                                    {
+                                        int* BytesP = (int*)BytesPtr;
+                                        for (int i = 0; i < CurBatch; i++)
+                                            *DataP++ = (float)*BytesP++;
+                                    }
+                                    else if (ValueType == typeof(float))
+                                    {
+                                        float* BytesP = (float*)BytesPtr;
+                                        for (int i = 0; i < CurBatch; i++)
+                                            *DataP++ = *BytesP++;
+                                    }
+                                    else if (ValueType == typeof(double))
+                                    {
+                                        double* BytesP = (double*)BytesPtr;
+                                        for (int i = 0; i < CurBatch; i++)
+                                            *DataP++ = (float)*BytesP++;
+                                    }
                                 }
                             }
                         }
@@ -300,52 +328,59 @@ namespace Warp.Tools
                 header.Write(Writer);
                 long Elements = header.Dimensions.ElementsSlice();
 
-                for (int z = 0; z < data.Length; z++)
+                byte[] Bytes = new byte[Elements * ImageFormatsHelper.SizeOf(ValueType)];
+
+                for (int z = 0; z < header.Dimensions.Z; z++)
                 {
-                    byte[] Bytes = new byte[Elements * ImageFormatsHelper.SizeOf(ValueType)];
-
-                    unsafe
+                    if (ValueType == typeof(float))
                     {
-                        fixed (float* DataPtr = data[z])
-                        fixed (byte* BytesPtr = Bytes)
+                        Buffer.BlockCopy(data[z], 0, Bytes, 0, Bytes.Length);
+                    }
+                    else
+                    {
+                        unsafe
                         {
-                            float* DataP = DataPtr;
+                            fixed (float* DataPtr = data[z])
+                            fixed (byte* BytesPtr = Bytes)
+                            {
+                                float* DataP = DataPtr;
 
-                            if (ValueType == typeof(byte))
-                            {
-                                byte* BytesP = BytesPtr;
-                                for (long i = 0; i < Elements; i++)
-                                    *BytesP++ = (byte)*DataP++;
-                            }
-                            else if (ValueType == typeof(short))
-                            {
-                                short* BytesP = (short*)BytesPtr;
-                                for (long i = 0; i < Elements; i++)
-                                    *BytesP++ = (short)*DataP++;
-                            }
-                            else if (ValueType == typeof(ushort))
-                            {
-                                ushort* BytesP = (ushort*)BytesPtr;
-                                for (long i = 0; i < Elements; i++)
-                                    *BytesP++ = (ushort)Math.Min(Math.Max(0f, *DataP++ * 16f), 65536f);
-                            }
-                            else if (ValueType == typeof(int))
-                            {
-                                int* BytesP = (int*)BytesPtr;
-                                for (long i = 0; i < Elements; i++)
-                                    *BytesP++ = (int)*DataP++;
-                            }
-                            else if (ValueType == typeof(float))
-                            {
-                                float* BytesP = (float*)BytesPtr;
-                                for (long i = 0; i < Elements; i++)
-                                    *BytesP++ = *DataP++;
-                            }
-                            else if (ValueType == typeof(double))
-                            {
-                                double* BytesP = (double*)BytesPtr;
-                                for (long i = 0; i < Elements; i++)
-                                    *BytesP++ = (double)*DataP++;
+                                if (ValueType == typeof(byte))
+                                {
+                                    byte* BytesP = BytesPtr;
+                                    for (long i = 0; i < Elements; i++)
+                                        *BytesP++ = (byte)*DataP++;
+                                }
+                                else if (ValueType == typeof(short))
+                                {
+                                    short* BytesP = (short*)BytesPtr;
+                                    for (long i = 0; i < Elements; i++)
+                                        *BytesP++ = (short)*DataP++;
+                                }
+                                else if (ValueType == typeof(ushort))
+                                {
+                                    ushort* BytesP = (ushort*)BytesPtr;
+                                    for (long i = 0; i < Elements; i++)
+                                        *BytesP++ = (ushort)Math.Min(Math.Max(0f, *DataP++ * 16f), 65536f);
+                                }
+                                else if (ValueType == typeof(int))
+                                {
+                                    int* BytesP = (int*)BytesPtr;
+                                    for (long i = 0; i < Elements; i++)
+                                        *BytesP++ = (int)*DataP++;
+                                }
+                                else if (ValueType == typeof(float))
+                                {
+                                    float* BytesP = (float*)BytesPtr;
+                                    for (long i = 0; i < Elements; i++)
+                                        *BytesP++ = *DataP++;
+                                }
+                                else if (ValueType == typeof(double))
+                                {
+                                    double* BytesP = (double*)BytesPtr;
+                                    for (long i = 0; i < Elements; i++)
+                                        *BytesP++ = (double)*DataP++;
+                                }
                             }
                         }
                     }
@@ -362,9 +397,13 @@ namespace Warp.Tools
 
             try
             {
-                // Attempt to get a list of security permissions from the folder. 
-                // This will raise an exception if the path is read only, or we do not have access to view the permissions. 
-                DirectorySecurity ds = Directory.GetAccessControl(path);
+                string FilePath = Guid.NewGuid().ToString() + ".test";
+                using (TextWriter Writer = File.CreateText(Path.Combine(path, FilePath)))
+                {
+                    Writer.WriteLine("test");
+                }
+                File.Delete(Path.Combine(path, FilePath));
+
                 return true;
             }
             catch (UnauthorizedAccessException)

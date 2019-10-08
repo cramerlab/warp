@@ -13,7 +13,7 @@
             <ColumnDefinition Width="384" />
             <ColumnDefinition Width="300" />
         </Grid.ColumnDefinitions>
-        <warp:VolumeRenderer Name="Renderer" Grid.Column="0" Grid.Row="0" Grid.RowSpan="2" Width="350" Height="350" Volume="{Binding MapLocallyFiltered}" />
+        <warp:VolumeRenderer Name="Renderer" Grid.Column="0" Grid.Row="0" Grid.RowSpan="2" Width="350" Height="350" Volume="{Binding MapDenoised}" />
         <StackPanel Grid.Column="1" Grid.Row="0" Orientation="Vertical">
             <Button VerticalAlignment="Center" Style="{StaticResource HyperlinkLikeButton}" Margin="0,0,0,6">
                 <TextBlock Text="{Binding Name}" FontSize="20" HorizontalAlignment="Left" TextWrapping="Wrap" />

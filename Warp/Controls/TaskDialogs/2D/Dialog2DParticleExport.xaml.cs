@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Timers;
 using System.Windows;
@@ -33,7 +34,7 @@ namespace Warp.Controls.TaskDialogs.TwoD
 
         List<float> Timings = new List<float>();
 
-        public Dialog2DParticleExport(Movie[] movies, string importPath, string exportPath, Options options)
+        public Dialog2DParticleExport(Movie[] movies, string importPath, Options options)
         {
             InitializeComponent();
 
@@ -51,11 +52,10 @@ namespace Warp.Controls.TaskDialogs.TwoD
 
             Movies = movies;
             ImportPath = importPath;
-            ExportPath = exportPath;
 
             DataContext = Options;
 
-            if (!Options.Tasks.Export2DDoAverages && !Options.Tasks.Export2DDoMovies)
+            if (!Options.Tasks.Export2DDoAverages && !Options.Tasks.Export2DDoMovies && !Options.Tasks.Export2DDoDenoisingPairs)
                 Options.Tasks.Export2DDoAverages = true;
 
             DisableWhileProcessing = new List<UIElement>
@@ -122,8 +122,24 @@ namespace Warp.Controls.TaskDialogs.TwoD
 
         private async void ButtonExport_OnClick(object sender, RoutedEventArgs e)
         {
+            System.Windows.Forms.SaveFileDialog SaveDialog = new System.Windows.Forms.SaveFileDialog
+            {
+                Filter = "STAR Files|*.star"
+            };
+            System.Windows.Forms.DialogResult ResultSave = SaveDialog.ShowDialog();
+
+            if (ResultSave.ToString() == "OK")
+            {
+                ExportPath = SaveDialog.FileName;
+            }
+            else
+            {
+                return;
+            }
+
             bool DoAverage = (bool)RadioAverage.IsChecked;
             bool DoStack = (bool)RadioStack.IsChecked;
+            bool DoDenoisingPairs = (bool)RadioDenoising.IsChecked;
             bool DoOnlyStar = (bool)RadioStar.IsChecked;
 
             bool Invert = (bool)CheckInvert.IsChecked;
@@ -289,22 +305,44 @@ namespace Warp.Controls.TaskDialogs.TwoD
                     TableIn.AddColumn("rlnMicrographName", "None");
 
                 #endregion
-
-                int MaxDevices = 999;
-                int UsedDevices = Math.Min(MaxDevices, GPU.GetDeviceCount());
+                               
+                int NDevices = GPU.GetDeviceCount();
+                List<int> UsedDevices = Options.MainWindow.GetDeviceList();
+                List<int> UsedDeviceProcesses = Helper.Combine(Helper.ArrayOfFunction(i => UsedDevices.Select(d => d + i * NDevices).ToArray(), MainWindow.GlobalOptions.ProcessesPerDevice)).ToList();
 
                 if (IsCanceled)
                     return;
 
+                #region Create worker processes
+                
+                WorkerWrapper[] Workers = new WorkerWrapper[GPU.GetDeviceCount() * MainWindow.GlobalOptions.ProcessesPerDevice];
+                foreach (var gpuID in UsedDeviceProcesses)
+                {
+                    Workers[gpuID] = new WorkerWrapper(gpuID);
+                    Workers[gpuID].SetHeaderlessParams(new int2(Options.Import.HeaderlessWidth, Options.Import.HeaderlessHeight),
+                                                       Options.Import.HeaderlessOffset,
+                                                       Options.Import.HeaderlessType);
+
+                    if (!string.IsNullOrEmpty(Options.Import.GainPath) && Options.Import.CorrectGain)
+                        Workers[gpuID].LoadGainRef(Options.Import.GainPath,
+                                                   Options.Import.GainFlipX,
+                                                   Options.Import.GainFlipY,
+                                                   Options.Import.GainTranspose);
+                    else
+                        Workers[gpuID].LoadGainRef("", false, false, false);
+                }
+
+                #endregion
+
                 #region Load gain reference if needed
 
-                Image[] ImageGain = new Image[UsedDevices];
-                if (!string.IsNullOrEmpty(Options.Import.GainPath) && Options.Import.CorrectGain && File.Exists(Options.Import.GainPath))
-                    for (int d = 0; d < UsedDevices; d++)
-                    {
-                        GPU.SetDevice(d);
-                        ImageGain[d] = MainWindow.LoadAndPrepareGainReference();
-                    }
+                //Image[] ImageGain = new Image[NDevices];
+                //if (!string.IsNullOrEmpty(Options.Import.GainPath) && Options.Import.CorrectGain && File.Exists(Options.Import.GainPath))
+                //    for (int d = 0; d < NDevices; d++)
+                //    {
+                //        GPU.SetDevice(d);
+                //        ImageGain[d] = MainWindow.LoadAndPrepareGainReference();
+                //    }
 
                 #endregion
 
@@ -371,6 +409,7 @@ namespace Warp.Controls.TaskDialogs.TwoD
 
                         ProcessingOptionsParticlesExport ExportOptions = Options.GetProcessingParticleExport();
                         ExportOptions.DoAverage = DoAverage;
+                        ExportOptions.DoDenoisingPairs = DoDenoisingPairs;
                         ExportOptions.DoStack = DoStack;
                         ExportOptions.Invert = Invert;
                         ExportOptions.Normalize = Normalize;
@@ -385,17 +424,18 @@ namespace Warp.Controls.TaskDialogs.TwoD
 
                         #region Load and prepare original movie
 
-                        Image OriginalStack = null;
+                        //Image OriginalStack = null;
                         decimal ScaleFactor = 1M / (decimal)Math.Pow(2, (double)ExportOptions.BinTimes);
 
                         if (!DoOnlyStar && (!FileExists || Overwrite))
-                            MainWindow.LoadAndPrepareHeaderAndMap(movie.Path, ImageGain[gpuID], ScaleFactor, out OriginalHeader, out OriginalStack);
+                            Workers[gpuID].LoadStack(movie.Path, ScaleFactor);
+                        //MainWindow.LoadAndPrepareHeaderAndMap(movie.Path, ImageGain[gpuID], ScaleFactor, out OriginalHeader, out OriginalStack);
 
                         if (IsCanceled)
                         {
-                            foreach (Image gain in ImageGain)
-                                gain?.Dispose();
-                            OriginalStack?.Dispose();
+                            //foreach (Image gain in ImageGain)
+                            //    gain?.Dispose();
+                            //OriginalStack?.Dispose();
 
                             return;
                         }
@@ -429,7 +469,7 @@ namespace Warp.Controls.TaskDialogs.TwoD
                             float3 Position = new float3(PosX[r] * AngPix / ExportOptions.Dimensions.X,
                                                          PosY[r] * AngPix / ExportOptions.Dimensions.Y,
                                                          0.5f);
-                            float LocalDefocus = movie.GridCTF.GetInterpolated(Position);
+                            float LocalDefocus = movie.GridCTFDefocus.GetInterpolated(Position);
 
                             TableIn.SetRowValue(r, "rlnDefocusU", ((LocalDefocus + Astigmatism) * 1e4f).ToString("F1", CultureInfo.InvariantCulture));
                             TableIn.SetRowValue(r, "rlnDefocusV", ((LocalDefocus - Astigmatism) * 1e4f).ToString("F1", CultureInfo.InvariantCulture));
@@ -458,7 +498,7 @@ namespace Warp.Controls.TaskDialogs.TwoD
 
                         Star MicrographTable = new Star(TableIn.GetColumnNames());
 
-                        int StackDepth = (ExportOptions.DoAverage || DoOnlyStar)
+                        int StackDepth = (ExportOptions.DoAverage || ExportOptions.DoDenoisingPairs || DoOnlyStar)
                                              ? 1
                                              : (OriginalHeader.Dimensions.Z - ExportOptions.SkipFirstN - ExportOptions.SkipLastN) /
                                                ExportOptions.StackGroupSize;
@@ -480,8 +520,9 @@ namespace Warp.Controls.TaskDialogs.TwoD
 
                         if (!DoOnlyStar && (!FileExists || Overwrite))
                         {
-                            movie.ExportParticles(OriginalStack, Positions.ToArray(), ExportOptions);
-                            OriginalStack.Dispose();
+                            Workers[gpuID].MovieExportParticles(movie.Path, ExportOptions, Positions.ToArray());
+                            //movie.ExportParticles(OriginalStack, Positions.ToArray(), ExportOptions);
+                            //OriginalStack.Dispose();
                         }
 
                         #endregion
@@ -492,7 +533,7 @@ namespace Warp.Controls.TaskDialogs.TwoD
                         {
                             MicrographTables.Add(movie.RootName, MicrographTable);
 
-                            Timings.Add(ItemTime.ElapsedMilliseconds / (float)UsedDevices);
+                            Timings.Add(ItemTime.ElapsedMilliseconds / (float)NDevices);
 
                             int MsRemaining = (int)(MathHelper.Mean(Timings) * (ValidMovies.Count - MicrographTables.Count));
                             TimeSpan SpanRemaining = new TimeSpan(0, 0, 0, 0, MsRemaining);
@@ -508,14 +549,19 @@ namespace Warp.Controls.TaskDialogs.TwoD
 
                         #endregion
 
-                    }, 1);
+                    }, 1, UsedDeviceProcesses);
 
                     if (MicrographTables.Count > 0)
                         TableOut = new Star(MicrographTables.Values.ToArray());
                 }
-                
-                foreach (Image gain in ImageGain)
-                    gain?.Dispose();
+
+                Thread.Sleep(10000);    // Writing out particle stacks is async, so if workers are killed immediately they may not write out everything
+                               
+                foreach (var worker in Workers)
+                    worker?.Dispose();
+
+                //foreach (Image gain in ImageGain)
+                //    gain?.Dispose();
 
                 if (IsCanceled)
                     return;
