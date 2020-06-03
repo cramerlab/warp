@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -23,7 +24,7 @@ namespace Warp
         public virtual void WriteToXML(XmlTextWriter writer)
         {
             PropertyInfo[] Properties = GetType().GetProperties();
-            List<PropertyInfo> SerializableProps = Properties.Where(p => p.GetCustomAttribute(typeof (WarpSerializable)) != null).ToList();
+            List<PropertyInfo> SerializableProps = Properties.Where(p => p.GetCustomAttribute(typeof(WarpSerializable)) != null).ToList();
             SerializableProps.Sort((a, b) => ((WarpSerializable)a.GetCustomAttribute(typeof(WarpSerializable))).Order.CompareTo(((WarpSerializable)b.GetCustomAttribute(typeof(WarpSerializable))).Order));
 
             foreach (var property in SerializableProps)
@@ -38,6 +39,8 @@ namespace Warp
                     XMLHelper.WriteParamNode(writer, property.Name, (long)property.GetValue(this));
                 else if (property.PropertyType == typeof(float))
                     XMLHelper.WriteParamNode(writer, property.Name, (float)property.GetValue(this));
+                else if (property.PropertyType == typeof(float[]))
+                    XMLHelper.WriteParamNode(writer, property.Name, (float[])property.GetValue(this));
                 else if (property.PropertyType == typeof(double))
                     XMLHelper.WriteParamNode(writer, property.Name, (double)property.GetValue(this));
                 else if (property.PropertyType == typeof(decimal))
@@ -82,6 +85,8 @@ namespace Warp
                     property.SetValue(this, XMLHelper.LoadParamNode(nav, property.Name, (long)property.GetValue(this)));
                 else if (property.PropertyType == typeof(float))
                     property.SetValue(this, XMLHelper.LoadParamNode(nav, property.Name, (float)property.GetValue(this)));
+                else if (property.PropertyType == typeof(float[]))
+                    property.SetValue(this, XMLHelper.LoadParamNode(nav, property.Name, (float[])property.GetValue(this)));
                 else if (property.PropertyType == typeof(double))
                     property.SetValue(this, XMLHelper.LoadParamNode(nav, property.Name, (double)property.GetValue(this)));
                 else if (property.PropertyType == typeof(decimal))

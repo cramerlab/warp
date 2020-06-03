@@ -19,7 +19,13 @@ namespace Frankenmap
         [Option("smooth", Default = 4f, HelpText = "Smoothing radius in pixels.")]
         public float SmoothingRadius { get; set; }
 
+        [Option("windowsize", Default = 40, HelpText = "Size of the local window used for local resolution estimation, in pixels, even-numbered.")]
+        public int WindowSize { get; set; }
+
         [Option("fscthreshold", Default = 0.143f, HelpText = "DANGER ZONE!")]
         public float FSCThreshold { get; set; }
+
+        [Option("maskoverride", Default = "", HelpText = "Use a custom mask for certain maps instead of one created based on local resolution. Format: MapID:Path, separated by commas, e.g. 0:mask0.mrc,2:mask2.mrc")]
+        public string MaskOverride { get; set; }
     }
 }

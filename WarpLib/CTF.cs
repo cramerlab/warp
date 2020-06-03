@@ -21,20 +21,20 @@ namespace Warp
             set { if (value != _PixelSize) { _PixelSize = value; OnPropertyChanged(); } }
         }
 
-        private decimal _PixelSizeDelta = 0M;
+        private decimal _PixelSizeDeltaPercent = 0M;
         /// <summary>
-        /// Pixel size anisotropy delta in Angstrom
+        /// Pixel size anisotropy delta in percent (so it is invariant to scaling of PixelSize)
         /// </summary>
         [WarpSerializable]
-        public decimal PixelSizeDelta
+        public decimal PixelSizeDeltaPercent
         {
-            get { return _PixelSizeDelta; }
-            set { if (value != _PixelSizeDelta) { _PixelSizeDelta = value; OnPropertyChanged(); } }
+            get { return _PixelSizeDeltaPercent; }
+            set { if (value != _PixelSizeDeltaPercent) { _PixelSizeDeltaPercent = value; OnPropertyChanged(); } }
         }
 
         private decimal _PixelSizeAngle = 0M;
         /// <summary>
-        /// Pixel size anisotropy angle in radians
+        /// Pixel size anisotropy angle in degrees
         /// </summary>
         [WarpSerializable]
         public decimal PixelSizeAngle
@@ -108,7 +108,7 @@ namespace Warp
 
         private decimal _DefocusAngle = 0M;
         /// <summary>
-        /// Astigmatism angle in radians
+        /// Astigmatism angle in degrees
         /// </summary>
         [WarpSerializable]
         public decimal DefocusAngle
@@ -144,6 +144,28 @@ namespace Warp
         {
             get { return _Bfactor; }
             set { if (value != _Bfactor) { _Bfactor = value; OnPropertyChanged(); } }
+        }
+
+        private decimal _BfactorDelta = 0M;
+        /// <summary>
+        /// B factor anisotropy in Angstrom^2
+        /// </summary>
+        [WarpSerializable]
+        public decimal BfactorDelta
+        {
+            get { return _BfactorDelta; }
+            set { if (value != _BfactorDelta) { _BfactorDelta = value; OnPropertyChanged(); } }
+        }
+
+        private decimal _BfactorAngle = 0M;
+        /// <summary>
+        /// B factor anisotropy X axis angle in degrees
+        /// </summary>
+        [WarpSerializable]
+        public decimal BfactorAngle
+        {
+            get { return _BfactorAngle; }
+            set { if (value != _BfactorAngle) { _BfactorAngle = value; OnPropertyChanged(); } }
         }
 
         private decimal _Scale = 1.0M;
@@ -188,6 +210,22 @@ namespace Warp
         {
             get { return _BeamTilt2; }
             set { if (value != _BeamTilt2) { _BeamTilt2 = value; OnPropertyChanged(); } }
+        }
+
+        private float[] _ZernikeCoeffsOdd = new float[0];
+        [WarpSerializable]
+        public float[] ZernikeCoeffsOdd
+        {
+            get { return _ZernikeCoeffsOdd; }
+            set { if (value != _ZernikeCoeffsOdd) { _ZernikeCoeffsOdd = value; OnPropertyChanged(); } }
+        }
+
+        private float[] _ZernikeCoeffsEven = new float[0];
+        [WarpSerializable]
+        public float[] ZernikeCoeffsEven
+        {
+            get { return _ZernikeCoeffsEven; }
+            set { if (value != _ZernikeCoeffsEven) { _ZernikeCoeffsEven = value; OnPropertyChanged(); } }
         }
 
         private decimal _IllumAngle = 30M;
@@ -247,24 +285,27 @@ namespace Warp
             set { if (value != _IceStd) { _IceStd = value; OnPropertyChanged(); } }
         }
 
+        private static List<ZernikeCacheEntry> ZernikeOddCache = new List<ZernikeCacheEntry>();
+        private static List<ZernikeCacheEntry> ZernikeEvenCache = new List<ZernikeCacheEntry>();
+
         public void FromStruct(CTFStruct s)
         {
-            _PixelSize = (decimal) s.PixelSize * 1e10M;
-            _PixelSizeDelta = (decimal) s.PixelSizeDelta * 1e10M;
-            _PixelSizeAngle = (decimal) s.PixelSizeAngle * (180M / (decimal) Math.PI);
+            _PixelSize = (decimal)s.PixelSize * 1e10M;
+            _PixelSizeDeltaPercent = (decimal)s.PixelSizeDelta;
+            _PixelSizeAngle = (decimal)s.PixelSizeAngle * (180M / (decimal)Math.PI);
 
-            _Cs = (decimal) s.Cs * 1e3M;
-            _Voltage = (decimal) s.Voltage * 1e-3M;
-            _Amplitude = (decimal) s.Amplitude;
+            _Cs = (decimal)s.Cs * 1e3M;
+            _Voltage = (decimal)s.Voltage * 1e-3M;
+            _Amplitude = (decimal)s.Amplitude;
 
-            _Defocus = (decimal) -s.Defocus * 1e6M;
-            _DefocusDelta = (decimal) -s.DefocusDelta * 1e6M;
-            _DefocusAngle = (decimal) s.AstigmatismAngle * (180M / (decimal)Math.PI);
+            _Defocus = (decimal)-s.Defocus * 1e6M;
+            _DefocusDelta = (decimal)-s.DefocusDelta * 1e6M;
+            _DefocusAngle = (decimal)s.AstigmatismAngle * (180M / (decimal)Math.PI);
 
             //_Bfactor = (decimal) s.Bfactor * 1e20M;
-            _Scale = (decimal) s.Scale;
+            _Scale = (decimal)s.Scale;
 
-            _PhaseShift = (decimal) s.PhaseShift / (decimal) Math.PI;
+            _PhaseShift = (decimal)s.PhaseShift / (decimal)Math.PI;
 
             OnPropertyChanged("");
         }
@@ -274,8 +315,8 @@ namespace Warp
             CTFStruct Result = new CTFStruct();
 
             Result.PixelSize = (float)(PixelSize * 1e-10M);
-            Result.PixelSizeDelta = (float)(PixelSizeDelta * 1e-10M);
-            Result.PixelSizeAngle = (float)PixelSizeAngle / (float)(180.0 / Math.PI);
+            Result.PixelSizeDelta = (float)(PixelSize * PixelSizeDeltaPercent * 1e-10M);
+            Result.PixelSizeAngle = (float)PixelSizeAngle * Helper.ToRad;// / (float)(180.0 / Math.PI);
 
             Result.Cs = (float)(Cs * 1e-3M);
             Result.Voltage = (float)(Voltage * 1e3M);
@@ -283,12 +324,14 @@ namespace Warp
 
             Result.Defocus = (float)(-Defocus * 1e-6M);
             Result.DefocusDelta = (float)(-DefocusDelta * 1e-6M);
-            Result.AstigmatismAngle = (float)DefocusAngle / (float)(180.0 / Math.PI);
+            Result.AstigmatismAngle = (float)DefocusAngle * Helper.ToRad;// / (float)(180.0 / Math.PI);
 
             Result.Bfactor = (float)(Bfactor * 1e-20M);
+            Result.BfactorDelta = (float)(BfactorDelta * 1e-20M);
+            Result.BfactorAngle = (float)BfactorAngle * Helper.ToRad;// / (float)(180.0 / Math.PI);
             Result.Scale = (float)Scale;
 
-            Result.PhaseShift = (float)(PhaseShift * (decimal)Math.PI);
+            Result.PhaseShift = (float)PhaseShift * Helper.PI;
 
             return Result;
         }
@@ -307,13 +350,13 @@ namespace Warp
 
         public float Get1D(float freq, bool ampsquared, bool ignorebfactor = false, bool ignorescale = false)
         {
-            double voltage = (double) Voltage * 1e3;
+            double voltage = (double)Voltage * 1e3;
             double lambda = 12.2643247 / Math.Sqrt(voltage * (1.0 + voltage * 0.978466e-6));
-            double defocus = -(double) Defocus * 1e4;
-            double cs = (double) Cs * 1e7;
-            double amplitude = (double) Amplitude;
-            double scale = (double) Scale;
-            double phaseshift = (double) PhaseShift * Math.PI;
+            double defocus = -(double)Defocus * 1e4;
+            double cs = (double)Cs * 1e7;
+            double amplitude = (double)Amplitude;
+            double scale = (double)Scale;
+            double phaseshift = (double)PhaseShift * Math.PI;
             double K1 = Math.PI * lambda;
             double K2 = Math.PI * 0.5f * cs * lambda * lambda * lambda;
             double K3 = Math.Sqrt(1f - amplitude * amplitude);
@@ -436,37 +479,43 @@ namespace Warp
         public float[] Get2D(float2[] coordinates, bool ampsquared, bool ignorebfactor = false, bool ignorescale = false)
         {
             float[] Output = new float[coordinates.Length];
-            
-            float pixelsize = (float) PixelSize;
-            float pixeldelta = (float) PixelSizeDelta;
-            float pixelangle = (float) PixelSizeAngle / (float)(180.0 / Math.PI);
+
+            float pixelsize = (float)PixelSize;
+            float pixeldelta = (float)(PixelSize * PixelSizeDeltaPercent);
+            float pixelangle = (float)PixelSizeAngle / (float)(180.0 / Math.PI);
             float voltage = (float)Voltage * 1e3f;
             float lambda = 12.2643247f / (float)Math.Sqrt(voltage * (1.0f + voltage * 0.978466e-6f));
             float defocus = -(float)Defocus * 1e4f;
             float defocusdelta = -(float)DefocusDelta * 1e4f * 0.5f;
-            float astigmatismangle = (float) DefocusAngle / (float)(180.0 / Math.PI);
+            float astigmatismangle = (float)DefocusAngle / (float)(180.0 / Math.PI);
             float cs = (float)Cs * 1e7f;
             float amplitude = (float)Amplitude;
             float scale = (float)Scale;
             float phaseshift = (float)PhaseShift * (float)Math.PI;
             float K1 = (float)Math.PI * lambda;
             float K2 = (float)Math.PI * 0.5f * cs * lambda * lambda * lambda;
-            float K3 = (float)Math.Sqrt(1f - amplitude * amplitude);
-            float K4 = (float)Bfactor * 0.25f;
+            float K3 = (float)Math.Atan(amplitude / Math.Sqrt(1 - amplitude * amplitude));
+            //float K4 = (float)Bfactor * 0.25f;
 
             Parallel.For(0, coordinates.Length, i =>
             {
                 float angle = coordinates[i].Y;
-                float r = coordinates[i].X / (pixelsize + pixeldelta * (float) Math.Cos(2.0 * (angle - pixelangle)));
+                float r = coordinates[i].X / (pixelsize + pixeldelta * (float)Math.Cos(2.0 * (angle - pixelangle)));
                 float r2 = r * r;
                 float r4 = r2 * r2;
 
-                float deltaf = defocus + defocusdelta * (float) Math.Cos(2.0 * (angle - astigmatismangle));
-                float argument = K1 * deltaf * r2 + K2 * r4 - phaseshift;
-                float retval = amplitude * (float) Math.Cos(argument) - K3 * (float) Math.Sin(argument);
+                float deltaf = defocus + defocusdelta * (float)Math.Cos(2.0 * (angle - astigmatismangle));
+                float argument = K1 * deltaf * r2 + K2 * r4 - phaseshift - K3;
+                float retval = -(float)Math.Sin(argument);
 
-                if (!ignorebfactor && K4 != 0)
-                    retval *= (float) Math.Exp(K4 * r2);
+                if (!ignorebfactor && (Bfactor != 0 || BfactorDelta != 0))
+                {
+                    float BfactorAniso = (float)Bfactor * 0.25f;
+                    if (BfactorDelta != 0)
+                        BfactorAniso += ((float)BfactorDelta * 0.25f) * (float)Math.Cos(2.0 * (angle - (float)BfactorAngle));
+
+                    retval *= (float)Math.Exp(BfactorAniso * r2);
+                }
 
                 if (ampsquared)
                     retval = Math.Abs(retval);// * retval);
@@ -480,10 +529,172 @@ namespace Warp
             return Output;
         }
 
+        public void Get2DP(float2[] coordinates, float2[] coordinatesP, bool isPositive, float pAngle, float[] result)
+        {
+            float pixelsize = (float)PixelSize;
+            float pixeldelta = (float)(PixelSize * PixelSizeDeltaPercent);
+            float pixelangle = (float)PixelSizeAngle / (float)(180.0 / Math.PI);
+            float voltage = (float)Voltage * 1e3f;
+            float lambda = 12.2643247f / (float)Math.Sqrt(voltage * (1.0f + voltage * 0.978466e-6f));
+            float defocus = -(float)Defocus * 1e4f;
+            float defocusdelta = -(float)DefocusDelta * 1e4f * 0.5f;
+            float astigmatismangle = (float)DefocusAngle / (float)(180.0 / Math.PI);
+            float cs = (float)Cs * 1e7f;
+            float amplitude = (float)Amplitude;
+            float phaseshift = (float)PhaseShift * (float)Math.PI;
+            float K1 = (float)Math.PI * lambda;
+            float K2 = (float)Math.PI * 0.5f * cs * lambda * lambda * lambda;
+            float K3 = (float)Math.Atan(amplitude / Math.Sqrt(1 - amplitude * amplitude));
+            //float K4 = (float)Bfactor * 0.25f;
+
+            if (pAngle >= (float)Math.PI)
+            {
+                pAngle -= (float)Math.PI;
+                isPositive = !isPositive;
+            }
+
+            for (int i = 0; i < coordinates.Length; i++)
+            {
+                float angle = coordinates[i].Y;
+                float angleP = coordinatesP[i].Y;
+                float r = coordinates[i].X / (pixelsize + pixeldelta * (float)Math.Cos(2.0 * (angle - pixelangle)));
+                float r2 = r * r;
+                float r4 = r2 * r2;
+
+                float deltaf = defocus + defocusdelta * (float)Math.Cos(2.0 * (angle - astigmatismangle));
+                float argument = K1 * deltaf * r2 + K2 * r4 - phaseshift - K3 + (float)Math.PI / 2;
+
+                float reverse = isPositive ? 1 : -1;
+                if (angleP <= pAngle)
+                    reverse *= -1;
+                if (pAngle == 0 && Math.Abs(angleP - Math.PI) < 1e-5)
+                    reverse *= -1;
+
+                result[i * 2] = (float)Math.Cos(argument);
+                result[i * 2 + 1] = (float)Math.Sin(argument) * reverse;
+            }
+        }
+
+        public void Get2DPQFromPrecomp(float2[] coordinates, float[] pqSign, float[] resultP)
+        {
+            float pixelsize = (float)PixelSize;
+            float pixeldelta = (float)(PixelSize * PixelSizeDeltaPercent);
+            float pixelangle = (float)PixelSizeAngle / (float)(180.0 / Math.PI);
+            float voltage = (float)Voltage * 1e3f;
+            float lambda = 12.2643247f / (float)Math.Sqrt(voltage * (1.0f + voltage * 0.978466e-6f));
+            float defocus = -(float)Defocus * 1e4f;
+            float defocusdelta = -(float)DefocusDelta * 1e4f * 0.5f;
+            float astigmatismangle = (float)DefocusAngle / (float)(180.0 / Math.PI);
+            float cs = (float)Cs * 1e7f;
+            float amplitude = (float)Amplitude;
+            float phaseshift = (float)PhaseShift * (float)Math.PI;
+            float K1 = (float)Math.PI * lambda;
+            float K2 = (float)Math.PI * 0.5f * cs * lambda * lambda * lambda;
+            float K3 = (float)Math.Atan(amplitude / Math.Sqrt(1 - amplitude * amplitude));
+            //float K4 = (float)Bfactor * 0.25f;
+
+            for (int i = 0; i < coordinates.Length; i++)
+            {
+                float angle = coordinates[i].Y;
+                float r = coordinates[i].X / (pixelsize + pixeldelta * (float)Math.Cos(2.0 * (angle - pixelangle)));
+                float r2 = r * r;
+                float r4 = r2 * r2;
+
+                float deltaf = defocus + defocusdelta * (float)Math.Cos(2.0 * (angle - astigmatismangle));
+                float argument = K1 * deltaf * r2 + K2 * r4 - phaseshift - K3 + (float)Math.PI / 2;
+
+                float reverse = pqSign[i];
+
+                resultP[i * 2] = (float)Math.Cos(argument);
+                resultP[i * 2 + 1] = (float)Math.Sin(argument) * reverse;
+            }
+        }
+
+        public float[] Get2DP(float2[] coordinates, float2[] coordinatesP, bool isPositive, float pAngle)
+        {
+            float[] Output = new float[coordinates.Length * 2];
+
+            Get2DP(coordinates, coordinatesP, isPositive, pAngle, Output);
+
+            return Output;
+        }
+
+        public void GetEwaldWeights(float2[] coordinates, float particleDiameter, float[] result)
+        {
+            float pixelsize = (float)PixelSize;
+            float pixeldelta = (float)(PixelSize * PixelSizeDeltaPercent);
+            float pixelangle = (float)PixelSizeAngle / (float)(180.0 / Math.PI);
+            float voltage = (float)Voltage * 1e3f;
+            float lambda = 12.2643247f / (float)Math.Sqrt(voltage * (1.0f + voltage * 0.978466e-6f));
+            float defocus = -(float)Defocus * 1e4f;
+            float defocusdelta = -(float)DefocusDelta * 1e4f * 0.5f;
+            float astigmatismangle = (float)DefocusAngle / (float)(180.0 / Math.PI);
+            float cs = (float)Cs * 1e7f;
+            float amplitude = (float)Amplitude;
+            float phaseshift = (float)PhaseShift * (float)Math.PI;
+            float K1 = (float)Math.PI * lambda;
+            float K2 = (float)Math.PI * 0.5f * cs * lambda * lambda * lambda;
+            float K3 = (float)Math.Atan(amplitude / Math.Sqrt(1 - amplitude * amplitude));
+
+            for (int i = 0; i < coordinates.Length; i++)
+            {
+                float angle = coordinates[i].Y;
+                float r = coordinates[i].X / (pixelsize + pixeldelta * (float)Math.Cos(2.0 * (angle - pixelangle)));
+                float r2 = r * r;
+                float r4 = r2 * r2;
+
+                float deltaf = defocus + defocusdelta * (float)Math.Cos(2.0 * (angle - astigmatismangle));
+                float argument = K1 * deltaf * r2 + K2 * r4 - phaseshift - K3;
+
+                float aux = 2 * Math.Abs(deltaf) * lambda * r / particleDiameter;
+                float A = (float)((aux > 1) ? 0 : (2 / Math.PI) * (Math.Acos(aux) - aux * Math.Sin(Math.Acos(aux))));
+
+                result[i] = (float)(1 + A * (2 * Math.Abs(-Math.Sin(argument)) - 1)) * 0.5f;
+            }
+        }
+
+        public float[] GetEwaldWeights(float2[] coordinates, float particleDiameter)
+        {
+            float[] Output = new float[coordinates.Length];
+
+            float pixelsize = (float)PixelSize;
+            float pixeldelta = (float)(PixelSize * PixelSizeDeltaPercent);
+            float pixelangle = (float)PixelSizeAngle / (float)(180.0 / Math.PI);
+            float voltage = (float)Voltage * 1e3f;
+            float lambda = 12.2643247f / (float)Math.Sqrt(voltage * (1.0f + voltage * 0.978466e-6f));
+            float defocus = -(float)Defocus * 1e4f;
+            float defocusdelta = -(float)DefocusDelta * 1e4f * 0.5f;
+            float astigmatismangle = (float)DefocusAngle / (float)(180.0 / Math.PI);
+            float cs = (float)Cs * 1e7f;
+            float amplitude = (float)Amplitude;
+            float phaseshift = (float)PhaseShift * (float)Math.PI;
+            float K1 = (float)Math.PI * lambda;
+            float K2 = (float)Math.PI * 0.5f * cs * lambda * lambda * lambda;
+            float K3 = (float)Math.Atan(amplitude / Math.Sqrt(1 - amplitude * amplitude));
+
+            for (int i = 0; i < coordinates.Length; i++)
+            {
+                float angle = coordinates[i].Y;
+                float r = coordinates[i].X / (pixelsize + pixeldelta * (float)Math.Cos(2.0 * (angle - pixelangle)));
+                float r2 = r * r;
+                float r4 = r2 * r2;
+
+                float deltaf = defocus + defocusdelta * (float)Math.Cos(2.0 * (angle - astigmatismangle));
+                float argument = K1 * deltaf * r2 + K2 * r4 - phaseshift - K3;
+
+                float aux = 2 * Math.Abs(deltaf) * lambda * r / particleDiameter;
+                float A = (float)((aux > 1) ? 0 : (2 / Math.PI) * (Math.Acos(aux) - aux * Math.Sin(Math.Acos(aux))));
+
+                Output[i] = (float)(1 + A * (2 * Math.Abs(-Math.Sin(argument)) - 1)) * 0.5f;
+            }
+
+            return Output;
+        }
+
         public float[] Get2DFromScaledCoords(float2[] coordinates, bool ampsquared, bool ignorebfactor = false, bool ignorescale = false)
         {
             float[] Output = new float[coordinates.Length];
-            
+
             float voltage = (float)Voltage * 1e3f;
             float lambda = 12.2643247f / (float)Math.Sqrt(voltage * (1.0f + voltage * 0.978466e-6f));
             float defocus = -(float)Defocus * 1e4f;
@@ -496,7 +707,7 @@ namespace Warp
             float K1 = (float)Math.PI * lambda;
             float K2 = (float)Math.PI * 0.5f * cs * lambda * lambda * lambda;
             float K3 = (float)Math.Sqrt(1f - amplitude * amplitude);
-            float K4 = (float)Bfactor * 0.25f;
+            //float K4 = (float)Bfactor * 0.25f;
 
             Parallel.For(0, coordinates.Length, i =>
             {
@@ -509,8 +720,14 @@ namespace Warp
                 float argument = K1 * deltaf * r2 + K2 * r4 - phaseshift;
                 float retval = amplitude * (float)Math.Cos(argument) - K3 * (float)Math.Sin(argument);
 
-                if (!ignorebfactor && K4 != 0)
-                    retval *= (float)Math.Exp(K4 * r2);
+                if (!ignorebfactor && (Bfactor != 0 || BfactorDelta != 0))
+                {
+                    float BfactorAniso = (float)Bfactor * 0.25f;
+                    if (BfactorDelta != 0)
+                        BfactorAniso += ((float)BfactorDelta * 0.25f) * (float)Math.Cos(2.0 * (angle - (float)BfactorAngle));
+
+                    retval *= (float)Math.Exp(BfactorAniso * r2);
+                }
 
                 if (ampsquared)
                     retval = Math.Abs(retval);// * retval);
@@ -534,7 +751,7 @@ namespace Warp
             for (int i = 0; i < dValues.Length - 1; i++)
                 if (Math.Sign(dValues[i]) > 0 && Math.Sign(dValues[i + 1]) < 0)
                     Result.Add(0.5f * i / Values.Length);
-            
+
             return Result.ToArray();
         }
 
@@ -550,6 +767,37 @@ namespace Warp
                     Result.Add(0.5f * i / Values.Length);
 
             return Result.ToArray();
+        }
+
+        public float GetEwaldRadius(int size, float pixelSize)
+        {
+            float voltage = (float)Voltage * 1e3f;
+            float lambda = 12.2643247f / (float)Math.Sqrt(voltage * (1.0f + voltage * 0.978466e-6f));
+
+            return size * pixelSize / lambda;
+        }
+
+        public Image GetEwaldLerpWeights(int size, float pixelSize)
+        {
+            float Radius = GetEwaldRadius(size, pixelSize);
+            float DiameterInv = Radius == 0 ? 0 : (1.0f / (2.0f * Radius));
+
+            Image Result = new Image(new int3(size, size, 1), true, true);
+            float[] ResultData = Result.GetHost(Intent.Write)[0];
+
+            int i = 0;
+            Helper.ForEachElementFT(new int2(size), (x, y, xx, yy) =>
+            {
+                float r2 = xx * xx + yy * yy;
+                float z = r2 * DiameterInv;
+
+                ResultData[i * 2] = 1;
+                ResultData[i * 2 + 1] = Math.Min(1, z);
+
+                i++;
+            });
+
+            return Result;
         }
 
         public Image GetBeamTilt(int size, int originalSize)
@@ -638,6 +886,97 @@ namespace Warp
             return new Image(Data, new int3(size, size, 1), true);
         }
 
+        public float[] GetZernikeOddPhases(float angPix, int size, int icoeff)
+        {
+            lock (ZernikeOddCache)
+            {
+                int EntryID = ZernikeOddCache.FindIndex(v => v.AngPix == angPix && v.Size == size && v.iCoeff == icoeff);
+                if (EntryID >= 0)
+                    return ZernikeOddCache[EntryID].Data;
+
+                int m, n;
+                Zernike.OddIndexToMN(icoeff, out m, out n);
+
+                float[] NewData = new float[new int2(size).ElementsFFT()];
+                int i = 0;
+                float Norm = 1f / (size * angPix);
+                Helper.ForEachElementFT(new int2(size), (x, y, xx, yy) =>
+                {
+                    NewData[i++] = (float)Zernike.Zcart(m, n, xx * Norm, yy * Norm);
+                });
+
+                ZernikeOddCache.Add(new ZernikeCacheEntry(angPix, size, icoeff, NewData));
+                return NewData;
+            }
+        }
+
+        public float[] GetZernikeEvenPhases(float angPix, int size, int icoeff)
+        {
+            lock (ZernikeEvenCache)
+            {
+                int EntryID = ZernikeEvenCache.FindIndex(v => v.AngPix == angPix && v.Size == size && v.iCoeff == icoeff);
+                if (EntryID >= 0)
+                    return ZernikeEvenCache[EntryID].Data;
+
+                int m, n;
+                Zernike.EvenIndexToMN(icoeff, out m, out n);
+
+                float[] NewData = new float[new int2(size).ElementsFFT()];
+                int i = 0;
+                float Norm = 1f / (size * angPix);
+                Helper.ForEachElementFT(new int2(size), (x, y, xx, yy) =>
+                {
+                    NewData[i++] = (float)Zernike.Zcart(m, n, xx * Norm, yy * Norm);
+                });
+
+                ZernikeEvenCache.Add(new ZernikeCacheEntry(angPix, size, icoeff, NewData));
+                return NewData;
+            }
+        }
+
+        public Image GetPhaseCorrection(float angPix, int size)
+        {
+            float[][] ZernikePhases = new float[ZernikeCoeffsOdd.Length][];
+            for (int i = 0; i < ZernikePhases.Length; i++)
+                ZernikePhases[i] = GetZernikeOddPhases(angPix, size, i);
+
+            Image Result = new Image(new int3(size, size, 1), true, true);
+            float[] ResultData = Result.GetHost(Intent.Write)[0];
+
+            for (int i = 0; i < ResultData.Length / 2; i++)
+            {
+                float PhaseSum = 0;
+                for (int icoeff = 0; icoeff < ZernikePhases.Length; icoeff++)
+                    PhaseSum += ZernikePhases[icoeff][i] * _ZernikeCoeffsOdd[icoeff];
+
+                ResultData[i * 2] = (float)Math.Cos(PhaseSum);
+                ResultData[i * 2 + 1] = (float)Math.Sin(PhaseSum);
+            }
+
+            return Result;
+        }
+
+        public Image GetGammaCorrection(float angPix, int size)
+        {
+            float[][] ZernikePhases = new float[ZernikeCoeffsEven.Length][];
+            for (int i = 0; i < ZernikePhases.Length; i++)
+                ZernikePhases[i] = GetZernikeEvenPhases(angPix, size, i + 1);   // Skip phase shift, defocus and astigmatism
+
+            Image Result = new Image(new int3(size, size, 1), true);
+            float[] ResultData = Result.GetHost(Intent.Write)[0];
+
+            for (int i = 0; i < ResultData.Length; i++)
+            {
+                float PhaseSum = 0;
+                for (int icoeff = 0; icoeff < ZernikePhases.Length; icoeff++)
+                    PhaseSum += ZernikePhases[icoeff][i] * _ZernikeCoeffsEven[icoeff];
+
+                ResultData[i] = PhaseSum;
+            }
+
+            return Result;
+        }
+
         public int GetAliasingFreeSize(float maxResolution)
         {
             double Freq0 = 1.0 / maxResolution;
@@ -646,6 +985,40 @@ namespace Warp
             float dPMax = MathHelper.Max(dP);
 
             return (int)Math.Ceiling(dPMax / 0.5f * 1000) * 2;
+        }
+
+        public Image GetMotionSinc(int size, int originalSize, float2 motion)
+        {
+            float[] Data = new float[new int2(size).ElementsFFT()];
+            motion /= (float)PixelSize;
+
+            Helper.ForEachElementFT(new int2(size), (x, y, xx, yy) =>
+            {
+                float2 Pos = new float2(xx, yy) / new float2(originalSize) * 2;
+                float Projected = float2.Dot(Pos, motion);
+                float Sinc = MathHelper.Sinc(Projected);
+
+                Data[y * (size / 2 + 1) + x] = Sinc;
+            });
+
+            return new Image(Data, new int3(size, size, 1), true);
+        }
+
+        public Image GetMotionSinc2(int size, int originalSize, float2 motion)
+        {
+            float[] Data = new float[new int2(size).ElementsFFT()];
+            motion /= (float)PixelSize;
+
+            Helper.ForEachElementFT(new int2(size), (x, y, xx, yy) =>
+            {
+                float2 Pos = new float2(xx, yy) / new float2(originalSize) * 2;
+                float Projected = float2.Dot(Pos, motion);
+                float Sinc = MathHelper.Sinc(Projected);
+
+                Data[y * (size / 2 + 1) + x] = Sinc * Sinc;
+            });
+
+            return new Image(Data, new int3(size, size, 1), true);
         }
 
         public static Image GetCTFCoords(int size, int originalSize, float pixelSize = 1, float pixelSizeDelta = 0, float pixelSizeAngle = 0)
@@ -676,27 +1049,55 @@ namespace Warp
             return CTFCoords;
         }
 
+        public static Image GetCTFPCoords(int size, int originalSize, float pixelSize = 1, float pixelSizeDelta = 0, float pixelSizeAngle = 0)
+        {
+            Image CTFCoords;
+            {
+                float2[] CTFCoordsData = new float2[(size / 2 + 1) * size];
+                for (int y = 0; y < size; y++)
+                    for (int x = 0; x < size / 2 + 1; x++)
+                    {
+                        int xx = x;
+                        int yy = y < size / 2 + 1 ? y : y - size;
+
+                        float xs = xx / (float)originalSize;
+                        float ys = yy / (float)originalSize;
+                        float r = (float)Math.Sqrt(xs * xs + ys * ys);
+                        float angle = r > 0 ? (float)Math.Acos(yy / Math.Sqrt(xx * xx + yy * yy)) : 0;
+
+                        if (pixelSize != 1 || pixelSizeDelta != 0)
+                            r /= pixelSize + pixelSizeDelta * (float)Math.Cos(2.0 * (angle - pixelSizeAngle));
+
+                        CTFCoordsData[y * (size / 2 + 1) + x] = new float2(r, angle);
+                    }
+
+                CTFCoords = new Image(CTFCoordsData, new int3(size, size, 1), true);
+            }
+
+            return CTFCoords;
+        }
+
         public static Image GetCTFCoords(int2 size, int2 originalSize, float pixelSize = 1, float pixelSizeDelta = 0, float pixelSizeAngle = 0)
         {
             Image CTFCoords;
             {
                 float2[] CTFCoordsData = new float2[(size.X / 2 + 1) * size.Y];
                 for (int y = 0; y < size.Y; y++)
-                for (int x = 0; x < size.X / 2 + 1; x++)
-                {
-                    int xx = x;
-                    int yy = y < size.Y / 2 + 1 ? y : y - size.Y;
+                    for (int x = 0; x < size.X / 2 + 1; x++)
+                    {
+                        int xx = x;
+                        int yy = y < size.Y / 2 + 1 ? y : y - size.Y;
 
-                    float xs = xx / (float)originalSize.X;
-                    float ys = yy / (float)originalSize.Y;
-                    float r = (float)Math.Sqrt(xs * xs + ys * ys);
-                    float angle = (float)Math.Atan2(yy, xx);
+                        float xs = xx / (float)originalSize.X;
+                        float ys = yy / (float)originalSize.Y;
+                        float r = (float)Math.Sqrt(xs * xs + ys * ys);
+                        float angle = (float)Math.Atan2(yy, xx);
 
-                    if (pixelSize != 1 || pixelSizeDelta != 0)
-                        r /= pixelSize + pixelSizeDelta * (float)Math.Cos(2.0 * (angle - pixelSizeAngle));
+                        if (pixelSize != 1 || pixelSizeDelta != 0)
+                            r /= pixelSize + pixelSizeDelta * (float)Math.Cos(2.0 * (angle - pixelSizeAngle));
 
-                    CTFCoordsData[y * (size.X / 2 + 1) + x] = new float2(r, angle);
-                }
+                        CTFCoordsData[y * (size.X / 2 + 1) + x] = new float2(r, angle);
+                    }
 
                 CTFCoords = new Image(CTFCoordsData, new int3(size.X, size.Y, 1), true);
             }
@@ -790,6 +1191,418 @@ namespace Warp
             return CTFCoords;
         }
 
+        public static void ApplyPandQ(Image particlesFT,
+                                      CTF[] ctfs,
+                                      Image intermediateFTCorr,
+                                      Image intermediateParticlesSuper,
+                                      Image intermediateParticles,
+                                      Image intermediateCTFP,
+                                      Image intermediateMaskAngles,
+                                      float2[] coordsCTF,
+                                      float2[] coordsCTFP,
+                                      Image mask,
+                                      int planForw,
+                                      int planBack,
+                                      int nSectors,
+                                      bool isReverse,
+                                      Image outP,
+                                      Image outQ)
+        {
+            decimal AngleStep = 180M / nSectors;
+            int SizeFull = outP.Dims.X;
+            int SizeFullSuper = particlesFT.Dims.X;
+            int BatchSize = ctfs.Length;
+
+            outP.Fill(0);
+            outQ.Fill(0);
+
+            int iangle = 0;
+            for (decimal angle = 0; angle < 180; angle += AngleStep, iangle++)
+            {
+                for (int ipass = 0; ipass < 2; ipass++)
+                {
+                    bool isPositive = (ipass == 1) ? isReverse : !isReverse;
+
+                    float[][] CTFPData = intermediateCTFP.GetHost(Intent.Write);
+                    Parallel.For(0, BatchSize, i =>
+                    {
+                        ctfs[i].Get2DP(coordsCTF, coordsCTFP, isPositive, (float)angle * Helper.ToRad, CTFPData[i]);
+                    });
+
+                    GPU.MultiplyComplexSlicesByComplex(particlesFT.GetDevice(Intent.Read),
+                                                       intermediateCTFP.GetDevice(Intent.Read),
+                                                       intermediateFTCorr.GetDevice(Intent.Write),
+                                                       particlesFT.ElementsComplex,
+                                                       1);
+
+                    if (false)
+                    {
+                        Image CTFPReal = intermediateCTFP.AsReal();
+                        CTFPReal.WriteMRC($"rec_{angle}_{ipass}_ctfpreal.mrc", true);
+                        CTFPReal.Dispose();
+                        Image CTFPImag = intermediateCTFP.AsImaginary();
+                        CTFPImag.WriteMRC($"rec_{angle}_{ipass}_ctfpimag.mrc", true);
+                        CTFPImag.Dispose();
+                    }
+
+                    #region Mask and crop in real space
+
+                    GPU.IFFT(intermediateFTCorr.GetDevice(Intent.Read),
+                             intermediateParticlesSuper.GetDevice(Intent.Write),
+                             new int3(SizeFullSuper, SizeFullSuper, 1),
+                             (uint)BatchSize,
+                             planBack,
+                             false);
+
+                    if (mask != null)
+                        intermediateParticlesSuper.MultiplySlices(mask);
+
+                    if (false)
+                    {
+                        intermediateParticlesSuper.RemapFromFT();
+                        intermediateParticlesSuper.WriteMRC($"rec_{angle}_{ipass}.mrc", true);
+                        intermediateParticlesSuper.RemapToFT();
+                    }
+
+                    GPU.CropFTFull(intermediateParticlesSuper.GetDevice(Intent.Read),
+                                   intermediateParticles.GetDevice(Intent.Write),
+                                   new int3(SizeFullSuper, SizeFullSuper, 1),
+                                   new int3(SizeFull, SizeFull, 1),
+                                   (uint)BatchSize);
+
+                    GPU.FFT(intermediateParticles.GetDevice(Intent.Read),
+                            intermediateFTCorr.GetDevice(Intent.Write),
+                            new int3(SizeFull, SizeFull, 1),
+                            (uint)BatchSize,
+                            planForw);
+                    intermediateFTCorr.Multiply(1f / (SizeFull * SizeFull));
+
+                    #endregion
+
+                    float AngleMin = (float)(angle + 90 - (0.5M * AngleStep));
+                    float AngleMax = (float)(angle + 90 + (0.5M * AngleStep));
+
+                    // angles larger than 180
+                    bool AngleReverse = false;
+                    if (AngleMin >= 180)
+                    {
+                        AngleMin -= 180;
+                        AngleMax -= 180;
+                        AngleReverse = true;
+                    }
+
+                    Image myCTFPorQa, myCTFPorQb;
+                    if (AngleReverse)
+                    {
+                        myCTFPorQa = (ipass == 0) ? outQ : outP;
+                        myCTFPorQb = (ipass == 0) ? outP : outQ;
+                    }
+                    else
+                    {
+                        myCTFPorQa = (ipass == 0) ? outP : outQ;
+                        myCTFPorQb = (ipass == 0) ? outQ : outP;
+                    }
+
+                    // Deal with sectors with the Y-axis in the middle of the sector...
+                    bool DoWrapMax = false;
+                    if (AngleMin < 180 && AngleMax > 180)
+                    {
+                        AngleMax -= 180;
+                        DoWrapMax = true;
+                    }
+
+                    AngleMin *= Helper.ToRad;
+                    AngleMax *= Helper.ToRad;
+
+                    float[][] MaskData = intermediateMaskAngles.GetHost(Intent.Write);
+                    int imask = 0;
+                    Helper.ForEachElementFT(new int2(SizeFull), (x, y, xx, yy) =>
+                    {
+                        float r2 = xx * xx + yy * yy;
+                        float Angle = r2 > 0 ? (float)(Math.Acos(yy / Math.Sqrt(r2))) : 0;
+
+                        MaskData[0][imask] = 0;
+                        MaskData[1][imask] = 0;
+
+                        if (DoWrapMax)
+                        {
+                            if (Angle >= AngleMin)
+                                MaskData[0][imask] = 1;
+                            else if (Angle < AngleMax)
+                                MaskData[1][imask] = 1;
+                        }
+                        else
+                        {
+                            if (Angle >= AngleMin && Angle < AngleMax)
+                                MaskData[0][imask] = 1;
+                        }
+
+                        imask++;
+                    });
+
+                    if (false)
+                        intermediateMaskAngles.WriteMRC($"rec_{angle}_{ipass}_maskpq.mrc");
+
+                    GPU.MultiplyComplexSlicesByScalar(intermediateFTCorr.GetDevice(Intent.Read),
+                                                      intermediateMaskAngles.GetDeviceSlice(0, Intent.Read),
+                                                      intermediateCTFP.GetDevice(Intent.Write),
+                                                      new int2(SizeFull).ElementsFFT(),
+                                                      (uint)BatchSize);
+                    GPU.AddToSlices(myCTFPorQa.GetDevice(Intent.Read),
+                                    intermediateCTFP.GetDevice(Intent.Read),
+                                    myCTFPorQa.GetDevice(Intent.Write),
+                                    new int2(SizeFull).ElementsFFT() * 2 * BatchSize,
+                                    1);
+
+                    GPU.MultiplyComplexSlicesByScalar(intermediateFTCorr.GetDevice(Intent.Read),
+                                                      intermediateMaskAngles.GetDeviceSlice(1, Intent.Read),
+                                                      intermediateCTFP.GetDevice(Intent.Write),
+                                                      new int2(SizeFull).ElementsFFT(),
+                                                      (uint)BatchSize);
+                    GPU.AddToSlices(myCTFPorQb.GetDevice(Intent.Read),
+                                    intermediateCTFP.GetDevice(Intent.Read),
+                                    myCTFPorQb.GetDevice(Intent.Write),
+                                    new int2(SizeFull).ElementsFFT() * 2 * BatchSize,
+                                    1);
+                }
+            }
+        }
+
+        public static void ApplyPandQPrecomp(Image particlesFT,
+                                              CTF[] ctfs,
+                                              Image intermediateFTCorr,
+                                              Image intermediateParticlesSuper,
+                                              Image intermediateParticles,
+                                              Image intermediateCTFP,
+                                              Image coordsCTF,
+                                              Image gammaCorrection,
+                                              bool reverse,
+                                              Image mask,
+                                              int planForw,
+                                              int planBack,
+                                              Image outP,
+                                              Image outQ)
+        {
+            int SizeFull = outP.Dims.X;
+            int SizeFullSuper = particlesFT.Dims.X;
+            int BatchSize = ctfs.Length;
+
+            //float[][] CTFPData = intermediateCTFP.GetHost(Intent.Write);
+            //Parallel.For(0, BatchSize, i =>
+            //{
+            //    ctfs[i].Get2DPQFromPrecomp(coordsCTF, pqSigns, CTFPData[i]);
+            //});
+
+            //if (true)
+            //{
+            //    Image CTFPReal = intermediateCTFP.AsReal();
+            //    CTFPReal.WriteMRC($"prec_ctfpreal.mrc", true);
+            //    CTFPReal.Dispose();
+            //    Image CTFPImag = intermediateCTFP.AsImaginary();
+            //    CTFPImag.WriteMRC($"prec_ctfpimag.mrc", true);
+            //    CTFPImag.Dispose();
+            //}
+
+            GPU.CreateCTFComplex(intermediateCTFP.GetDevice(Intent.Write),
+                                coordsCTF.GetDevice(Intent.Read),
+                                gammaCorrection == null ? IntPtr.Zero : gammaCorrection.GetDevice(Intent.Read),
+                                (uint)coordsCTF.ElementsComplex,
+                                ctfs.Select(v => v.ToStruct()).ToArray(),
+                                reverse,
+                                (uint)BatchSize);
+
+            if (false)
+            {
+                Image CTFPReal = intermediateCTFP.AsReal();
+                CTFPReal.WriteMRC($"prec_ctfpreal_gpu.mrc", true);
+                CTFPReal.Dispose();
+                Image CTFPImag = intermediateCTFP.AsImaginary();
+                CTFPImag.WriteMRC($"prec_ctfpimag_gpu.mrc", true);
+                CTFPImag.Dispose();
+            }
+
+            #region Make P
+
+            GPU.MultiplyComplexSlicesByComplex(particlesFT.GetDevice(Intent.Read),
+                                               intermediateCTFP.GetDevice(Intent.Read),
+                                               intermediateFTCorr.GetDevice(Intent.Write),
+                                               particlesFT.ElementsComplex,
+                                               1);
+
+            GPU.IFFT(intermediateFTCorr.GetDevice(Intent.Read),
+                     intermediateParticlesSuper.GetDevice(Intent.Write),
+                     new int3(SizeFullSuper, SizeFullSuper, 1),
+                     (uint)BatchSize,
+                     planBack,
+                     false);
+
+            if (mask != null)
+                intermediateParticlesSuper.MultiplySlices(mask);
+
+            if (false)
+            {
+                intermediateParticlesSuper.RemapFromFT();
+                intermediateParticlesSuper.WriteMRC($"prec.mrc", true);
+                intermediateParticlesSuper.RemapToFT();
+            }
+
+            GPU.CropFTFull(intermediateParticlesSuper.GetDevice(Intent.Read),
+                           intermediateParticles.GetDevice(Intent.Write),
+                           new int3(SizeFullSuper, SizeFullSuper, 1),
+                           new int3(SizeFull, SizeFull, 1),
+                           (uint)BatchSize);
+
+            GPU.FFT(intermediateParticles.GetDevice(Intent.Read),
+                    outP.GetDevice(Intent.Write),
+                    new int3(SizeFull, SizeFull, 1),
+                    (uint)BatchSize,
+                    planForw);
+            outP.Multiply(1f / (SizeFull * SizeFull));
+
+            #endregion      
+
+            #region Make Q
+
+            GPU.MultiplyComplexSlicesByComplexConj(particlesFT.GetDevice(Intent.Read),
+                                                   intermediateCTFP.GetDevice(Intent.Read),
+                                                   intermediateFTCorr.GetDevice(Intent.Write),
+                                                   particlesFT.ElementsComplex,
+                                                   1);
+
+            GPU.IFFT(intermediateFTCorr.GetDevice(Intent.Read),
+                     intermediateParticlesSuper.GetDevice(Intent.Write),
+                     new int3(SizeFullSuper, SizeFullSuper, 1),
+                     (uint)BatchSize,
+                     planBack,
+                     false);
+
+            if (mask != null)
+                intermediateParticlesSuper.MultiplySlices(mask);
+
+            if (false)
+            {
+                intermediateParticlesSuper.RemapFromFT();
+                intermediateParticlesSuper.WriteMRC($"qrec.mrc", true);
+                intermediateParticlesSuper.RemapToFT();
+            }
+
+            GPU.CropFTFull(intermediateParticlesSuper.GetDevice(Intent.Read),
+                           intermediateParticles.GetDevice(Intent.Write),
+                           new int3(SizeFullSuper, SizeFullSuper, 1),
+                           new int3(SizeFull, SizeFull, 1),
+                           (uint)BatchSize);
+
+            GPU.FFT(intermediateParticles.GetDevice(Intent.Read),
+                    outQ.GetDevice(Intent.Write),
+                    new int3(SizeFull, SizeFull, 1),
+                    (uint)BatchSize,
+                    planForw);
+            outQ.Multiply(1f / (SizeFull * SizeFull));
+
+            #endregion        
+        }
+
+        public static void GetPQSign(float2[] coordinates, float2[] coordinatesP, bool isPositive, float pAngle, float[] result)
+        {
+            if (pAngle >= (float)Math.PI)
+            {
+                pAngle -= (float)Math.PI;
+                isPositive = !isPositive;
+            }
+
+            for (int i = 0; i < coordinates.Length; i++)
+            {
+                float angleP = coordinatesP[i].Y;
+
+                float reverse = isPositive ? 1 : -1;
+                if (angleP <= pAngle)
+                    reverse *= -1;
+                if (pAngle == 0 && Math.Abs(angleP - Math.PI) < 1e-5)
+                    reverse *= -1;
+
+                result[i] = reverse;
+            }
+        }
+
+        public static void PrecomputePQSigns(int size,
+                                             int nSectors,
+                                             bool isReverse,
+                                             float2[] coordsCTF,
+                                             float2[] coordsCTFP,
+                                             float[] result)
+        {
+            decimal AngleStep = 180M / nSectors;
+            float[] Dummy = new float[result.Length];
+
+            for (decimal angle = 0; angle < 180; angle += AngleStep)
+            {
+                for (int ipass = 0; ipass < 2; ipass++)
+                {
+                    float AngleMin = (float)(angle + 90 - (0.5M * AngleStep));
+                    float AngleMax = (float)(angle + 90 + (0.5M * AngleStep));
+
+                    // angles larger than 180
+                    bool AngleReverse = false;
+                    if (AngleMin >= 180)
+                    {
+                        AngleMin -= 180;
+                        AngleMax -= 180;
+                        AngleReverse = true;
+                    }
+
+                    float[] resultP, resultQ;
+                    if (AngleReverse)
+                    {
+                        resultP = (ipass == 0) ? Dummy : result;
+                        resultQ = (ipass == 0) ? result : Dummy;
+                    }
+                    else
+                    {
+                        resultP = (ipass == 0) ? result : Dummy;
+                        resultQ = (ipass == 0) ? Dummy : result;
+                    }
+
+                    // Deal with sectors with the Y-axis in the middle of the sector...
+                    bool DoWrapMax = false;
+                    if (AngleMin < 180 && AngleMax > 180)
+                    {
+                        AngleMax -= 180;
+                        DoWrapMax = true;
+                    }
+
+                    AngleMin *= Helper.ToRad;
+                    AngleMax *= Helper.ToRad;
+
+                    bool isPositive = (ipass == 1) ? isReverse : !isReverse;
+
+                    float[] CurrentSigns = new float[coordsCTF.Length];
+                    GetPQSign(coordsCTF, coordsCTFP, isPositive, (float)angle * Helper.ToRad, CurrentSigns);
+
+                    int imask = 0;
+                    Helper.ForEachElementFT(new int2(size), (x, y, xx, yy) =>
+                    {
+                        float r2 = xx * xx + yy * yy;
+                        float Angle = r2 > 0 ? (float)(Math.Acos(yy / Math.Sqrt(r2))) : 0;
+
+                        if (DoWrapMax)
+                        {
+                            if (Angle >= AngleMin)
+                                resultP[imask] = CurrentSigns[imask];
+                            else if (Angle < AngleMax)
+                                resultQ[imask] = CurrentSigns[imask];
+                        }
+                        else
+                        {
+                            if (Angle >= AngleMin && Angle < AngleMax)
+                                resultP[imask] = CurrentSigns[imask];
+                        }
+
+                        imask++;
+                    });
+                }
+            }
+        }
+
         public CTF GetCopy()
         {
             return new CTF
@@ -805,7 +1618,7 @@ namespace Warp
                 _PhaseShift = PhaseShift,
                 _PixelSize = PixelSize,
                 _PixelSizeAngle = PixelSizeAngle,
-                _PixelSizeDelta = PixelSizeDelta,
+                _PixelSizeDeltaPercent = PixelSizeDeltaPercent,
                 _Scale = Scale,
                 _Voltage = Voltage
             };
@@ -904,6 +1717,8 @@ namespace Warp
         public float DefocusDelta;
         public float Amplitude;
         public float Bfactor;
+        public float BfactorDelta;
+        public float BfactorAngle;
         public float Scale;
         public float PhaseShift;
     }
@@ -930,5 +1745,21 @@ namespace Warp
         public int2 DimsPeriodogram;
         public int MaskInnerRadius;
         public int MaskOuterRadius;
+    }
+
+    class ZernikeCacheEntry
+    {
+        public float AngPix;
+        public int Size;
+        public int iCoeff;
+        public float[] Data;
+
+        public ZernikeCacheEntry(float angpix, int size, int icoeff, float[] data)
+        {
+            AngPix = angpix;
+            Size = size;
+            iCoeff = icoeff;
+            Data = data;
+        }
     }
 }

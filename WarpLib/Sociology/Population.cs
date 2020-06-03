@@ -40,7 +40,7 @@ namespace Warp.Sociology
             get { return _Name; }
             set { if (value != _Name) { _Name = value; OnPropertyChanged(); } }
         }
-        
+
         public string ParticlesDir => FolderPath + "particles/";
         public string ParticleTiltsDir => FolderPath + "particletilts/";
         public string ParticleMoviesDir => FolderPath + "particlemovies/";
@@ -60,6 +60,13 @@ namespace Warp.Sociology
         {
             get { return _Sources; }
             set { if (value != _Sources) { _Sources = value; OnPropertyChanged(); } }
+        }
+
+        private ProcessingOptionsMPARefine _LastRefinementOptions = new ProcessingOptionsMPARefine();
+        public ProcessingOptionsMPARefine LastRefinementOptions
+        {
+            get { return _LastRefinementOptions; }
+            set { if (value != _LastRefinementOptions) { _LastRefinementOptions = value; OnPropertyChanged(); } }
         }
 
         public Population(string path)
@@ -137,6 +144,14 @@ namespace Warp.Sociology
 
                     Sources.Add(LoadedSource);
                 }
+
+                XPathNavigator NavLastRefinementOptions = Reader.SelectSingleNode("//LastRefinementOptions");
+                if (NavLastRefinementOptions != null)
+                {
+                    ProcessingOptionsMPARefine Temp = new ProcessingOptionsMPARefine();
+                    Temp.ReadFromXML(NavLastRefinementOptions);
+                    LastRefinementOptions = Temp;
+                }
             }
 
             DoAutosave = true;
@@ -173,6 +188,13 @@ namespace Warp.Sociology
                 Writer.WriteEndElement();
             }
             Writer.WriteEndElement();
+                       
+            if (LastRefinementOptions != null)
+            {
+                Writer.WriteStartElement("LastRefinementOptions");
+                LastRefinementOptions.WriteToXML(Writer);
+                Writer.WriteEndElement();
+            }
 
             Writer.WriteEndElement();
             Writer.WriteEndDocument();

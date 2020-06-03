@@ -153,7 +153,7 @@ __global__ void SpectrumCompareKernel(float2* d_ps, float2* d_pscoords, float2* 
 	{
 		float2 simcoords = d_pscoords[i];
 
-		float2 refval = d_ref[i] * d_GetCTF<false, false>(simcoords.x / params.pixelsize, simcoords.y, params);
+		float2 refval = d_ref[i] * d_GetCTF<false, false>(simcoords.x / params.pixelsize, simcoords.y, 0, params);
 		float2 psval = d_ps[i];
 		float invsigma = d_invsigma[i];
 		refval *= invsigma;

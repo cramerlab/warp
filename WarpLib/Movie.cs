@@ -167,6 +167,11 @@ namespace Warp
         }
 
         private float3 _MagnificationCorrection = new float3(1, 1, 0);
+        /// <summary>
+        /// MagnificationCorrection follows a different, weird convention.
+        /// .x and .y define the X and Y axes of a scaling matrix, rotated by -.z
+        /// Scaling .x up means the pixel size along that axis is smaller, thus a negative CTF.PixelSizeDeltaPercent
+        /// </summary>
         public float3 MagnificationCorrection
         {
             get { return _MagnificationCorrection; }
@@ -324,6 +329,13 @@ namespace Warp
             }
         }
 
+        private CubicGrid _GridCTFDoming = new CubicGrid(new int3(1));
+        public CubicGrid GridCTFDoming
+        {
+            get { return _GridCTFDoming; }
+            set { if (value != _GridCTFDoming) { _GridCTFDoming = value; OnPropertyChanged(); } }
+        }
+
         private CubicGrid _GridBeamTiltX = new CubicGrid(new int3(1));
         public CubicGrid GridBeamTiltX
         {
@@ -436,6 +448,27 @@ namespace Warp
             }
         }
 
+        private CubicGrid _GridAngleX = new CubicGrid(new int3(1, 1, 1));
+        public CubicGrid GridAngleX
+        {
+            get { return _GridAngleX; }
+            set { if (value != _GridAngleX) { _GridAngleX = value; OnPropertyChanged(); } }
+        }
+
+        private CubicGrid _GridAngleY = new CubicGrid(new int3(1, 1, 1));
+        public CubicGrid GridAngleY
+        {
+            get { return _GridAngleY; }
+            set { if (value != _GridAngleY) { _GridAngleY = value; OnPropertyChanged(); } }
+        }
+
+        private CubicGrid _GridAngleZ = new CubicGrid(new int3(1, 1, 1));
+        public CubicGrid GridAngleZ
+        {
+            get { return _GridAngleZ; }
+            set { if (value != _GridAngleZ) { _GridAngleZ = value; OnPropertyChanged(); } }
+        }
+
         private CubicGrid _GridDoseBfacs = new CubicGrid(new int3(1, 1, 1));
         public CubicGrid GridDoseBfacs
         {
@@ -443,11 +476,39 @@ namespace Warp
             set { if (value != _GridDoseBfacs) { _GridDoseBfacs = value; OnPropertyChanged(); } }
         }
 
+        private CubicGrid _GridDoseBfacsDelta = new CubicGrid(new int3(1, 1, 1));
+        public CubicGrid GridDoseBfacsDelta
+        {
+            get { return _GridDoseBfacsDelta; }
+            set { if (value != _GridDoseBfacsDelta) { _GridDoseBfacsDelta = value; OnPropertyChanged(); } }
+        }
+
+        private CubicGrid _GridDoseBfacsAngle = new CubicGrid(new int3(1, 1, 1));
+        public CubicGrid GridDoseBfacsAngle
+        {
+            get { return _GridDoseBfacsAngle; }
+            set { if (value != _GridDoseBfacsAngle) { _GridDoseBfacsAngle = value; OnPropertyChanged(); } }
+        }
+
         private CubicGrid _GridDoseWeights = new CubicGrid(new int3(1, 1, 1), new[] { 1f });
         public CubicGrid GridDoseWeights
         {
             get { return _GridDoseWeights; }
             set { if (value != _GridDoseWeights) { _GridDoseWeights = value; OnPropertyChanged(); } }
+        }
+
+        private CubicGrid _GridLocationBfacs = new CubicGrid(new int3(1, 1, 1));
+        public CubicGrid GridLocationBfacs
+        {
+            get { return _GridLocationBfacs; }
+            set { if (value != _GridLocationBfacs) { _GridLocationBfacs = value; OnPropertyChanged(); } }
+        }
+
+        private CubicGrid _GridLocationWeights = new CubicGrid(new int3(1, 1, 1), new[] { 1f });
+        public CubicGrid GridLocationWeights
+        {
+            get { return _GridLocationWeights; }
+            set { if (value != _GridLocationWeights) { _GridLocationWeights = value; OnPropertyChanged(); } }
         }
 
         #endregion
@@ -788,6 +849,10 @@ namespace Warp
                     if (NavGridCTFPhase != null)
                         GridCTFPhase = CubicGrid.Load(NavGridCTFPhase);
 
+                    XPathNavigator NavGridCTFDoming = Reader.SelectSingleNode("//GridCTFDoming");
+                    if (NavGridCTFDoming != null)
+                        GridCTFDoming = CubicGrid.Load(NavGridCTFDoming);
+
                     XPathNavigator NavGridBeamTiltX = Reader.SelectSingleNode("//GridBeamTiltX");
                     if (NavGridBeamTiltX != null)
                         GridBeamTiltX = CubicGrid.Load(NavGridBeamTiltX);
@@ -820,13 +885,41 @@ namespace Warp
                     foreach (XPathNavigator NavShiftY in Reader.Select("//PyramidShiftY"))
                         PyramidShiftY.Add(CubicGrid.Load(NavShiftY));
 
+                    XPathNavigator NavAngleX = Reader.SelectSingleNode("//GridAngleX");
+                    if (NavAngleX != null)
+                        GridAngleX = CubicGrid.Load(NavAngleX);
+
+                    XPathNavigator NavAngleY = Reader.SelectSingleNode("//GridAngleY");
+                    if (NavAngleY != null)
+                        GridAngleY = CubicGrid.Load(NavAngleY);
+
+                    XPathNavigator NavAngleZ = Reader.SelectSingleNode("//GridAngleZ");
+                    if (NavAngleZ != null)
+                        GridAngleZ = CubicGrid.Load(NavAngleZ);
+
                     XPathNavigator NavDoseBfacs = Reader.SelectSingleNode("//GridDoseBfacs");
                     if (NavDoseBfacs != null)
                         GridDoseBfacs = CubicGrid.Load(NavDoseBfacs);
 
+                    XPathNavigator NavDoseBfacsDelta = Reader.SelectSingleNode("//GridDoseBfacsDelta");
+                    if (NavDoseBfacsDelta != null)
+                        GridDoseBfacsDelta = CubicGrid.Load(NavDoseBfacsDelta);
+
+                    XPathNavigator NavDoseBfacsAngle = Reader.SelectSingleNode("//GridDoseBfacsAngle");
+                    if (NavDoseBfacsAngle != null)
+                        GridDoseBfacsAngle = CubicGrid.Load(NavDoseBfacsAngle);
+
                     XPathNavigator NavDoseWeights = Reader.SelectSingleNode("//GridDoseWeights");
                     if (NavDoseWeights != null)
                         GridDoseWeights = CubicGrid.Load(NavDoseWeights);
+
+                    XPathNavigator NavLocationBfacs = Reader.SelectSingleNode("//GridLocationBfacs");
+                    if (NavLocationBfacs != null)
+                        GridLocationBfacs = CubicGrid.Load(NavLocationBfacs);
+
+                    XPathNavigator NavLocationWeights = Reader.SelectSingleNode("//GridLocationWeights");
+                    if (NavLocationWeights != null)
+                        GridLocationWeights = CubicGrid.Load(NavLocationWeights);
 
                     XPathNavigator NavOptionsCTF = Reader.SelectSingleNode("//OptionsCTF");
                     if (NavOptionsCTF != null)
@@ -964,6 +1057,10 @@ namespace Warp
                 GridCTFPhase.Save(Writer);
                 Writer.WriteEndElement();
 
+                Writer.WriteStartElement("GridCTFDoming");
+                GridCTFDoming.Save(Writer);
+                Writer.WriteEndElement();
+
                 Writer.WriteStartElement("GridBeamTiltX");
                 GridBeamTiltX.Save(Writer);
                 Writer.WriteEndElement();
@@ -1009,12 +1106,40 @@ namespace Warp
                     Writer.WriteEndElement();
                 }
 
+                Writer.WriteStartElement("GridAngleX");
+                GridAngleX.Save(Writer);
+                Writer.WriteEndElement();
+
+                Writer.WriteStartElement("GridAngleY");
+                GridAngleY.Save(Writer);
+                Writer.WriteEndElement();
+
+                Writer.WriteStartElement("GridAngleZ");
+                GridAngleZ.Save(Writer);
+                Writer.WriteEndElement();
+
                 Writer.WriteStartElement("GridDoseBfacs");
                 GridDoseBfacs.Save(Writer);
                 Writer.WriteEndElement();
 
+                Writer.WriteStartElement("GridDoseBfacsDelta");
+                GridDoseBfacsDelta.Save(Writer);
+                Writer.WriteEndElement();
+
+                Writer.WriteStartElement("GridDoseBfacsAngle");
+                GridDoseBfacsAngle.Save(Writer);
+                Writer.WriteEndElement();
+
                 Writer.WriteStartElement("GridDoseWeights");
                 GridDoseWeights.Save(Writer);
+                Writer.WriteEndElement();
+
+                Writer.WriteStartElement("GridLocationBfacs");
+                GridLocationBfacs.Save(Writer);
+                Writer.WriteEndElement();
+
+                Writer.WriteStartElement("GridLocationWeights");
+                GridLocationWeights.Save(Writer);
                 Writer.WriteEndElement();
 
                 if (OptionsBoxNet != null)
@@ -1081,6 +1206,7 @@ namespace Warp
             List<byte[]> Arrays = new List<byte[]>();
 
             if (CTF != null)
+            {
                 Arrays.Add(Helper.ToBytes(new[]
                 {
                     CTF.Amplitude,
@@ -1095,10 +1221,15 @@ namespace Warp
                     CTF.PhaseShift,
                     CTF.PixelSize,
                     CTF.PixelSizeAngle,
-                    CTF.PixelSizeDelta,
+                    CTF.PixelSizeDeltaPercent,
                     CTF.Scale,
                     CTF.Voltage
                 }));
+                if (CTF.ZernikeCoeffsEven != null)
+                    Arrays.Add(Helper.ToBytes(CTF.ZernikeCoeffsEven));
+                if (CTF.ZernikeCoeffsOdd != null)
+                    Arrays.Add(Helper.ToBytes(CTF.ZernikeCoeffsOdd));
+            }
 
             if (GridCTFDefocus != null)
             {
@@ -1220,7 +1351,7 @@ namespace Warp
             {
                 Image StackAverage = null;
                 //if (!File.Exists(AveragePath))
-                    StackAverage = originalStack.AsReducedAlongZ();
+                StackAverage = originalStack.AsReducedAlongZ();
                 //else
                 //    StackAverage = Image.FromFile(AveragePath);
 
@@ -1973,6 +2104,9 @@ namespace Warp
             int LocalGridZ = LocalGridX * LocalGridY <= 1 ? 1 : 4;//Math.Max(3, (int)Math.Ceiling(options.GridDims.Z / (float)(LocalGridX * LocalGridY)));
             GridLocalX = new CubicGrid(new int3(LocalGridX, LocalGridY, LocalGridZ));
             GridLocalY = new CubicGrid(new int3(LocalGridX, LocalGridY, LocalGridZ));
+
+            PyramidShiftX = new List<CubicGrid>();
+            PyramidShiftY = new List<CubicGrid>();
 
             int3 ShiftGrid = new int3(DimsPositionGrid.X, DimsPositionGrid.Y, NFrames);
 
@@ -2736,6 +2870,7 @@ namespace Warp
             IsProcessing = false;
         }
 
+        public static Task WriteAverageAsync = null;
         public void ExportMovie(Image originalStack, ProcessingOptionsMovieExport options)
         {
             Debug.WriteLine(GPU.GetFreeMemory(GPU.GetDevice()));
@@ -2765,7 +2900,6 @@ namespace Warp
             float DenoisingAngPix = Math.Max(3, (float)options.BinnedPixelSizeMean);     // Denoising always done at least at 3 A/px
             int2 DimsDenoise = new int2(new float2(Dims.X, Dims.Y) * (float)options.BinnedPixelSizeMean / DenoisingAngPix + 1) / 2 * 2;
 
-            Task WriteAverageAsync = null;
             Task WriteDeconvAsync = null;
             Task WriteStackAsync = null;
 
@@ -2883,7 +3017,7 @@ namespace Warp
                                             Dims.ElementsSlice());
 
                 GPU.PrefilterForCubic(FramePrefiltered[threadID].GetDevice(Intent.ReadWrite), Dims.Slice());
-                                
+
                 GPU.WarpImage(FramePrefiltered[threadID].GetDevice(Intent.Read),
                               Frame[threadID].GetDevice(Intent.Write),
                               new int2(Dims),
@@ -2909,15 +3043,16 @@ namespace Warp
                         Cs = 0,
                         Cc = 0,
                         IllumAngle = 0,
-                        Bfactor = GridDoseBfacs.Values.Length <= 1 ? 
+                        Bfactor = GridDoseBfacs.Values.Length <= 1 ?
                                   -(decimal)((float)options.DosePerAngstromFrame * (nframe + 0.5f) * 3) :
                                   (decimal)GridDoseBfacs.GetInterpolated(new float3(0.5f, 0.5f, (float)nframe / Math.Max(NFrames - 1, 1))),
-                        Scale = GridDoseWeights.Values.Length <= 1 ? 
+                        Scale = GridDoseWeights.Values.Length <= 1 ?
                                 1 :
                                 (decimal)GridDoseWeights.GetInterpolated(new float3(0.5f, 0.5f, (float)nframe / Math.Max(NFrames - 1, 1)))
                     };
                     GPU.CreateCTF(DoseImage[threadID].GetDevice(Intent.Write),
                                   CTFCoordsWeighting.GetDevice(Intent.Read),
+                                  IntPtr.Zero,
                                   (uint)CTFCoordsWeighting.ElementsSliceComplex,
                                   new[] { CTFBfac.ToStruct() },
                                   false,
@@ -3276,6 +3411,7 @@ namespace Warp
 
             Image CTFSign = null;
             Image CTFCoords = CTF.GetCTFCoords(DimsExtraction.X, DimsExtraction.X);
+            Image GammaCorrection = CTF.GetGammaCorrection((float)options.BinnedPixelSizeMean, DimsExtraction.X);
             Image[] DoseWeights = null;
 
             if (options.PreflipPhases || options.DoDenoisingPairs)
@@ -3290,6 +3426,7 @@ namespace Warp
                 CTFSign = new Image(DimsExtraction, true);
                 GPU.CreateCTF(CTFSign.GetDevice(Intent.Write),
                               CTFCoords.GetDevice(Intent.Read),
+                              GammaCorrection.GetDevice(Intent.Read),
                               (uint)CTFCoords.ElementsSliceComplex,
                               Params,
                               false,
@@ -3319,6 +3456,7 @@ namespace Warp
                     };
                     GPU.CreateCTF(Weights.GetDevice(Intent.Write),
                                   CTFCoords.GetDevice(Intent.Read),
+                                  IntPtr.Zero,
                                   (uint)CTFCoords.ElementsSliceComplex,
                                   new[] { CTFBfac.ToStruct() },
                                   false,
@@ -3341,6 +3479,7 @@ namespace Warp
                 DoseWeightsSum.Dispose();
             }
 
+            GammaCorrection.Dispose();
             CTFCoords.Dispose();
 
             #endregion
@@ -3548,7 +3687,7 @@ namespace Warp
                         AverageCropped.Multiply(-1f);
 
                     AverageCropped.FreeDevice();
-                                        
+
                     AverageCropped.WriteMRC(OddEvenDir[idenoise] + RootName + options.Suffix + ".mrcs", (float)options.BinnedPixelSizeMean, true);
                     AverageCropped.Dispose();
                 }
@@ -3654,6 +3793,7 @@ namespace Warp
             #region CTF, phase flipping & dose weighting
 
             Image CTFCoords = CTF.GetCTFCoords(SizeSub, (int)(SizeSub * options.DownsampleFactor));
+            Image GammaCorrection = CTF.GetGammaCorrection((float)options.BinnedPixelSizeMean, SizeSub);
             Image CTFCoordsPadded = CTF.GetCTFCoords(SizeSub * 2, (int)(SizeSub * 2 * options.DownsampleFactor));
             Image[] DoseWeights = null;
 
@@ -3717,6 +3857,7 @@ namespace Warp
 
             GPU.CreateCTF(ExperimentalCTF.GetDevice(Intent.Write),
                           CTFCoords.GetDevice(Intent.Read),
+                          GammaCorrection.GetDevice(Intent.Read),
                           (uint)CTFCoords.ElementsComplex,
                           new[] { CTFParams.ToStruct() },
                           false,
@@ -3725,6 +3866,7 @@ namespace Warp
 
             GPU.CreateCTF(ExperimentalCTFPadded.GetDevice(Intent.Write),
                           CTFCoordsPadded.GetDevice(Intent.Read),
+                          GammaCorrection.GetDevice(Intent.Read),
                           (uint)CTFCoordsPadded.ElementsComplex,
                           new[] { CTFParams.ToStruct() },
                           false,
@@ -3938,6 +4080,7 @@ namespace Warp
                 #region Postflight
 
                 CTFCoords.Dispose();
+                GammaCorrection.Dispose();
                 CTFCoordsPadded.Dispose();
                 ExperimentalCTF.Dispose();
                 ExperimentalCTFPadded.Dispose();
@@ -4058,17 +4201,32 @@ namespace Warp
 
         #region Multi-particle refinement
 
-        public virtual void PerformMultiParticleRefinement(string workingDirectory, ProcessingOptionsMPARefine optionsMPA, Species[] allSpecies, DataSource dataSource, Image gainRef, Action<string> progressCallback)
+        public virtual void PerformMultiParticleRefinement(string workingDirectory,
+                                                           ProcessingOptionsMPARefine optionsMPA,
+                                                           Species[] allSpecies,
+                                                           DataSource dataSource,
+                                                           Image gainRef,
+                                                           Action<string> progressCallback)
         {
             int GPUID = GPU.GetDevice();
             NFrames = Math.Min(MapHeader.ReadFromFile(Path).Dimensions.Z, dataSource.FrameLimit);
             //NFrames = 1;
             FractionFrames = (float)NFrames / MapHeader.ReadFromFile(Path).Dimensions.Z;
 
-            int OptimizationIterations = 0;
+            float BfactorWeightingThreshold = (float)optionsMPA.BFactorWeightingThreshold;
+
             //MagnificationCorrection = new float3(1, 1, 0);
-            float2 OldTilt = CTF.BeamTilt;
             //CTF.BeamTilt = new float2(0, 0);
+
+            if (CTF.ZernikeCoeffsOdd == null)
+                CTF.ZernikeCoeffsOdd = new float[12];
+            else if (CTF.ZernikeCoeffsOdd.Length < 12)
+                CTF.ZernikeCoeffsOdd = Helper.Combine(CTF.ZernikeCoeffsOdd, new float[12 - CTF.ZernikeCoeffsOdd.Length]);
+
+            if (CTF.ZernikeCoeffsEven == null)
+                CTF.ZernikeCoeffsEven = new float[8];
+            else if (CTF.ZernikeCoeffsEven.Length < 8)
+                CTF.ZernikeCoeffsEven = Helper.Combine(CTF.ZernikeCoeffsEven, new float[8 - CTF.ZernikeCoeffsEven.Length]);
 
             #region Get particles belonging to this item; if there are none, abort
 
@@ -4078,14 +4236,19 @@ namespace Warp
             foreach (var species in allSpecies)
                 SpeciesParticles.Add(species, species.GetParticles(DataHash));
 
-            if (!SpeciesParticles.Any(p => p.Value.Length > 20))
+            if (SpeciesParticles.Select(p => p.Value.Length).Sum() < 5)
                 return;
 
             #endregion
 
             #region Figure out dimensions
 
-            ImageDimensionsPhysical = new float2(new int2(MapHeader.ReadFromFile(Path).Dimensions)) * (float)dataSource.PixelSizeMean;
+            {
+                MapHeader Header = MapHeader.ReadFromFile(Path);
+                ImageDimensionsPhysical = new float2(new int2(Header.Dimensions)) * (float)dataSource.PixelSizeMean;
+                if (Header.GetType() == typeof(HeaderEER) && gainRef != null)
+                    ImageDimensionsPhysical = new float2(new int2(gainRef.Dims)) * (float)dataSource.PixelSizeMean;
+            }
 
             float SmallestAngPix = MathHelper.Min(allSpecies.Select(s => (float)s.PixelSize));
             float LargestBox = MathHelper.Max(allSpecies.Select(s => s.DiameterAngstrom)) * 2 / SmallestAngPix;
@@ -4112,6 +4275,10 @@ namespace Warp
                 GainFlipY = dataSource.GainFlipY,
                 GainTranspose = dataSource.GainTranspose,
 
+                Dimensions = new float3((float)dataSource.DimensionsX,
+                                        (float)dataSource.DimensionsY,
+                                        1),
+
                 Invert = true,
                 NormalizeInput = true,
                 NormalizeOutput = false,
@@ -4126,14 +4293,24 @@ namespace Warp
             {
                 Image Average = new Image(FrameData[0].Dims);
                 foreach (var frame in FrameData)
+                    Average.Add(frame);
+                Average.Multiply(1f / FrameData.Length);
+
+                float[] MeanPlaneData = MathHelper.FitAndGeneratePlane(Average.GetHost(Intent.Read)[0], new int2(Average.Dims));
+                Image MeanPlane = new Image(MeanPlaneData, Average.Dims);
+
+                Average.Fill(0f);
+
+                foreach (var frame in FrameData)
                 {
+                    frame.Subtract(MeanPlane);
                     frame.Bandpass(1f / LargestBox, 1f, false, 0f);
                     Average.Add(frame);
                 }
-                Average.Multiply(1f / FrameData.Length);
 
                 AverageMeanStd = MathHelper.MeanAndStd(Average.GetHost(Intent.Read)[0]);
                 Average.Dispose();
+                MeanPlane.Dispose();
             }
 
             for (int z = 0; z < NFrames; z++)
@@ -4143,6 +4320,8 @@ namespace Warp
 
                 FrameData[z].FreeDevice();
             }
+
+            if (true)
             {
                 Image Average = new Image(FrameData[0].Dims);
                 foreach (var frame in FrameData)
@@ -4156,47 +4335,149 @@ namespace Warp
 
             #endregion
 
-            if (OptimizationIterations > 0)
+            #region Compose optimization steps based on user's requests
+
+            var OptimizationStepsWarp = new List<(WarpOptimizationTypes Type, int Iterations, string Name)>();
+            {
+                WarpOptimizationTypes TranslationComponents = 0;
+                if (optionsMPA.DoImageWarp)
+                    TranslationComponents |= WarpOptimizationTypes.ImageWarp;
+
+                if (TranslationComponents != 0)
+                    OptimizationStepsWarp.Add((TranslationComponents, 10, "image warping"));
+            }
+            {
+                WarpOptimizationTypes AntisymComponents = 0;
+
+                if (optionsMPA.DoZernike13)
+                    AntisymComponents |= WarpOptimizationTypes.Zernike13;
+                if (optionsMPA.DoZernike5)
+                    AntisymComponents |= WarpOptimizationTypes.Zernike5;
+
+                if (AntisymComponents != 0 && allSpecies.Any(s => s.ResolutionRefinement < (float)optionsMPA.MinimumCTFRefinementResolution))
+                    OptimizationStepsWarp.Add((AntisymComponents, 10, "antisymmetrical aberrations"));
+            }
+            {
+                if (optionsMPA.DoDoming)
+                    OptimizationStepsWarp.Add((WarpOptimizationTypes.AxisAngle, 6, "stage orientation"));
+            }
+            {
+                WarpOptimizationTypes PoseComponents = 0;
+                if (optionsMPA.DoParticlePoses)
+                {
+                    PoseComponents |= WarpOptimizationTypes.ParticlePosition;
+                    PoseComponents |= WarpOptimizationTypes.ParticleAngle;
+                }
+
+                if (PoseComponents != 0)
+                    OptimizationStepsWarp.Add((PoseComponents, 10, "particle poses"));
+            }
+            {
+                if (optionsMPA.DoMagnification)
+                    OptimizationStepsWarp.Add((WarpOptimizationTypes.Magnification, 5, "magnification"));
+            }
+
+
+            var OptimizationStepsCTF = new List<(CTFOptimizationTypes Type, int Iterations, string Name)>();
+            {
+                CTFOptimizationTypes DefocusComponents = 0;
+                if (optionsMPA.DoDefocus)
+                    DefocusComponents |= CTFOptimizationTypes.Defocus;
+                if (optionsMPA.DoAstigmatismDelta)
+                    DefocusComponents |= CTFOptimizationTypes.AstigmatismDelta;
+                if (optionsMPA.DoAstigmatismAngle)
+                    DefocusComponents |= CTFOptimizationTypes.AstigmatismAngle;
+                if (optionsMPA.DoPhaseShift)
+                    DefocusComponents |= CTFOptimizationTypes.PhaseShift;
+                if (optionsMPA.DoCs)
+                    DefocusComponents |= CTFOptimizationTypes.Cs;
+
+                if (optionsMPA.DoDoming)
+                    DefocusComponents |= CTFOptimizationTypes.Doming;
+
+                if (DefocusComponents != 0)
+                    OptimizationStepsCTF.Add((DefocusComponents, 10, "CTF parameters"));
+
+                CTFOptimizationTypes ZernikeComponents = 0;
+
+                if (optionsMPA.DoZernike2)
+                    ZernikeComponents |= CTFOptimizationTypes.Zernike2;
+                if (optionsMPA.DoZernike4)
+                    ZernikeComponents |= CTFOptimizationTypes.Zernike4;
+
+                if (ZernikeComponents != 0)
+                    OptimizationStepsCTF.Add((ZernikeComponents, 10, "symmetrical aberrations"));
+            }
+
+            #endregion
+
+            if (optionsMPA.NIterations > 0)
             {
                 #region Resize grids
 
-                // Super crude way of figuring out how many parameters can be refined into the available particle signal
-                float OverallMass = 0;
-                foreach (var species in allSpecies)
-                    if (SpeciesParticles.ContainsKey(species))
-                        OverallMass += Math.Max((float)species.MolecularWeightkDa - 100, 0) * SpeciesParticles[species].Length;
-                float NParametersMax = OverallMass / 100 * 5;
-                NParametersMax /= NFrames;
-                NParametersMax /= 3;
-                int MovementSpatialDim = Math.Min(4, Math.Max(1, (int)Math.Round(Math.Sqrt(NParametersMax))));
+                int2 MovementSpatialDims = new int2(optionsMPA.ImageWarpWidth, optionsMPA.ImageWarpHeight);
 
-                if (PyramidShiftX.Count == 0 || PyramidShiftX[0].Dimensions.X != MovementSpatialDim)
-                {
-                    PyramidShiftX.Clear();
-                    PyramidShiftY.Clear();
-
-                    int NTemporal = NFrames / 2;
-
-                    while (true)
+                if (optionsMPA.DoImageWarp)
+                    if (PyramidShiftX.Count == 0 ||
+                        PyramidShiftX[0].Dimensions.X != MovementSpatialDims.X ||
+                        PyramidShiftX[0].Dimensions.Y != MovementSpatialDims.Y)
                     {
-                        PyramidShiftX.Add(new CubicGrid(new int3(MovementSpatialDim, MovementSpatialDim, NTemporal)));
-                        PyramidShiftY.Add(new CubicGrid(new int3(MovementSpatialDim, MovementSpatialDim, NTemporal)));
+                        PyramidShiftX.Clear();
+                        PyramidShiftY.Clear();
 
-                        MovementSpatialDim = (int)(MovementSpatialDim * 2);
-                        NTemporal = (NTemporal + 3) / 4;
-                        if (NTemporal < 3)
-                            break;
+                        int NTemporal = NFrames;
+
+                        while (true)
+                        {
+                            PyramidShiftX.Add(new CubicGrid(new int3(MovementSpatialDims.X, MovementSpatialDims.Y, NTemporal)));
+                            PyramidShiftY.Add(new CubicGrid(new int3(MovementSpatialDims.X, MovementSpatialDims.Y, NTemporal)));
+
+                            MovementSpatialDims *= 2;
+                            NTemporal = (NTemporal + 3) / 4;
+                            if (NTemporal < 3)
+                                break;
+                        }
                     }
+
+                int AngleSpatialDim = 3;
+
+                if (optionsMPA.DoDoming)
+                    if (GridAngleX == null || GridAngleX.Dimensions.X < AngleSpatialDim || GridAngleX.Dimensions.Z != NFrames)
+                    {
+                        GridAngleX = GridAngleX == null ? new CubicGrid(new int3(AngleSpatialDim, AngleSpatialDim, NFrames)) :
+                                                          GridAngleX.Resize(new int3(AngleSpatialDim, AngleSpatialDim, NFrames));
+                        GridAngleY = GridAngleY == null ? new CubicGrid(new int3(AngleSpatialDim, AngleSpatialDim, NFrames)) :
+                                                          GridAngleY.Resize(new int3(AngleSpatialDim, AngleSpatialDim, NFrames));
+                        GridAngleZ = GridAngleZ == null ? new CubicGrid(new int3(AngleSpatialDim, AngleSpatialDim, NFrames)) :
+                                                          GridAngleZ.Resize(new int3(AngleSpatialDim, AngleSpatialDim, NFrames));
+                    }
+
+                int DomingSpatialDim = 3;
+                if (GridCTFDoming == null || GridCTFDoming.Dimensions.X < DomingSpatialDim || GridCTFDoming.Dimensions.Z != NFrames)
+                {
+                    GridCTFDoming = GridCTFDoming == null ? new CubicGrid(new int3(DomingSpatialDim, DomingSpatialDim, NFrames)) :
+                                                            GridCTFDoming.Resize(new int3(DomingSpatialDim, DomingSpatialDim, NFrames));
                 }
 
-                if (GridDoseBfacs == null || GridDoseBfacs.Values.Length != NFrames)
+                if (GridDoseBfacs != null && GridDoseBfacs.Values.Length != NFrames)
                     GridDoseBfacs = new CubicGrid(new int3(1, 1, NFrames),
                                                   Helper.ArrayOfFunction(i => -(i + 0.5f) * (float)dataSource.DosePerAngstromFrame * 4, NFrames));
 
-                if (GridCTFDefocusDelta.Values.Length <= 1)
+                //if (GridCTFDefocusDelta.Values.Length <= 1)
                 {
-                    GridCTFDefocusDelta = new CubicGrid(new int3(3, 3, 1), Helper.ArrayOfConstant((float)CTF.DefocusDelta, 9));
-                    GridCTFDefocusAngle = new CubicGrid(new int3(3, 3, 1), Helper.ArrayOfConstant((float)CTF.DefocusAngle, 9));
+                    //GridCTFDefocusDelta = new CubicGrid(new int3(3, 3, 1), Helper.ArrayOfConstant((float)CTF.DefocusDelta, 9));
+                    //GridCTFDefocusAngle = new CubicGrid(new int3(3, 3, 1), Helper.ArrayOfConstant((float)CTF.DefocusAngle, 9));
+
+                    if (GridCTFDefocusDelta == null || (GridCTFDefocusDelta.Dimensions.Elements() == 1 && GridCTFDefocusDelta.Values[0] == 0))
+                    {
+                        GridCTFDefocusDelta = new CubicGrid(new int3(3, 3, 1), Helper.ArrayOfConstant((float)CTF.DefocusDelta, 3 * 3));
+                        GridCTFDefocusAngle = new CubicGrid(new int3(3, 3, 1), Helper.ArrayOfConstant((float)CTF.DefocusAngle, 3 * 3));
+                    }
+                    else
+                    {
+                        GridCTFDefocusDelta = GridCTFDefocusDelta.Resize(new int3(3, 3, 1));
+                        GridCTFDefocusAngle = GridCTFDefocusAngle.Resize(new int3(3, 3, 1));
+                    }
                 }
 
                 //if (GridBeamTiltX.Values.Length <= 1)
@@ -4207,292 +4488,340 @@ namespace Warp
 
                 #endregion
 
-                #region Extract particles
+                #region Create species prerequisites and calculate spectral weights
 
                 progressCallback("Extracting particles...");
 
                 Dictionary<Species, IntPtr[]> SpeciesParticleImages = new Dictionary<Species, IntPtr[]>();
+                Dictionary<Species, IntPtr[]> SpeciesParticleQImages = new Dictionary<Species, IntPtr[]>();
                 Dictionary<Species, float[]> SpeciesParticleDefoci = new Dictionary<Species, float[]>();
                 Dictionary<Species, float2[]> SpeciesParticleExtractedAt = new Dictionary<Species, float2[]>();
+                Dictionary<Species, float[]> SpeciesParticleExtractedAtDefocus = new Dictionary<Species, float[]>();
                 Dictionary<Species, Image> SpeciesFrameWeights = new Dictionary<Species, Image>();
                 Dictionary<Species, Image> SpeciesCTFWeights = new Dictionary<Species, Image>();
-                Dictionary<Species, Image> SpeciesVanillaWeights = new Dictionary<Species, Image>();
-                Dictionary<Species, float[]> SpeciesRelativeWeights = new Dictionary<Species, float[]>();
                 Dictionary<Species, IntPtr> SpeciesParticleSubsets = new Dictionary<Species, IntPtr>();
                 Dictionary<Species, (int Start, int End)> SpeciesParticleIDRanges = new Dictionary<Species, (int Start, int End)>();
                 Dictionary<Species, int> SpeciesRefinementSize = new Dictionary<Species, int>();
+                Dictionary<Species, int[]> SpeciesRelevantRefinementSizes = new Dictionary<Species, int[]>();
+                Dictionary<Species, int> SpeciesCTFSuperresFactor = new Dictionary<Species, int>();
 
                 Dictionary<Species, Image> CurrentWeightsDict = SpeciesFrameWeights;
 
+                float[] AverageSpectrum1DAll = new float[128];
+                long[] AverageSpectrum1DAllSamples = new long[128];
+
                 int NParticlesOverall = 0;
 
-                if (OptimizationIterations > 0)
+                foreach (var species in allSpecies)
                 {
-                    foreach (var species in allSpecies)
+                    if (SpeciesParticles[species].Length == 0)
+                        continue;
+
+                    Particle[] Particles = SpeciesParticles[species];
+                    int NParticles = Particles.Length;
+                    SpeciesParticleIDRanges.Add(species, (NParticlesOverall, NParticlesOverall + NParticles));
+                    NParticlesOverall += NParticles;
+
+                    int Size = species.HalfMap1Projector[GPUID].Dims.X;
+                    int SizeFull = species.HalfMap1Reconstruction[GPUID].Dims.X;
+                    int ParticleDiameterPix = (int)(species.DiameterAngstrom / (float)OptionsDataLoad.BinnedPixelSizeMean);
+
+                    int[] PlanForw = Helper.ArrayOfFunction(i => GPU.CreateFFTPlan(new int3(SizeFull, SizeFull, 1), (uint)NFrames), 8);
+
+                    int[] RelevantSizes = GetRelevantImageSizes(SizeFull, BfactorWeightingThreshold).Select(v => Math.Min(Size, v)).ToArray();
+
+                    IntPtr[] ImagesFTPinned = Helper.ArrayOfFunction(t => GPU.MallocHostPinned((new int3(RelevantSizes[t]).Slice().ElementsFFT()) * 2 * (long)NParticles), NFrames);
+                    IntPtr[] ImagesFTQPinned = null;
+                    if (species.DoEwald)
+                        ImagesFTQPinned = Helper.ArrayOfFunction(t => GPU.MallocDevice((new int3(RelevantSizes[t]).Slice().ElementsFFT()) * 2 * (long)NParticles), NFrames);
+
+                    #region Extract particle images
+
+                    Image AverageAmplitudes = new Image(new int3(SizeFull, SizeFull, 1), true);
+
                     {
-                        if (SpeciesParticles[species].Length == 0)
-                            continue;
+                        Image[] AverageAmplitudesThreads = Helper.ArrayOfFunction(i => new Image(new int3(SizeFull, SizeFull, 1), true), PlanForw.Length);
 
-                        Particle[] Particles = SpeciesParticles[species];
-                        int NParticles = Particles.Length;
-                        SpeciesParticleIDRanges.Add(species, (NParticlesOverall, NParticlesOverall + NParticles));
-                        NParticlesOverall += NParticles;
+                        Image[] Images = Helper.ArrayOfFunction(i => new Image(new int3(SizeFull, SizeFull, NFrames)), PlanForw.Length);
+                        Image[] ImagesFT = Helper.ArrayOfFunction(i => new Image(new int3(SizeFull, SizeFull, NFrames), true, true), PlanForw.Length);
+                        Image[] ReducedFT = Helper.ArrayOfFunction(i => new Image(new int3(SizeFull, SizeFull, 1), true, true), PlanForw.Length);
+                        Image[] ImagesAmplitudes = Helper.ArrayOfFunction(i => new Image(new int3(SizeFull, SizeFull, 1), true), PlanForw.Length);
 
-                        int Size = species.HalfMap1Projector[GPUID].Dims.X;
-                        int SizeFull = species.HalfMap1Reconstruction[GPUID].Dims.X;
-                        int ParticleDiameterPix = (int)(species.DiameterAngstrom / (float)OptionsDataLoad.BinnedPixelSizeMean);
+                        GPU.CheckGPUExceptions();
 
-                        long ElementsSliceComplex = (Size / 2 + 1) * Size;
-                        int[] PlanForw = Helper.ArrayOfFunction(i => GPU.CreateFFTPlan(new int3(SizeFull, SizeFull, 1), (uint)NFrames), 8);
-
-                        #region Dose weighting
-
-                        ProcessingOptionsParticlesExport OptionsWeights = new ProcessingOptionsParticlesExport()
+                        Helper.ForCPU(0, NParticles, PlanForw.Length, (threadID) => GPU.SetDevice(GPUID), (p, threadID) =>
                         {
-                            PixelSizeX = dataSource.PixelSizeX,
-                            PixelSizeY = dataSource.PixelSizeY,
-                            PixelSizeAngle = dataSource.PixelSizeAngle,
+                            GetImagesForOneParticle(OptionsDataLoad,
+                                                    FrameData,
+                                                    SizeFull,
+                                                    Particles[p].GetCoordinateSeries(DoseInterpolationSteps),
+                                                    PlanForw[threadID],
+                                                    ParticleDiameterPix,
+                                                    16,
+                                                    true,
+                                                    Images[threadID],
+                                                    ImagesFT[threadID]);
 
-                            BinTimes = (decimal)Math.Log((species.ResolutionRefinement / 2) / (float)dataSource.PixelSizeMean, 2.0),
+                            GPU.ReduceMean(ImagesFT[threadID].GetDevice(Intent.Read),
+                                            ReducedFT[threadID].GetDevice(Intent.Write),
+                                            (uint)ImagesFT[threadID].ElementsSliceReal,
+                                            (uint)ImagesFT[threadID].Dims.Z,
+                                            1);
 
-                            Dimensions = new float3((float)dataSource.DimensionsX,
-                                                    (float)dataSource.DimensionsY,
-                                                    (float)dataSource.DimensionsZ),
+                            GPU.Amplitudes(ReducedFT[threadID].GetDevice(Intent.Read),
+                                            ImagesAmplitudes[threadID].GetDevice(Intent.Write),
+                                            (uint)ReducedFT[threadID].ElementsComplex);
 
-                            Invert = true
-                        };
+                            ImagesAmplitudes[threadID].Multiply(ImagesAmplitudes[threadID]);
 
-                        Image CTFCoords = CTF.GetCTFCoords(Size, Size);
-                        Image Weights = GetCTFsForOneParticle(OptionsWeights, new float3(0.5f), CTFCoords, true, true);
-                        Image VanillaWeights = Weights.GetCopy();
-                        CTFCoords.Dispose();
-
-                        //Image MotionEnvelope = GetMotionEnvelope(Size, species.ResolutionRefinement / 2, ImageDimensionsPhysical / 2);
-                        //Weights.Multiply(MotionEnvelope);
-                        //MotionEnvelope.Dispose();
-
-                        #endregion
-
-                        #region Extract particle images
-
-                        IntPtr[] ImagesFTPinned = Helper.ArrayOfFunction(i => GPU.MallocHostPinned(ElementsSliceComplex * 2 * NParticles), NFrames);
-
-                        Image AverageAmplitudes = new Image(new int3(Size, Size, 1), true);
-
-                        {
-                            Image[] AverageAmplitudesThreads = Helper.ArrayOfFunction(i => new Image(new int3(Size, Size, 1), true), PlanForw.Length);
-
-                            Image[] ImagesFTCropped = Helper.ArrayOfFunction(i => new Image(new int3(Size, Size, NFrames), true, true), PlanForw.Length);
-                            Image[] ReducedFT = Helper.ArrayOfFunction(i => new Image(new int3(Size, Size, 1), true, true), PlanForw.Length);
-                            Image[] ImagesAmplitudes = Helper.ArrayOfFunction(i => new Image(new int3(Size, Size, 1), true), PlanForw.Length);
-
-                            Helper.ForCPU(0, NParticles, PlanForw.Length, (threadID) => GPU.SetDevice(GPUID), (p, threadID) =>
-                            {
-                                Image ImagesFT = GetImagesForOneParticle(OptionsDataLoad,
-                                                                         FrameData,
-                                                                         SizeFull,
-                                                                         Particles[p].GetCoordinateSeries(DoseInterpolationSteps),
-                                                                         PlanForw[threadID],
-                                                                         ParticleDiameterPix,
-                                                                         16);
-
-                                if (Size < SizeFull)
-                                    GPU.CropFT(ImagesFT.GetDevice(Intent.Read),
-                                               ImagesFTCropped[threadID].GetDevice(Intent.Write),
-                                               ImagesFT.Dims.Slice(),
-                                               ImagesFTCropped[threadID].Dims.Slice(),
-                                               (uint)ImagesFT.Dims.Z);
-                                else
-                                    GPU.CopyDeviceToDevice(ImagesFT.GetDevice(Intent.Read),
-                                                           ImagesFTCropped[threadID].GetDevice(Intent.Write),
-                                                           ImagesFT.ElementsReal);
-                                ImagesFT.Dispose();
-
-                                GPU.ReduceMean(ImagesFTCropped[threadID].GetDevice(Intent.Read),
-                                               ReducedFT[threadID].GetDevice(Intent.Write),
-                                               (uint)ImagesFTCropped[threadID].ElementsSliceReal,
-                                               (uint)ImagesFTCropped[threadID].Dims.Z,
-                                               1);
-
-                                GPU.Amplitudes(ReducedFT[threadID].GetDevice(Intent.Read),
-                                               ImagesAmplitudes[threadID].GetDevice(Intent.Write),
-                                               (uint)ReducedFT[threadID].ElementsComplex);
-
-                                ImagesAmplitudes[threadID].Multiply(ImagesAmplitudes[threadID]);
-
-                                AverageAmplitudesThreads[threadID].Add(ImagesAmplitudes[threadID]);
-                            }, null);
-
-                            for (int i = 0; i < PlanForw.Length; i++)
-                            {
-                                AverageAmplitudes.Add(AverageAmplitudesThreads[i]);
-
-                                AverageAmplitudesThreads[i].Dispose();
-                                ImagesFTCropped[i].Dispose();
-                                ReducedFT[i].Dispose();
-                                ImagesAmplitudes[i].Dispose();
-                            }
-                        }
+                            AverageAmplitudesThreads[threadID].Add(ImagesAmplitudes[threadID]);
+                        }, null);
 
                         for (int i = 0; i < PlanForw.Length; i++)
-                            GPU.DestroyFFTPlan(PlanForw[i]);
-
-                        //AverageFT.Multiply(1f / NParticles);
-                        //Image AverageRealspace = AverageFT.AsIFFT();
-                        //AverageRealspace.WriteMRC("d_avgreal.mrc", true);
-                        //AverageRealspace.Dispose();
-
-                        //ImagesRealspace.Dispose();
-
-                        #endregion
-
-                        #region Calculate noise
-
-                        //AverageRealspace.Multiply(1f / NParticles);
-                        AverageAmplitudes.Multiply(1f / NParticles);
-                        if (GPUID == 0)
-                            AverageAmplitudes.WriteMRC("d_avgamps.mrc", true);
-
-                        //AverageRealspace.RemapFromFT();
-
-                        //Image AverageRealspaceFT = AverageRealspace.AsFFT();
-                        //AverageRealspaceFT.Multiply(1f / (Size * Size));
-                        //AverageRealspace.Dispose();
-                        //Image AverageRealspaceAmplitudes = AverageFT.AsAmplitudes();
-                        //AverageRealspaceAmplitudes.Multiply(AverageRealspaceAmplitudes);
-                        //AverageFT.Dispose();
-                        //AverageRealspaceFT.Dispose();
-
-                        //AverageAmplitudes.Subtract(AverageRealspaceAmplitudes);
-                        //AverageRealspaceAmplitudes.Dispose();
-
-                        float[] Amps1D = new float[Size / 2];
-                        float[] Samples1D = new float[Size / 2];
-                        float[][] Amps2D = AverageAmplitudes.GetHost(Intent.Read);
-
-                        for (int t = 0; t < 1; t++)
                         {
-                            Helper.ForEachElementFT(new int2(Size), (x, y, xx, yy, r, angle) =>
-                            {
-                                int idx = (int)Math.Round(r);
-                                if (idx < Size / 2)
-                                {
-                                    Amps1D[idx] += Amps2D[t][y * (Size / 2 + 1) + x];
-                                    Samples1D[idx]++;
-                                }
-                            });
+                            AverageAmplitudes.Add(AverageAmplitudesThreads[i]);
+
+                            AverageAmplitudesThreads[i].Dispose();
+                            Images[i].Dispose();
+                            ImagesFT[i].Dispose();
+                            ReducedFT[i].Dispose();
+                            ImagesAmplitudes[i].Dispose();
                         }
+                    }
 
-                        for (int i = 0; i < Amps1D.Length; i++)
-                            Amps1D[i] = Amps1D[i] / Samples1D[i];
+                    for (int i = 0; i < PlanForw.Length; i++)
+                        GPU.DestroyFFTPlan(PlanForw[i]);
 
-                        float Amps1DMean = MathHelper.Mean(Amps1D);
-                        for (int i = 0; i < Amps1D.Length; i++)
-                            Amps1D[i] = Amps1D[i] / Amps1DMean;
+                    #endregion
 
-                        AverageAmplitudes.Dispose();
+                    #region Calculate spectrum
 
-                        #endregion
+                    AverageAmplitudes.Multiply(1f / NParticles);
+                    if (GPUID == 0)
+                        AverageAmplitudes.WriteMRC("d_avgamps.mrc", true);
 
-                        #region Create per-frame weights
+                    float[] Amps1D = new float[Size / 2];
+                    float[] Samples1D = new float[Size / 2];
+                    float[][] Amps2D = AverageAmplitudes.GetHost(Intent.Read);
 
-                        float[][] WeightsData = Weights.GetHost(Intent.ReadWrite);
-
-                        for (int t = 0; t < NFrames; t++)
+                    Helper.ForEachElementFT(new int2(SizeFull), (x, y, xx, yy, r, angle) =>
+                    {
+                        //int idx = (int)Math.Round(r);
+                        //if (idx < Size / 2)
+                        //{
+                        //    Amps1D[idx] += Amps2D[0][y * (Size / 2 + 1) + x];
+                        //    Samples1D[idx]++;
+                        //}
+                        int idx = (int)Math.Round(r / (SizeFull / 2) * AverageSpectrum1DAll.Length);
+                        if (idx < AverageSpectrum1DAll.Length)
                         {
-                            Helper.ForEachElementFT(new int2(Size), (x, y, xx, yy, r, angle) =>
-                            {
-                                if (r < Size / 2)
-                                {
-                                    int idx = Math.Max(0, Math.Min(Size / 2 - 5, (int)Math.Round(r)));
-                                    WeightsData[t][y * (Size / 2 + 1) + x] /= Amps1D[idx];
-                                }
-                                else
-                                {
-                                    WeightsData[t][y * (Size / 2 + 1) + x] = 0;
-                                }
-                            });
+                            AverageSpectrum1DAll[idx] += Amps2D[0][y * (SizeFull / 2 + 1) + x] * NParticles;
+                            AverageSpectrum1DAllSamples[idx] += NParticles;
                         }
+                    });
 
-                        float WeightsMean = MathHelper.Mean(WeightsData.Select(a => MathHelper.Mean(a)));
-                        foreach (var slice in WeightsData)
-                            for (int i = 0; i < slice.Length; i++)
-                                slice[i] /= WeightsMean;
+                    //for (int i = 0; i < Amps1D.Length; i++)
+                    //    Amps1D[i] = Amps1D[i] / Samples1D[i];
 
-                        Weights.FreeDevice();
-                        if (GPUID == 0)
-                            Weights.WriteMRC("d_weights.mrc", true);
+                    //float Amps1DMean = MathHelper.Mean(Amps1D);
+                    //for (int i = 0; i < Amps1D.Length; i++)
+                    //    Amps1D[i] = Amps1D[i] / Amps1DMean;
 
-                        Image CTFWeights = Weights.GetCopyGPU();
-                        float R20 = Size * (species.ResolutionRefinement / 2 / 20f);
-                        float[][] CTFWeightsData = CTFWeights.GetHost(Intent.ReadWrite);
-                        for (int t = 0; t < CTFWeightsData.Length; t++)
+                    AverageAmplitudes.Dispose();
+
+                    #endregion
+
+                    #region Defoci and extraction positions
+
+                    float[] Defoci = new float[NParticles * NFrames];
+                    float2[] ExtractedAt = new float2[NParticles * NFrames];
+                    float[] ExtractedAtDefocus = new float[NParticles * NFrames];
+
+                    for (int p = 0; p < NParticles; p++)
+                    {
+                        float3[] Positions = GetPositionInAllFrames(Particles[p].GetCoordinateSeries(DoseInterpolationSteps));
+                        for (int f = 0; f < NFrames; f++)
                         {
-                            Helper.ForEachElementFT(new int2(Size), (x, y, xx, yy, r, angle) =>
-                            {
-                                float Weight = 1 - Math.Max(0, Math.Min(1, R20 - r));
-                                CTFWeightsData[t][y * (Size / 2 + 1) + x] *= Weight;
-                            });
+                            Defoci[p * NFrames + f] = Positions[f].Z;
+                            ExtractedAt[p * NFrames + f] = new float2(Positions[f].X, Positions[f].Y);
+                            ExtractedAtDefocus[p * NFrames + f] = Positions[f].Z;
                         }
+                    }
 
-                        CTFWeights.FreeDevice();
-                        if (GPUID == 0)
-                            CTFWeights.WriteMRC("d_ctfweights.mrc", true);
+                    #endregion
 
-                        #endregion
+                    #region Subset indices
 
-                        #region Defoci and extraction positions
+                    int[] Subsets = Particles.Select(p => p.RandomSubset).ToArray();
+                    IntPtr SubsetsPtr = GPU.MallocDeviceFromHostInt(Subsets, Subsets.Length);
 
-                        float[] Defoci = new float[NParticles * NFrames];
-                        float2[] ExtractedAt = new float2[NParticles * NFrames];
+                    #endregion
 
-                        for (int p = 0; p < NParticles; p++)
+                    #region CTF superres factor
+
+                    CTF MaxDefocusCTF = CTF.GetCopy();
+                    int MinimumBoxSize = Math.Max(species.HalfMap1Projector[GPUID].Dims.X, MaxDefocusCTF.GetAliasingFreeSize(species.ResolutionRefinement));
+                    float CTFSuperresFactor = (float)Math.Ceiling((float)MinimumBoxSize / species.HalfMap1Projector[GPUID].Dims.X);
+
+                    #endregion
+
+                    SpeciesParticleImages.Add(species, ImagesFTPinned);
+                    if (species.DoEwald)
+                        SpeciesParticleQImages.Add(species, ImagesFTQPinned);
+                    SpeciesParticleDefoci.Add(species, Defoci);
+                    SpeciesParticleExtractedAt.Add(species, ExtractedAt);
+                    SpeciesParticleExtractedAtDefocus.Add(species, ExtractedAtDefocus);
+                    SpeciesParticleSubsets.Add(species, SubsetsPtr);
+                    SpeciesRefinementSize.Add(species, Size);
+                    SpeciesRelevantRefinementSizes.Add(species, RelevantSizes);
+                    SpeciesCTFSuperresFactor.Add(species, (int)CTFSuperresFactor);
+
+                    species.HalfMap1Projector[GPUID].PutTexturesOnDevice();
+                    species.HalfMap2Projector[GPUID].PutTexturesOnDevice();
+                }
+
+                #region Calculate 1D PS averaged over all species and particles
+
+                {
+                    for (int i = 0; i < AverageSpectrum1DAll.Length; i++)
+                        AverageSpectrum1DAll[i] /= Math.Max(1, AverageSpectrum1DAllSamples[i]);
+
+                    float SpectrumMean = MathHelper.Mean(AverageSpectrum1DAll);
+                    for (int i = 0; i < AverageSpectrum1DAll.Length; i++)
+                        AverageSpectrum1DAll[i] /= SpectrumMean;
+
+                    for (int i = 0; i < AverageSpectrum1DAll.Length; i++)
+                        if (AverageSpectrum1DAll[i] <= 0)
                         {
-                            float3[] Positions = GetPositionInAllFrames(Particles[p].GetCoordinateSeries(DoseInterpolationSteps));
-                            for (int f = 0; f < NFrames; f++)
+                            for (int j = 0; j < AverageSpectrum1DAll.Length; j++)
                             {
-                                Defoci[p * NFrames + f] = Positions[f].Z;
-                                ExtractedAt[p * NFrames + f] = new float2(Positions[f].X, Positions[f].Y);
+                                if (i - j >= 0 && AverageSpectrum1DAll[i - j] > 0)
+                                {
+                                    AverageSpectrum1DAll[i] = AverageSpectrum1DAll[i - j];
+                                    break;
+                                }
+
+                                if (i + j < AverageSpectrum1DAll.Length && AverageSpectrum1DAll[i + j] > 0)
+                                {
+                                    AverageSpectrum1DAll[i] = AverageSpectrum1DAll[i + j];
+                                    break;
+                                }
                             }
                         }
 
-                        #endregion
-
-                        #region Subset indices
-
-                        int[] Subsets = Particles.Select(p => p.RandomSubset).ToArray();
-                        IntPtr SubsetsPtr = GPU.MallocDeviceFromHostInt(Subsets, Subsets.Length);
-
-                        #endregion
-
-                        #region Weight sums
-
-                        float[] WeightSums = Weights.GetHost(Intent.Read).Select(a => a.Select(v => v).Sum()).ToArray();
-
-                        #endregion
-
-                        SpeciesParticleImages.Add(species, ImagesFTPinned);
-                        SpeciesParticleDefoci.Add(species, Defoci);
-                        SpeciesParticleExtractedAt.Add(species, ExtractedAt);
-                        SpeciesCTFWeights.Add(species, CTFWeights);
-                        SpeciesFrameWeights.Add(species, Weights);
-                        SpeciesVanillaWeights.Add(species, VanillaWeights);
-                        SpeciesRelativeWeights.Add(species, WeightSums);
-                        SpeciesParticleSubsets.Add(species, SubsetsPtr);
-                        SpeciesRefinementSize.Add(species, Size);
-
-                        species.HalfMap1Projector[GPUID].PutTexturesOnDevice();
-                        species.HalfMap2Projector[GPUID].PutTexturesOnDevice();
-                    }
-
-                    // Rescale relative weights to have mean = 1 overall
-                    {
-                        float MeanWeight = MathHelper.Mean(Helper.Combine(SpeciesRelativeWeights.Values.ToArray()));
-                        foreach (var species in allSpecies)
-                            if (SpeciesRelativeWeights.ContainsKey(species))
-                                SpeciesRelativeWeights[species] = SpeciesRelativeWeights[species].Select(v => v / MeanWeight).ToArray();
-                    }
+                    if (AverageSpectrum1DAll.Any(v => v <= 0))
+                        throw new Exception("The 1D amplitude spectrum contains zeros, which it really shouldn't! Can't proceed.");
                 }
+
+                #endregion
+
+                #region Calculate weights
+
+                foreach (var species in allSpecies)
+                {
+                    if (SpeciesParticles[species].Length == 0)
+                        continue;
+
+                    Particle[] Particles = SpeciesParticles[species];
+                    int NParticles = Particles.Length;
+
+                    int Size = species.HalfMap1Projector[GPUID].Dims.X;
+                    int SizeFull = species.HalfMap1Reconstruction[GPUID].Dims.X;
+                    int ParticleDiameterPix = (int)(species.DiameterAngstrom / (float)OptionsDataLoad.BinnedPixelSizeMean);
+
+                    int[] RelevantSizes = SpeciesRelevantRefinementSizes[species];
+
+                    long ElementsSliceComplex = (Size / 2 + 1) * Size;
+
+                    #region Dose weighting
+
+                    ProcessingOptionsTomoSubReconstruction OptionsWeights = new ProcessingOptionsTomoSubReconstruction()
+                    {
+                        PixelSizeX = dataSource.PixelSizeX,
+                        PixelSizeY = dataSource.PixelSizeY,
+                        PixelSizeAngle = dataSource.PixelSizeAngle,
+
+                        BinTimes = (decimal)Math.Log((species.ResolutionRefinement / 2) / (float)dataSource.PixelSizeMean, 2.0),
+
+                        Dimensions = new float3((float)dataSource.DimensionsX,
+                                                (float)dataSource.DimensionsY,
+                                                (float)dataSource.DimensionsZ),
+
+                        Invert = true,
+                        NormalizeInput = true,
+                        NormalizeOutput = false,
+
+                        PrerotateParticles = true
+                    };
+
+                    Image CTFCoords = CTF.GetCTFCoords(Size, Size);
+                    Image Weights = GetCTFsForOneParticle(OptionsWeights, new float3(0.5f), CTFCoords, null, true, true);
+                    //Weights.Min(1);
+                    CTFCoords.Dispose();
+
+                    #endregion
+
+                    #region Divide weights by 1D PS, and create a 20 A high-passed version for CTF refinement
+
+                    float[][] WeightsData = Weights.GetHost(Intent.ReadWrite);
+                    for (int f = 0; f < NFrames; f++)
+                        Helper.ForEachElementFT(new int2(Size), (x, y, xx, yy, r, angle) =>
+                        {
+                            if (r < Size / 2)
+                            {
+                                int idx = Math.Min(AverageSpectrum1DAll.Length - 1,
+                                                    (int)Math.Round(r / (Size / 2) *
+                                                                    (float)dataSource.PixelSizeMean /
+                                                                    species.ResolutionRefinement *
+                                                                    AverageSpectrum1DAll.Length));
+
+                                WeightsData[f][y * (Size / 2 + 1) + x] /= AverageSpectrum1DAll[idx];
+                            }
+                            else
+                            {
+                                WeightsData[f][y * (Size / 2 + 1) + x] = 0;
+                            }
+                        });
+
+                    //Weights.FreeDevice();
+                    if (GPUID == 0)
+                        Weights.WriteMRC($"d_weights_{species.Name}.mrc", true);
+
+                    Image WeightsRelevantlySized = new Image(new int3(Size, Size, NFrames), true);
+                    for (int t = 0; t < NFrames; t++)
+                        GPU.CropFTRealValued(Weights.GetDeviceSlice(t, Intent.Read),
+                                            WeightsRelevantlySized.GetDeviceSlice(t, Intent.Write),
+                                            Weights.Dims.Slice(),
+                                            new int3(RelevantSizes[t]).Slice(),
+                                            1);
+                    if (GPUID == 0)
+                        WeightsRelevantlySized.WriteMRC($"d_weightsrelevant_{species.Name}.mrc", true);
+                    Weights.Dispose();
+
+                    Image CTFWeights = WeightsRelevantlySized.GetCopyGPU();
+                    float[][] CTFWeightsData = CTFWeights.GetHost(Intent.ReadWrite);
+                    for (int t = 0; t < CTFWeightsData.Length; t++)
+                    {
+                        int RelevantSize = RelevantSizes[t];
+                        float R20 = Size * (species.ResolutionRefinement / 2 / 10f);
+                        Helper.ForEachElementFT(new int2(RelevantSize), (x, y, xx, yy, r, angle) =>
+                        {
+                            float Weight = 1 - Math.Max(0, Math.Min(1, R20 - r));
+                            CTFWeightsData[t][y * (RelevantSize / 2 + 1) + x] *= Weight;
+                        });
+                    }
+
+                    CTFWeights.FreeDevice();
+                    if (GPUID == 0)
+                        CTFWeights.WriteMRC($"d_ctfweights_{species.Name}.mrc", true);
+
+                    #endregion
+
+                    SpeciesCTFWeights.Add(species, CTFWeights);
+                    SpeciesFrameWeights.Add(species, WeightsRelevantlySized);
+                }
+
+                #endregion
 
                 // Remove original tilt image data from device, and dispose masks
                 for (int f = 0; f < NFrames; f++)
@@ -4500,14 +4829,12 @@ namespace Warp
 
                 #endregion
 
-                //IntPtr hp_Result = GPU.MallocHostPinned(NParticlesOverall * NTilts);
-
                 #region Helper functions
 
                 Action<bool> ReextractPaddedParticles = (CorrectBeamTilt) =>
                 {
                     float AngPixExtract = (float)OptionsDataLoad.BinnedPixelSizeMean;
-                    int BatchSize = 24;
+                    int BatchSize = optionsMPA.BatchSize;
 
                     foreach (var species in allSpecies)
                     {
@@ -4516,146 +4843,180 @@ namespace Warp
 
                         Particle[] Particles = SpeciesParticles[species];
                         int NParticles = Particles.Length;
+                        if (NParticles == 0)
+                            continue;
 
                         int SizeRefine = species.HalfMap1Projector[GPUID].Dims.X;
-                        int SizeRefineSuper = SizeRefine * 2;
+                        int SizeRefineSuper = SizeRefine * SpeciesCTFSuperresFactor[species];
                         int SizeFull = species.HalfMap1Reconstruction[GPUID].Dims.X;
-                        int SizeFullSuper = SizeFull * 2;
+                        int SizeFullSuper = SizeFull * SpeciesCTFSuperresFactor[species];
+                        int[] SizesRelevant = SpeciesRelevantRefinementSizes[species];
+
                         float AngPixRefine = species.ResolutionRefinement / 2;
                         int ParticleDiameterPix = (int)(species.DiameterAngstrom / AngPixRefine);
 
                         float2[] ExtractedAt = SpeciesParticleExtractedAt[species];
 
                         Image CoordsCTF = CTF.GetCTFCoords(SizeRefineSuper, SizeRefineSuper);
-                        CTF CTFCopy = CTF.GetCopy();
-                        CTFCopy.PixelSize = species.PixelSize;
+                        Image PhaseCorrection = CTF.GetPhaseCorrection(AngPixRefine, SizeRefineSuper);
+                        Image GammaCorrection = CTF.GetGammaCorrection(AngPixRefine, SizeRefineSuper);
 
                         Image Extracted = new Image(IntPtr.Zero, new int3(SizeFullSuper, SizeFullSuper, BatchSize), true, true);
                         Image ExtractedFT = new Image(IntPtr.Zero, new int3(SizeFullSuper, SizeFullSuper, BatchSize), true, true);
                         Image ExtractedCropped = new Image(IntPtr.Zero, new int3(SizeRefine, SizeRefine, BatchSize));
                         Image ExtractedCroppedFT = new Image(IntPtr.Zero, new int3(SizeRefine, SizeRefine, BatchSize), true, true);
-                        Image ExtractedCTF = new Image(IntPtr.Zero, new int3(SizeRefineSuper, SizeRefineSuper, BatchSize), true);
+                        Image ExtractedCroppedFTRelevantSize = new Image(IntPtr.Zero, new int3(SizeRefine, SizeRefine, BatchSize), true, true);
+                        Image ExtractedCTF = new Image(IntPtr.Zero, new int3(SizeRefineSuper, SizeRefineSuper, BatchSize), true, true);
+
+                        //Image Average = new Image(new int3(SizeRefine, SizeRefine, BatchSize));
 
                         int PlanForwSuper = GPU.CreateFFTPlan(new int3(SizeFullSuper, SizeFullSuper, 1), (uint)BatchSize);
                         int PlanBackSuper = GPU.CreateIFFTPlan(new int3(SizeRefineSuper, SizeRefineSuper, 1), (uint)BatchSize);
                         int PlanForw = GPU.CreateFFTPlan(new int3(SizeRefine, SizeRefine, 1), (uint)BatchSize);
 
-                        for (int batchStart = 0; batchStart < NParticles; batchStart += BatchSize)
+                        if (PlanForwSuper <= 0 || PlanBackSuper <= 0 || PlanForw <= 0)
                         {
-                            int CurBatch = Math.Min(BatchSize, NParticles - batchStart);
-                            IEnumerable<Particle> BatchParticles = Particles.Skip(batchStart).Take(CurBatch);
-                            float3[] CoordinatesMoving = Helper.Combine(BatchParticles.Select(p => p.GetCoordinateSeries(DoseInterpolationSteps)));
-                            float3[] AnglesMoving = Helper.Combine(BatchParticles.Select(p => p.GetAngleSeries(DoseInterpolationSteps)));
+                            Console.WriteLine($"SizeFullSuper = {SizeFullSuper}, BatchSize = {BatchSize}, free memory = {GPU.GetFreeMemory(GPUID)}");
+                            throw new Exception("No FFT plans created!");
+                        }
 
-                            Image BeamTiltCorrection = null;
-                            if (CorrectBeamTilt)
-                                BeamTiltCorrection = CTFCopy.GetBeamTilt(SizeRefineSuper,
-                                                                         SizeFullSuper,
-                                                                         GetBeamTilt(BatchParticles.Select(p => p.Coordinates[0]).ToArray()));
+                        bool[] PQReverse = { species.EwaldReverse, !species.EwaldReverse };
+                        IntPtr[][] PQStorage = species.DoEwald ? new[] { SpeciesParticleImages[species], SpeciesParticleQImages[species] } : 
+                                                                 new[] { SpeciesParticleImages[species] };
 
-                            for (int f = 0; f < NFrames; f++)
+                        for (int iewald = 0; iewald < (species.DoEwald ? 2 : 1); iewald++)
+                        {
+                            for (int batchStart = 0; batchStart < NParticles; batchStart += BatchSize)
                             {
-                                float3[] CoordinatesFrame = new float3[CurBatch];
-                                float3[] AnglesFrame = new float3[CurBatch];
-                                for (int p = 0; p < CurBatch; p++)
-                                    CoordinatesFrame[p] = CoordinatesMoving[p * NFrames + f];
+                                int CurBatch = Math.Min(BatchSize, NParticles - batchStart);
+                                IEnumerable<Particle> BatchParticles = Particles.Skip(batchStart).Take(CurBatch);
+                                float3[] CoordinatesMoving = Helper.Combine(BatchParticles.Select(p => p.GetCoordinateSeries(DoseInterpolationSteps)));
+                                float3[] AnglesMoving = Helper.Combine(BatchParticles.Select(p => p.GetAngleSeries(DoseInterpolationSteps)));
 
-                                float3[] ImageCoords = GetPositionsInOneFrame(CoordinatesFrame, f);
-                                float2[] Astigmatism = GetAstigmatism(CoordinatesFrame);
-
-                                float3[] Defoci = new float3[CurBatch];
-                                int3[] ExtractOrigins = new int3[CurBatch];
-                                float3[] ResidualShifts = new float3[BatchSize];
-                                for (int p = 0; p < CurBatch; p++)
+                                for (int f = 0; f < NFrames; f++)
                                 {
-                                    float ScaledX = ImageCoords[p].X / AngPixExtract, ScaledY = ImageCoords[p].Y / AngPixExtract;
-                                    ExtractOrigins[p] = new int3((int)ScaledX - SizeFullSuper / 2, (int)ScaledY - SizeFullSuper / 2, 0);
-                                    ResidualShifts[p] = -new float3(ScaledX - (int)ScaledX - SizeFullSuper / 2, ScaledY - (int)ScaledY - SizeFullSuper / 2, 0);
-                                    Defoci[p].X = ImageCoords[p].Z;
-                                    Defoci[p].Y = Astigmatism[p].X;
-                                    Defoci[p].Z = Astigmatism[p].Y;
-                                    ExtractedAt[(batchStart + p) * NFrames + f] = new float2(ImageCoords[p]);
-                                }
+                                    float3[] CoordinatesFrame = new float3[CurBatch];
+                                    float3[] AnglesFrame = new float3[CurBatch];
+                                    for (int p = 0; p < CurBatch; p++)
+                                        CoordinatesFrame[p] = CoordinatesMoving[p * NFrames + f];
 
-                                GPU.Extract(FrameData[f].GetDevice(Intent.Read),
-                                            Extracted.GetDevice(Intent.Write),
-                                            FrameData[f].Dims.Slice(),
-                                            new int3(SizeFullSuper, SizeFullSuper, 1),
-                                            Helper.ToInterleaved(ExtractOrigins),
-                                            (uint)CurBatch);
+                                    float3[] ImageCoords = GetPositionsInOneFrame(CoordinatesFrame, f);
+                                    float2[] Astigmatism = GetAstigmatism(CoordinatesFrame);
 
-                                GPU.FFT(Extracted.GetDevice(Intent.Read),
-                                        ExtractedFT.GetDevice(Intent.Write),
-                                        new int3(SizeFullSuper, SizeFullSuper, 1),
-                                        (uint)CurBatch,
-                                        PlanForwSuper);
+                                    float3[] Defoci = new float3[CurBatch];
+                                    int3[] ExtractOrigins = new int3[CurBatch];
+                                    float3[] ResidualShifts = new float3[BatchSize];
+                                    for (int p = 0; p < CurBatch; p++)
+                                    {
+                                        float ScaledX = ImageCoords[p].X / AngPixExtract, ScaledY = ImageCoords[p].Y / AngPixExtract;
+                                        ExtractOrigins[p] = new int3((int)ScaledX - SizeFullSuper / 2, (int)ScaledY - SizeFullSuper / 2, 0);
+                                        ResidualShifts[p] = -new float3(ScaledX - (int)ScaledX - SizeFullSuper / 2, ScaledY - (int)ScaledY - SizeFullSuper / 2, 0);
+                                        Defoci[p].X = ImageCoords[p].Z;
+                                        Defoci[p].Y = Astigmatism[p].X;
+                                        Defoci[p].Z = Astigmatism[p].Y;
+                                        ExtractedAt[(batchStart + p) * NFrames + f] = new float2(ImageCoords[p]);
+                                    }
 
-                                ExtractedFT.ShiftSlices(ResidualShifts);
-                                ExtractedFT.Multiply(1f / (SizeFullSuper * SizeFullSuper));
-
-                                GPU.CropFT(ExtractedFT.GetDevice(Intent.Read),
-                                           Extracted.GetDevice(Intent.Write),
-                                           new int3(SizeFullSuper, SizeFullSuper, 1),
-                                           new int3(SizeRefineSuper, SizeRefineSuper, 1),
-                                           (uint)CurBatch);
-
-                                GetCTFsForOneFrame(AngPixRefine, Defoci, CoordsCTF, f, ExtractedCTF, true);
-
-                                if (CorrectBeamTilt)
-                                    GPU.MultiplyComplexSlicesByComplex(Extracted.GetDevice(Intent.Read),
-                                                                       BeamTiltCorrection.GetDevice(Intent.Read),
-                                                                       Extracted.GetDevice(Intent.Write),
-                                                                       BeamTiltCorrection.ElementsComplex,
-                                                                       1);
-
-                                GPU.MultiplyComplexSlicesByScalar(Extracted.GetDevice(Intent.Read),
-                                                                  ExtractedCTF.GetDevice(Intent.Read),
-                                                                  ExtractedFT.GetDevice(Intent.Write),
-                                                                  ExtractedCTF.ElementsReal,
-                                                                  1);
-
-                                GPU.IFFT(ExtractedFT.GetDevice(Intent.Read),
-                                         Extracted.GetDevice(Intent.Write),
-                                         new int3(SizeRefineSuper, SizeRefineSuper, 1),
-                                         (uint)CurBatch,
-                                         PlanBackSuper,
-                                         false);
-
-                                GPU.CropFTFull(Extracted.GetDevice(Intent.Read),
-                                                ExtractedCropped.GetDevice(Intent.Write),
-                                                new int3(SizeRefineSuper, SizeRefineSuper, 1),
-                                                new int3(SizeRefine, SizeRefine, 1),
+                                    GPU.Extract(FrameData[f].GetDevice(Intent.Read),
+                                                Extracted.GetDevice(Intent.Write),
+                                                FrameData[f].Dims.Slice(),
+                                                new int3(SizeFullSuper, SizeFullSuper, 1),
+                                                Helper.ToInterleaved(ExtractOrigins),
                                                 (uint)CurBatch);
 
-                                GPU.SphereMask(ExtractedCropped.GetDevice(Intent.Read),
-                                               ExtractedCropped.GetDevice(Intent.Write),
-                                               ExtractedCropped.Dims.Slice(),
-                                               ParticleDiameterPix / 2f * 1.3f,
-                                               16 * AngPixExtract / AngPixRefine,
-                                               true,
+                                    GPU.FFT(Extracted.GetDevice(Intent.Read),
+                                            ExtractedFT.GetDevice(Intent.Write),
+                                            new int3(SizeFullSuper, SizeFullSuper, 1),
+                                            (uint)CurBatch,
+                                            PlanForwSuper);
+
+                                    ExtractedFT.ShiftSlices(ResidualShifts);
+                                    ExtractedFT.Multiply(1f / (SizeFullSuper * SizeFullSuper));
+
+                                    GPU.CropFT(ExtractedFT.GetDevice(Intent.Read),
+                                               Extracted.GetDevice(Intent.Write),
+                                               new int3(SizeFullSuper, SizeFullSuper, 1),
+                                               new int3(SizeRefineSuper, SizeRefineSuper, 1),
                                                (uint)CurBatch);
 
-                                GPU.FFT(ExtractedCropped.GetDevice(Intent.Read),
-                                        ExtractedCroppedFT.GetDevice(Intent.Write),
-                                        new int3(SizeRefine, SizeRefine, 1),
-                                        (uint)CurBatch,
-                                        PlanForw);
+                                    if (CorrectBeamTilt)
+                                        GPU.MultiplyComplexSlicesByComplex(Extracted.GetDevice(Intent.Read),
+                                                                           PhaseCorrection.GetDevice(Intent.Read),
+                                                                           Extracted.GetDevice(Intent.Write),
+                                                                           PhaseCorrection.ElementsSliceComplex,
+                                                                           (uint)CurBatch);
 
-                                ExtractedCroppedFT.Multiply(1f / (SizeRefine * SizeRefine));
+                                    if (species.DoEwald)
+                                    {
+                                        GetComplexCTFsForOneFrame(AngPixRefine, Defoci, ImageCoords, CoordsCTF, GammaCorrection, f, PQReverse[iewald], ExtractedCTF, true);
 
-                                GPU.CopyDeviceToHostPinned(ExtractedCroppedFT.GetDevice(Intent.Read),
-                                                           new IntPtr((long)SpeciesParticleImages[species][f] + ExtractedCroppedFT.ElementsSliceReal * batchStart * sizeof(float)),
-                                                           ExtractedCroppedFT.ElementsSliceReal * CurBatch);
+                                        GPU.MultiplyComplexSlicesByComplex(Extracted.GetDevice(Intent.Read),
+                                                                           ExtractedCTF.GetDevice(Intent.Read),
+                                                                           ExtractedFT.GetDevice(Intent.Write),
+                                                                           ExtractedCTF.ElementsComplex,
+                                                                           1);
+                                    }
+                                    else
+                                    {
+                                        GetCTFsForOneFrame(AngPixRefine, Defoci, ImageCoords, CoordsCTF, GammaCorrection, f, ExtractedCTF, true);
+
+                                        GPU.MultiplyComplexSlicesByScalar(Extracted.GetDevice(Intent.Read),
+                                                                          ExtractedCTF.GetDevice(Intent.Read),
+                                                                          ExtractedFT.GetDevice(Intent.Write),
+                                                                          ExtractedCTF.ElementsComplex,
+                                                                          1);
+                                    }
+
+                                    GPU.IFFT(ExtractedFT.GetDevice(Intent.Read),
+                                             Extracted.GetDevice(Intent.Write),
+                                             new int3(SizeRefineSuper, SizeRefineSuper, 1),
+                                             (uint)CurBatch,
+                                             PlanBackSuper,
+                                             false);
+
+                                    GPU.CropFTFull(Extracted.GetDevice(Intent.Read),
+                                                    ExtractedCropped.GetDevice(Intent.Write),
+                                                    new int3(SizeRefineSuper, SizeRefineSuper, 1),
+                                                    new int3(SizeRefine, SizeRefine, 1),
+                                                    (uint)CurBatch);
+
+                                    GPU.SphereMask(ExtractedCropped.GetDevice(Intent.Read),
+                                                   ExtractedCropped.GetDevice(Intent.Write),
+                                                   ExtractedCropped.Dims.Slice(),
+                                                   ParticleDiameterPix / 2f * 1.3f,
+                                                   16 * AngPixExtract / AngPixRefine,
+                                                   true,
+                                                   (uint)CurBatch);
+
+                                    GPU.FFT(ExtractedCropped.GetDevice(Intent.Read),
+                                            ExtractedCroppedFT.GetDevice(Intent.Write),
+                                            new int3(SizeRefine, SizeRefine, 1),
+                                            (uint)CurBatch,
+                                            PlanForw);
+
+                                    ExtractedCroppedFT.Multiply(1f / (SizeRefine * SizeRefine));
+
+                                    GPU.CropFT(ExtractedCroppedFT.GetDevice(Intent.Read),
+                                               ExtractedCroppedFTRelevantSize.GetDevice(Intent.Write),
+                                               new int3(SizeRefine).Slice(),
+                                               new int3(SizesRelevant[f]).Slice(),
+                                               (uint)CurBatch);
+
+                                    GPU.CopyDeviceToHostPinned(ExtractedCroppedFTRelevantSize.GetDevice(Intent.Read),
+                                                               new IntPtr((long)PQStorage[iewald][f] + (new int3(SizesRelevant[f]).Slice().ElementsFFT()) * 2 * batchStart * sizeof(float)),
+                                                               (new int3(SizesRelevant[f]).Slice().ElementsFFT()) * 2 * CurBatch);
+                                }
                             }
-
-                            BeamTiltCorrection?.Dispose();
                         }
 
                         CoordsCTF.Dispose();
+                        GammaCorrection.Dispose();
+                        PhaseCorrection.Dispose();
                         Extracted.Dispose();
                         ExtractedFT.Dispose();
                         ExtractedCropped.Dispose();
                         ExtractedCroppedFT.Dispose();
+                        ExtractedCroppedFTRelevantSize.Dispose();
                         ExtractedCTF.Dispose();
 
                         GPU.DestroyFFTPlan(PlanForwSuper);
@@ -4663,8 +5024,8 @@ namespace Warp
                         GPU.DestroyFFTPlan(PlanForw);
                     }
 
-                    foreach (var image in FrameData)
-                        image.FreeDevice();
+                    //foreach (var image in FrameData)
+                    //    image.FreeDevice();
                 };
 
                 Func<float2[]> GetRawShifts = () =>
@@ -4701,9 +5062,110 @@ namespace Warp
                     return Result;
                 };
 
+                Func<float2, Species, float[]> GetRawCCSpecies = (shiftBias, Species) =>
+                {
+                    Particle[] Particles = SpeciesParticles[Species];
+
+                    int NParticles = Particles.Length;
+                    float AngPixRefine = Species.ResolutionRefinement / 2;
+
+                    float[] SpeciesResult = new float[NParticles * NFrames * 3];
+                    if (NParticles == 0)
+                        return SpeciesResult;
+
+                    float[] SpeciesResultQ = new float[NParticles * NFrames * 3];
+
+                    float3[] ParticlePositions = new float3[NParticles * NFrames];
+                    float3[] ParticleAngles = new float3[NParticles * NFrames];
+                    for (int p = 0; p < NParticles; p++)
+                    {
+                        float3[] Positions = Particles[p].GetCoordinateSeries(DoseInterpolationSteps);
+                        float3[] Angles = Particles[p].GetAngleSeries(DoseInterpolationSteps);
+
+                        for (int f = 0; f < NFrames; f++)
+                        {
+                            ParticlePositions[p * NFrames + f] = Positions[f];
+                            ParticleAngles[p * NFrames + f] = Angles[f];// * Helper.ToRad;
+                        }
+                    }
+
+                    float3[] ParticlePositionsProjected = GetPositionInAllFrames(ParticlePositions);
+                    float3[] ParticleAnglesInFrames = GetParticleAngleInAllFrames(ParticlePositions, ParticleAngles); // ParticleAngles;
+
+                    float2[] ParticleExtractedAt = SpeciesParticleExtractedAt[Species];
+                    float2[] ParticleShifts = new float2[NFrames * NParticles];
+                    for (int p = 0; p < NParticles; p++)
+                        for (int t = 0; t < NFrames; t++)
+                            ParticleShifts[p * NFrames + t] = (new float2(ParticlePositionsProjected[p * NFrames + t]) - ParticleExtractedAt[p * NFrames + t] + shiftBias) / AngPixRefine;
+
+                    int[] RelevantSizes = SpeciesRelevantRefinementSizes[Species];
+
+                    int SizeRefine = Species.HalfMap1Projector[GPUID].Dims.X;
+                    int SizeFull = Species.HalfMap1Reconstruction[GPUID].Dims.X;
+
+                    Image PhaseCorrection = CTF.GetPhaseCorrection(AngPixRefine, SizeRefine);
+                    Image PhaseCorrectionAll = new Image(new int3(SizeRefine, SizeRefine, NFrames), true, true);
+                    for (int f = 0; f < NFrames; f++)
+                        GPU.CropFT(PhaseCorrection.GetDevice(Intent.Read),
+                                    PhaseCorrectionAll.GetDeviceSlice(f, Intent.Write),
+                                    PhaseCorrection.Dims.Slice(),
+                                    new int3(RelevantSizes[f]).Slice(),
+                                    1);
+
+                    GPU.MultiParticleDiff(SpeciesResult,
+                                            SpeciesParticleImages[Species],
+                                            SpeciesRefinementSize[Species],
+                                            RelevantSizes,
+                                            Helper.ToInterleaved(ParticleShifts),
+                                            Helper.ToInterleaved(ParticleAnglesInFrames),
+                                            MagnificationCorrection,
+                                            (Species.ResolutionRefinement < 8 ? SpeciesCTFWeights : SpeciesFrameWeights)[Species].GetDevice(Intent.Read),
+                                            PhaseCorrectionAll.GetDevice(Intent.Read),
+                                            Species.DoEwald ? CTF.GetEwaldRadius(SizeFull, (float)Species.PixelSize) : 0,
+                                            Species.CurrentMaxShellRefinement,
+                                            new[] { Species.HalfMap1Projector[GPUID].t_DataRe, Species.HalfMap2Projector[GPUID].t_DataRe },
+                                            new[] { Species.HalfMap1Projector[GPUID].t_DataIm, Species.HalfMap2Projector[GPUID].t_DataIm },
+                                            Species.HalfMap1Projector[GPUID].Oversampling,
+                                            Species.HalfMap1Projector[GPUID].DimsOversampled.X,
+                                            SpeciesParticleSubsets[Species],
+                                            NParticles,
+                                            NFrames);
+
+                    if (Species.DoEwald)
+                        GPU.MultiParticleDiff(SpeciesResultQ,
+                                              SpeciesParticleQImages[Species],
+                                              SpeciesRefinementSize[Species],
+                                              RelevantSizes,
+                                              Helper.ToInterleaved(ParticleShifts),
+                                              Helper.ToInterleaved(ParticleAnglesInFrames),
+                                              MagnificationCorrection,
+                                              (Species.ResolutionRefinement < 8 ? SpeciesCTFWeights : SpeciesFrameWeights)[Species].GetDevice(Intent.Read),
+                                              PhaseCorrectionAll.GetDevice(Intent.Read),
+                                              -CTF.GetEwaldRadius(SizeFull, (float)Species.PixelSize),
+                                              Species.CurrentMaxShellRefinement,
+                                              new[] { Species.HalfMap1Projector[GPUID].t_DataRe, Species.HalfMap2Projector[GPUID].t_DataRe },
+                                              new[] { Species.HalfMap1Projector[GPUID].t_DataIm, Species.HalfMap2Projector[GPUID].t_DataIm },
+                                              Species.HalfMap1Projector[GPUID].Oversampling,
+                                              Species.HalfMap1Projector[GPUID].DimsOversampled.X,
+                                              SpeciesParticleSubsets[Species],
+                                              NParticles,
+                                              NFrames);
+
+                    GPU.CheckGPUExceptions();
+
+                    PhaseCorrection.Dispose();
+                    PhaseCorrectionAll.Dispose();
+
+                    if (Species.DoEwald)
+                        for (int i = 0; i < SpeciesResult.Length; i++)
+                            SpeciesResult[i] += SpeciesResultQ[i];
+
+                    return SpeciesResult;
+                };
+
                 Func<float2, float[]> GetRawCC = (shiftBias) =>
                 {
-                    float[] hp_Result = new float[NParticlesOverall * NFrames * 3];
+                    float[] Result = new float[NParticlesOverall * NFrames * 3];
 
                     for (int ispecies = 0; ispecies < allSpecies.Length; ispecies++)
                     {
@@ -4715,102 +5177,82 @@ namespace Warp
                         if (NParticles == 0)
                             continue;
 
-                        float3[] ParticlePositions = new float3[NParticles * NFrames];
-                        float3[] ParticleAngles = new float3[NParticles * NFrames];
-                        for (int p = 0; p < NParticles; p++)
-                        {
-                            float3[] Positions = Particles[p].GetCoordinateSeries(DoseInterpolationSteps);
-                            float3[] Angles = Particles[p].GetAngleSeries(DoseInterpolationSteps);
+                        float[] SpeciesResult = GetRawCCSpecies(shiftBias, Species);
 
-                            for (int f = 0; f < NFrames; f++)
-                            {
-                                ParticlePositions[p * NFrames + f] = Positions[f];
-                                ParticleAngles[p * NFrames + f] = Angles[f] * Helper.ToRad;
-                            }
-                        }
-
-                        float3[] ParticlePositionsProjected = GetPositionInAllFrames(ParticlePositions);
-                        float3[] ParticleAnglesInFrames = ParticleAngles;
-
-                        float2[] ParticleExtractedAt = SpeciesParticleExtractedAt[Species];
-                        float2[] ParticleShifts = new float2[NFrames * NParticles];
-                        for (int p = 0; p < NParticles; p++)
-                            for (int t = 0; t < NFrames; t++)
-                                ParticleShifts[p * NFrames + t] = (new float2(ParticlePositionsProjected[p * NFrames + t]) - ParticleExtractedAt[p * NFrames + t] + shiftBias) / SpeciesAngPix;
-
-                        CTF[] CTFs = Helper.ArrayOfFunction(t => CTF.GetCopy(), NFrames);
-                        decimal PixelSizeRatio = (decimal)(Species.ResolutionRefinement / 2) / CTF.PixelSize;
-                        for (int i = 0; i < CTFs.Length; i++)
-                        {
-                            CTFs[i].PixelSize *= PixelSizeRatio;
-                            CTFs[i].PixelSizeDelta *= PixelSizeRatio;
-                        }
-
-                        int SizeRefine = Species.HalfMap1Projector[GPUID].Dims.X;
-                        int SizeFull = Species.HalfMap1Reconstruction[GPUID].Dims.X;
-                        CTF CTFCopy = CTF.GetCopy();
-                        CTFCopy.PixelSize = Species.PixelSize;
-                        Image BeamTiltCoords = CTFCopy.GetBeamTiltCoords(SizeRefine, SizeFull);
-
-                        float2[] BeamTilts = GetBeamTilt(Particles.Select(p => p.Coordinates[0]).ToArray());
-
-                        GPU.MultiParticleDiff(hp_Result,
-                                              SpeciesParticleImages[Species],
-                                              SpeciesRefinementSize[Species],
-                                              null,
-                                              Helper.ToInterleaved(ParticleShifts),
-                                              Helper.ToInterleaved(ParticleAnglesInFrames),
-                                              MagnificationCorrection * new float3(Species.HalfMap1Projector[GPUID].Oversampling,
-                                                                                   Species.HalfMap1Projector[GPUID].Oversampling,
-                                                                                   1),
-                                              Helper.ToInterleaved(BeamTilts),
-                                              CurrentWeightsDict[Species].GetDevice(Intent.ReadWrite),
-                                              BeamTiltCoords.GetDevice(Intent.Read),
-                                              new[] { Species.HalfMap1Projector[GPUID].t_DataRe, Species.HalfMap2Projector[GPUID].t_DataRe },
-                                              new[] { Species.HalfMap1Projector[GPUID].t_DataIm, Species.HalfMap2Projector[GPUID].t_DataIm },
-                                              Species.HalfMap1Projector[GPUID].DimsOversampled.X,
-                                              SpeciesParticleSubsets[Species],
-                                              NParticles,
-                                              NFrames);
-
-                        BeamTiltCoords.Dispose();
-
-                        //for (int i = 0; i < ParticlePositions.Length; i++)
-                        //    if (ParticlePositions[i].X > ImageDimensionsPhysical.X / 3 || ParticlePositions[i].Y > ImageDimensionsPhysical.Y / 3)
-                        //        hp_Result[i] = 0;
+                        int Offset = SpeciesParticleIDRanges[Species].Start * NFrames * 3;
+                        Array.Copy(SpeciesResult, 0, Result, Offset, SpeciesResult.Length);
                     }
 
-                    return hp_Result;
+                    return Result;
                 };
 
-                Func<double[]> GetPerFrameDiff2 = () =>
+                Func<double[]> GetPerFrameCC = () =>
                 {
-                    double[] Result = new double[NFrames];
+                    double[] Result = new double[NFrames * 3];
                     float[] RawResult = GetRawCC(new float2(0));
 
                     for (int p = 0; p < NParticlesOverall; p++)
-                        for (int t = 0; t < NFrames; t++)
-                            Result[t] += RawResult[p * NFrames + t] * 100;
+                        for (int f = 0; f < NFrames; f++)
+                        {
+                            Result[f * 3 + 0] += RawResult[(p * NFrames + f) * 3 + 0];
+                            Result[f * 3 + 1] += RawResult[(p * NFrames + f) * 3 + 1];
+                            Result[f * 3 + 2] += RawResult[(p * NFrames + f) * 3 + 2];
+                        }
+
+                    Result = Helper.ArrayOfFunction(f => Result[f * 3 + 0] /
+                                                         Math.Max(1e-10, Math.Sqrt(Result[f * 3 + 1] * Result[f * 3 + 2])) *
+                                                         100 * NParticlesOverall,
+                                                    NFrames);
 
                     return Result;
                 };
 
-                Func<double[]> GetPerParticleDiff2 = () =>
+                Func<double[]> GetPerParticleCC = () =>
                 {
-                    double[] Result = new double[NParticlesOverall];
+                    double[] Result = new double[NParticlesOverall * 3];
                     float[] RawResult = GetRawCC(new float2(0));
 
                     for (int p = 0; p < NParticlesOverall; p++)
-                        for (int t = 0; t < NFrames; t++)
-                            Result[p] += RawResult[p * NFrames + t] * 100;
+                        for (int f = 0; f < NFrames; f++)
+                        {
+                            Result[p * 3 + 0] += RawResult[(p * NFrames + f) * 3 + 0];
+                            Result[p * 3 + 1] += RawResult[(p * NFrames + f) * 3 + 1];
+                            Result[p * 3 + 2] += RawResult[(p * NFrames + f) * 3 + 2];
+                        }
+
+                    Result = Helper.ArrayOfFunction(p => Result[p * 3 + 0] /
+                                                         Math.Max(1e-10, Math.Sqrt(Result[p * 3 + 1] * Result[p * 3 + 2])) *
+                                                         100 * NFrames, NParticlesOverall);
 
                     return Result;
                 };
 
-                Func<float2[]> GetRawShiftGradients = () =>
+                Func<Species, double[]> GetPerParticleCCSpecies = (species) =>
                 {
-                    float2[] Result = new float2[NParticlesOverall * NFrames];
-                    float Delta = 0.025f;
+                    Particle[] Particles = SpeciesParticles[species];
+                    int NParticles = Particles.Length;
+
+                    double[] Result = new double[NParticles * 3];
+                    float[] RawResult = GetRawCC(new float2(0));
+
+                    for (int p = 0; p < NParticles; p++)
+                        for (int f = 0; f < NFrames; f++)
+                        {
+                            Result[p * 3 + 0] += RawResult[(p * NFrames + f) * 3 + 0];
+                            Result[p * 3 + 1] += RawResult[(p * NFrames + f) * 3 + 1];
+                            Result[p * 3 + 2] += RawResult[(p * NFrames + f) * 3 + 2];
+                        }
+
+                    Result = Helper.ArrayOfFunction(p => Result[p * 3 + 0] /
+                                                         Math.Max(1e-10, Math.Sqrt(Result[p * 3 + 1] * Result[p * 3 + 2])) *
+                                                         100 * NFrames, NParticles);
+
+                    return Result;
+                };
+
+                Func<(float[] xp, float[] xm, float[] yp, float[] ym, float delta2)> GetRawShiftGradients = () =>
+                {
+                    float Delta = 0.1f;
                     float Delta2 = Delta * 2;
 
                     float[] h_ScoresXP = GetRawCC(float2.UnitX * Delta);
@@ -4819,32 +5261,37 @@ namespace Warp
                     float[] h_ScoresYM = GetRawCC(-float2.UnitY * Delta);
 
 
-                    for (int i = 0; i < Result.Length; i++)
-                    {
-                        Result[i] = new float2((h_ScoresXP[i] - h_ScoresXM[i]) / Delta2 * 100,
-                                               (h_ScoresYP[i] - h_ScoresYM[i]) / Delta2 * 100);
-                        //if (float.IsNaN(Result[i].X) || float.IsNaN(Result[i].Y))
-                        //    throw new Exception();
-                    }
+                    //for (int i = 0; i < Result.Length; i++)
+                    //{
+                    //    Result[i] = new float2((h_ScoresXP[i] - h_ScoresXM[i]) / Delta2 * 100,
+                    //                           (h_ScoresYP[i] - h_ScoresYM[i]) / Delta2 * 100);
+                    //    //if (float.IsNaN(Result[i].X) || float.IsNaN(Result[i].Y))
+                    //    //    throw new Exception();
+                    //}
 
-                    return Result;
+                    return (h_ScoresXP, h_ScoresXM, h_ScoresYP, h_ScoresYM, Delta2);
                 };
 
                 #endregion
 
-                float2[][] OriginalOffsets = Helper.ArrayOfFunction(p => Helper.ArrayOfFunction(t => new float2(PyramidShiftX[p].Values[t], PyramidShiftY[p].Values[t]), PyramidShiftX[p].Values.Length), PyramidShiftX.Count);
+                #region BFGS prerequisites
+
+                float2[][] OriginalOffsets = Helper.ArrayOfFunction(p => Helper.ArrayOfFunction(t =>
+                                                                             new float2(PyramidShiftX[p].Values[t],
+                                                                                        PyramidShiftY[p].Values[t]),
+                                                                             PyramidShiftX[p].Values.Length),
+                                                                         PyramidShiftX.Count);
+
+                float[] OriginalAngleX = GridAngleX.Values.ToArray();
+                float[] OriginalAngleY = GridAngleY.Values.ToArray();
+                float[] OriginalAngleZ = GridAngleZ.Values.ToArray();
+
+
 
                 float[] OriginalParamsCTF =
                 {
                     (float)CTF.PhaseShift,
-                    (float)CTF.Cs,
-                    (float)CTF.PixelSizeDelta,
-                    (float)CTF.PixelSizeAngle,
-                    CTF.BeamTilt.X,
-                    CTF.BeamTilt.Y,
-                    CTF.BeamTilt2.X,
-                    CTF.BeamTilt2.Y,
-                    CTF.BeamTilt2.Z
+                    (float)CTF.Cs
                 };
 
                 CTFOptimizationTypes[] CTFStepTypes =
@@ -4852,41 +5299,50 @@ namespace Warp
                     CTFOptimizationTypes.Defocus,
                     CTFOptimizationTypes.AstigmatismDelta,
                     CTFOptimizationTypes.AstigmatismAngle,
+                    CTFOptimizationTypes.Doming,
+                    CTFOptimizationTypes.Zernike2,
+                    CTFOptimizationTypes.Zernike2,
+                    CTFOptimizationTypes.Zernike2,
+                    CTFOptimizationTypes.Zernike4,
+                    CTFOptimizationTypes.Zernike4,
+                    CTFOptimizationTypes.Zernike4,
+                    CTFOptimizationTypes.Zernike4,
+                    CTFOptimizationTypes.Zernike4,
                     CTFOptimizationTypes.PhaseShift,
-                    CTFOptimizationTypes.Cs,
-                    CTFOptimizationTypes.PixelSize,
-                    CTFOptimizationTypes.PixelSize,
-                    CTFOptimizationTypes.BeamTilt,
-                    CTFOptimizationTypes.BeamTilt,
-                    CTFOptimizationTypes.BeamTilt2,
-                    CTFOptimizationTypes.BeamTilt2,
-                    CTFOptimizationTypes.BeamTilt2
+                    CTFOptimizationTypes.Cs
                 };
 
                 float[] OriginalDefocusDelta = GridCTFDefocusDelta.Values.ToList().ToArray();
                 float[] OriginalDefocusAngle = GridCTFDefocusAngle.Values.ToList().ToArray();
 
-                float[] OriginalBeamTiltX = GridBeamTiltX.Values.ToList().ToArray();
-                float[] OriginalBeamTiltY = GridBeamTiltY.Values.ToList().ToArray();
+                float[] OriginalDefocusDoming = GridCTFDoming.Values.ToList().ToArray();
+
+                float[] OriginalZernikeOdd = CTF.ZernikeCoeffsOdd.ToList().ToArray();
+                float[] OriginalZernikeEven = CTF.ZernikeCoeffsEven.ToList().ToArray();
 
                 float3 OriginalMagnification = MagnificationCorrection;
 
-                float3[] OriginalParticlePositions = Helper.Combine(SpeciesParticles[allSpecies[0]].Select(p => p.Coordinates));
-                float3[] OriginalParticleAngles = Helper.Combine(SpeciesParticles[allSpecies[0]].Select(p => p.Angles));
+                float3[][] OriginalParticlePositions = allSpecies.Select(s => Helper.Combine(SpeciesParticles[s].Select(p => p.Coordinates))).ToArray();
+                float3[][] OriginalParticleAngles = allSpecies.Select(s => Helper.Combine(SpeciesParticles[s].Select(p => p.Angles))).ToArray();
 
                 int BFGSIterations = 0;
-                WarpOptimizationTypes CurrentOptimizationTypeWarp = WarpOptimizationTypes.ImageWarp;
-                CTFOptimizationTypes CurrentOptimizationTypeCTF = CTFOptimizationTypes.Defocus;
+                WarpOptimizationTypes CurrentOptimizationTypeWarp = 0;
+                CTFOptimizationTypes CurrentOptimizationTypeCTF = 0;
 
-                double[] InitialParametersWarp = new double[PyramidShiftX.Select(g => g.Values.Length * 2).Sum() +
-                                                            NParticlesOverall * 2 * allSpecies[0].TemporalResolutionMovement +
-                                                            NParticlesOverall * 3 * allSpecies[0].TemporalResolutionRotation +
-                                                            GridBeamTiltX.Values.Length * 2 +
+                double[] InitialParametersWarp = new double[PyramidShiftX.Select(g => g.Values.Length).Sum() * 2 +
+                                                            GridAngleX.Values.Length * 3 +
+                                                            OriginalParticlePositions.Select(a => a.Length).Sum() * 2 +
+                                                            OriginalParticleAngles.Select(a => a.Length).Sum() * 3 +
+                                                            CTF.ZernikeCoeffsOdd.Length +
                                                             3];
                 double[] InitialParametersDefocus = new double[NParticlesOverall +
                                                                GridCTFDefocusDelta.Values.Length +
                                                                GridCTFDefocusAngle.Values.Length +
+                                                               GridCTFDoming.Values.Length +
+                                                               CTF.ZernikeCoeffsEven.Length +
                                                                OriginalParamsCTF.Length];
+
+                #endregion
 
                 #region Set parameters from vector
 
@@ -4914,79 +5370,91 @@ namespace Warp
                         Offset += MovementXData.Length * 2;
                     }
 
+                    float[] AngleXData = new float[GridAngleX.Values.Length];
+                    float[] AngleYData = new float[GridAngleY.Values.Length];
+                    float[] AngleZData = new float[GridAngleZ.Values.Length];
+                    for (int i = 0; i < AngleXData.Length; i++)
+                    {
+                        AngleXData[i] = OriginalAngleX[i] + (float)input[Offset + i];
+                        AngleYData[i] = OriginalAngleY[i] + (float)input[Offset + AngleXData.Length + i];
+                        AngleZData[i] = OriginalAngleZ[i] + (float)input[Offset + AngleXData.Length * 2 + i];
+                    }
+                    movie.GridAngleX = new CubicGrid(GridAngleX.Dimensions, AngleXData);
+                    movie.GridAngleY = new CubicGrid(GridAngleY.Dimensions, AngleYData);
+                    movie.GridAngleZ = new CubicGrid(GridAngleZ.Dimensions, AngleZData);
+
+                    Offset += AngleXData.Length * 3;
+
                     if (setParticles)
                     {
-                        Particle[] Particles = SpeciesParticles[allSpecies[0]];
-
-                        int ResCoords = allSpecies[0].TemporalResolutionMovement;
-                        int ResAngles = allSpecies[0].TemporalResolutionRotation;
-
-                        for (int p = 0; p < Particles.Length; p++)
+                        for (int ispecies = 0; ispecies < allSpecies.Length; ispecies++)
                         {
-                            for (int ic = 0; ic < ResCoords; ic++)
-                            {
-                                Particles[p].Coordinates[ic].X = OriginalParticlePositions[p * ResCoords + ic].X + (float)input[Offset + (p * 5 + 0) * ResCoords + ic];
-                                Particles[p].Coordinates[ic].Y = OriginalParticlePositions[p * ResCoords + ic].Y + (float)input[Offset + (p * 5 + 1) * ResCoords + ic];
-                            }
-                            for (int ia = 0; ia < ResCoords; ia++)
-                            {
-                                //Matrix3 MOriginal = Matrix3.Euler(OriginalParticleAngles[p * ResAngles + ia] * Helper.ToRad);
-                                //Matrix3 MChange = Matrix3.RotateX((float)input[Offset + (p * 5 + 2) * ResCoords + ia] * Helper.ToRad) *
-                                //                  Matrix3.RotateY((float)input[Offset + (p * 5 + 3) * ResCoords + ia] * Helper.ToRad) *
-                                //                  Matrix3.RotateZ((float)input[Offset + (p * 5 + 4) * ResCoords + ia] * Helper.ToRad);
+                            Particle[] Particles = SpeciesParticles[allSpecies[ispecies]];
 
-                                //float3 Angles = Matrix3.EulerFromMatrix(MOriginal * MChange) * Helper.ToDeg;
+                            int ResCoords = allSpecies[0].TemporalResolutionMovement;
 
-                                Particles[p].Angles[ia] = OriginalParticleAngles[p * ResAngles + ia] + new float3((float)input[Offset + (p * 5 + 2) * ResCoords + ia],
-                                                                                                                  (float)input[Offset + (p * 5 + 3) * ResCoords + ia],
-                                                                                                                  (float)input[Offset + (p * 5 + 4) * ResCoords + ia]);
+                            for (int p = 0; p < Particles.Length; p++)
+                            {
+                                for (int ic = 0; ic < ResCoords; ic++)
+                                {
+                                    Particles[p].Coordinates[ic].X = OriginalParticlePositions[ispecies][p * ResCoords + ic].X + (float)input[Offset + (p * 5 + 0) * ResCoords + ic];
+                                    Particles[p].Coordinates[ic].Y = OriginalParticlePositions[ispecies][p * ResCoords + ic].Y + (float)input[Offset + (p * 5 + 1) * ResCoords + ic];
+
+                                    Particles[p].Angles[ic] = OriginalParticleAngles[ispecies][p * ResCoords + ic] + new float3((float)input[Offset + (p * 5 + 2) * ResCoords + ic],
+                                                                                                                                (float)input[Offset + (p * 5 + 3) * ResCoords + ic],
+                                                                                                                                (float)input[Offset + (p * 5 + 4) * ResCoords + ic]);
+                                }
                             }
+
+                            Offset += OriginalParticlePositions[ispecies].Length * 5;
                         }
                     }
-                    Offset += SpeciesParticles[allSpecies[0]].Length * (allSpecies[0].TemporalResolutionMovement + allSpecies[0].TemporalResolutionRotation);
-
-                    //CTF.BeamTilt = new float2(OriginalParamsCTF[4] + (float)input[input.Length - 5],
-                    //                          OriginalParamsCTF[5] + (float)input[input.Length - 4]);
-
+                    else
                     {
-                        float[] ValuesX = new float[GridBeamTiltX.Values.Length];
-                        for (int i = 0; i < ValuesX.Length; i++)
-                            ValuesX[i] = OriginalBeamTiltX[i] + (float)input[Offset + i];
-
-                        movie.GridBeamTiltX = new CubicGrid(GridBeamTiltX.Dimensions, ValuesX);
-                        Offset += ValuesX.Length;
+                        Offset += OriginalParticlePositions.Select(a => a.Length).Sum() * 5;
                     }
 
-                    {
-                        float[] ValuesY = new float[GridBeamTiltY.Values.Length];
-                        for (int i = 0; i < ValuesY.Length; i++)
-                            ValuesY[i] = OriginalBeamTiltY[i] + (float)input[Offset + i];
+                    for (int icoeff = 0; icoeff < CTF.ZernikeCoeffsOdd.Length; icoeff++)
+                        CTF.ZernikeCoeffsOdd[icoeff] = OriginalZernikeOdd[icoeff] + (float)input[Offset + icoeff];
 
-                        movie.GridBeamTiltY = new CubicGrid(GridBeamTiltY.Dimensions, ValuesY);
-                        Offset += ValuesY.Length;
-                    }
+                    Offset += CTF.ZernikeCoeffsOdd.Length;
 
                     MagnificationCorrection = OriginalMagnification + new float3((float)input[input.Length - 3] / 100,
                                                                                  (float)input[input.Length - 2] / 100,
                                                                                  (float)input[input.Length - 1]);
+
+                    // MagnificationCorrection follows a different, weird convention.
+                    // .x and .y define the X and Y axes of a scaling matrix, rotated by -.z
+                    // Scaling .x up means the pixel size along that axis is smaller, thus a negative DeltaPercent
+                    CTF.PixelSizeDeltaPercent = -(decimal)(MagnificationCorrection.X - (MagnificationCorrection.X + MagnificationCorrection.Y) / 2);
+                    CTF.PixelSizeAngle = (decimal)(-MagnificationCorrection.Z * Helper.ToDeg);
                 };
 
                 Action<double[], Movie, bool> SetDefocusFromVector = (input, movie, setParticles) =>
                 {
-                    Particle[] Particles = SpeciesParticles[allSpecies[0]];
-
-                    int ResCoords = allSpecies[0].TemporalResolutionMovement;
+                    int Offset = 0;
 
                     if (setParticles)
-                        for (int p = 0; p < Particles.Length; p++)
+                    {
+                        for (int ispecies = 0; ispecies < allSpecies.Length; ispecies++)
                         {
-                            for (int ic = 0; ic < ResCoords; ic++)
-                            {
-                                Particles[p].Coordinates[ic].Z = OriginalParticlePositions[p * ResCoords + ic].Z + (float)input[p] * 1e3f;
-                            }
-                        }
+                            Particle[] Particles = SpeciesParticles[allSpecies[ispecies]];
 
-                    int Offset = Particles.Length;
+                            int ResCoords = allSpecies[ispecies].TemporalResolutionMovement;
+
+                            for (int p = 0; p < Particles.Length; p++)
+                            {
+                                // Coords are in Angstrom and we want 0.1 * micrometer, thus * 1e3
+                                for (int ic = 0; ic < ResCoords; ic++)
+                                    Particles[p].Coordinates[ic].Z = OriginalParticlePositions[ispecies][p * ResCoords + ic].Z + (float)input[p + Offset] * 1e3f;
+                            }
+                            Offset += Particles.Length;
+                        }
+                    }
+                    else
+                    {
+                        Offset += NParticlesOverall;
+                    }
 
                     {
                         float[] ValuesDelta = new float[GridCTFDefocusDelta.Values.Length];
@@ -5006,15 +5474,26 @@ namespace Warp
                         Offset += ValuesAngle.Length;
                     }
 
-                    movie.CTF.PhaseShift = (decimal)(OriginalParamsCTF[0] + input[input.Length - 9]);
-                    movie.CTF.Cs = (decimal)(OriginalParamsCTF[1] + input[input.Length - 8]);
-                    movie.CTF.PixelSizeDelta = (decimal)(OriginalParamsCTF[2] + input[input.Length - 7] * 0.1f);
-                    movie.CTF.PixelSizeAngle = (decimal)(OriginalParamsCTF[3] + input[input.Length - 6] * 36);
-                    //CTF.BeamTilt = new float2(OriginalParamsCTF[6] + (float)input[input.Length - 5],
-                    //                          OriginalParamsCTF[7] + (float)input[input.Length - 4]);
-                    //CTF.BeamTilt2 = new float3(OriginalParamsCTF[8] + (float)input[input.Length - 3],
-                    //                           OriginalParamsCTF[9] + (float)input[input.Length - 2],
-                    //                           OriginalParamsCTF[10] + (float)input[input.Length - 1]);
+                    {
+                        float[] ValuesDoming = new float[GridCTFDoming.Values.Length];
+                        for (int i = 0; i < ValuesDoming.Length; i++)
+                            ValuesDoming[i] = OriginalDefocusDoming[i] + (float)input[Offset + i] * 0.1f;
+
+                        movie.GridCTFDoming = new CubicGrid(GridCTFDoming.Dimensions, ValuesDoming);
+                        Offset += ValuesDoming.Length;
+                    }
+
+                    {
+                        float[] ValuesZernike = new float[CTF.ZernikeCoeffsEven.Length];
+                        for (int i = 0; i < ValuesZernike.Length; i++)
+                            ValuesZernike[i] = OriginalZernikeEven[i] + (float)input[Offset + i];
+
+                        movie.CTF.ZernikeCoeffsEven = ValuesZernike;
+                        Offset += CTF.ZernikeCoeffsEven.Length;
+                    }
+
+                    movie.CTF.PhaseShift = (decimal)(OriginalParamsCTF[0] + input[input.Length - 2]);
+                    movie.CTF.Cs = (decimal)(OriginalParamsCTF[1] + input[input.Length - 1]);
                 };
 
                 #endregion
@@ -5023,22 +5502,22 @@ namespace Warp
 
                 progressCallback("Precomputing gradient weights...");
 
-                int NWiggleDifferentiableWarp = PyramidShiftX.Select(g => g.Values.Length * 2).Sum();
+                int NWiggleDifferentiableWarp = PyramidShiftX.Select(g => g.Values.Length).Sum() * 2;
                 (int[] indices, float2[] weights)[] AllWiggleWeightsWarp = new (int[] indices, float2[] weights)[NWiggleDifferentiableWarp];
 
                 int NWiggleDifferentiableAstigmatism = GridCTFDefocusDelta.Values.Length;
                 (int[] indices, float[] weights)[] AllWiggleWeightsAstigmatism = new (int[] indices, float[] weights)[NWiggleDifferentiableAstigmatism];
 
-                int NWiggleDifferentiableBeamTilt = GridBeamTiltX.Values.Length;
-                (int[] indices, float[] weights)[] AllWiggleWeightsBeamTilt = new (int[] indices, float[] weights)[NWiggleDifferentiableBeamTilt];
+                int NWiggleDifferentiableDoming = GridCTFDoming.Values.Length;
+                (int[] indices, float[] weights)[] AllWiggleWeightsDoming = new (int[] indices, float[] weights)[NWiggleDifferentiableDoming];
 
-                if (OptimizationIterations > 0)
+                //if ((optionsMPA.RefinedComponentsWarp & WarpOptimizationTypes.ImageWarp) != 0 ||
+                //    (optionsMPA.RefinedComponentsCTF & CTFOptimizationTypes.AstigmatismDelta) != 0)
                 {
                     Movie[] ParallelMovieCopies = Helper.ArrayOfFunction(i => new Movie(this.Path), 32);
 
                     Dictionary<Species, float3[]> SpeciesParticlePositions = new Dictionary<Species, float3[]>();
                     Dictionary<Species, float2[]> SpeciesParticleAstigmatism = new Dictionary<Species, float2[]>();
-                    Dictionary<Species, float2[]> SpeciesParticleBeamTilt = new Dictionary<Species, float2[]>();
                     foreach (var species in allSpecies)
                     {
                         Particle[] Particles = SpeciesParticles[species];
@@ -5058,12 +5537,112 @@ namespace Warp
                         SpeciesParticlePositions.Add(species, ParticlePositions);
 
                         SpeciesParticleAstigmatism.Add(species, GetAstigmatism(Particles.Select(p => p.Coordinates[0]).ToArray()));
-                        SpeciesParticleBeamTilt.Add(species, GetBeamTilt(Particles.Select(p => p.Coordinates[0]).ToArray()));
                     }
 
                     #region Warp
 
-                    Helper.ForCPU(0, NWiggleDifferentiableWarp / 2, ParallelMovieCopies.Length, (threadID) =>
+                    if (optionsMPA.DoImageWarp)
+                        Helper.ForCPU(0, NWiggleDifferentiableWarp / 2, ParallelMovieCopies.Length, (threadID) =>
+                        {
+                            ParallelMovieCopies[threadID].ImageDimensionsPhysical = ImageDimensionsPhysical;
+                            ParallelMovieCopies[threadID].NFrames = NFrames;
+                            ParallelMovieCopies[threadID].FractionFrames = FractionFrames;
+                        },
+                        (iwiggle, threadID) =>
+                        {
+                            double[] WiggleParams = new double[InitialParametersWarp.Length];
+                            WiggleParams[iwiggle * 2] = 1;
+                            SetWarpFromVector(WiggleParams, ParallelMovieCopies[threadID], false);
+
+                            float2[] RawShifts = new float2[NParticlesOverall * NFrames];
+                            foreach (var species in allSpecies)
+                            {
+                                Particle[] Particles = SpeciesParticles[species];
+                                int NParticles = Particles.Length;
+                                if (NParticles == 0)
+                                    continue;
+
+                                int Offset = SpeciesParticleIDRanges[species].Start;
+
+                                float3[] ParticlePositionsProjected = ParallelMovieCopies[threadID].GetPositionInAllFrames(SpeciesParticlePositions[species]);
+                                float2[] ParticleExtractedAt = SpeciesParticleExtractedAt[species];
+
+                                for (int p = 0; p < NParticles; p++)
+                                    for (int f = 0; f < NFrames; f++)
+                                        RawShifts[(Offset + p) * NFrames + f] = (new float2(ParticlePositionsProjected[p * NFrames + f]) - ParticleExtractedAt[p * NFrames + f]);
+                            }
+
+                            List<int> Indices = new List<int>(RawShifts.Length / 5);
+                            List<float2> Weights = new List<float2>(RawShifts.Length / 5);
+                            List<float2> WeightsY = new List<float2>(RawShifts.Length / 5);
+                            for (int i = 0; i < RawShifts.Length; i++)
+                            {
+                                if (RawShifts[i].LengthSq() > 1e-6f)
+                                {
+                                    Indices.Add(i);
+                                    Weights.Add(RawShifts[i]);
+                                    WeightsY.Add(new float2(RawShifts[i].Y, RawShifts[i].X));
+
+                                    if (Math.Abs(RawShifts[i].X) > 1.05f)
+                                        throw new Exception();
+                                }
+                            }
+
+                            AllWiggleWeightsWarp[iwiggle * 2 + 0] = (Indices.ToArray(), Weights.ToArray());
+                            AllWiggleWeightsWarp[iwiggle * 2 + 1] = (Indices.ToArray(), WeightsY.ToArray());
+                        }, null);
+
+                    #endregion
+
+                    #region Astigmatism
+
+                    if (optionsMPA.DoAstigmatismDelta)
+                        Helper.ForCPU(0, NWiggleDifferentiableAstigmatism, ParallelMovieCopies.Length, (threadID) =>
+                        {
+                            ParallelMovieCopies[threadID].ImageDimensionsPhysical = ImageDimensionsPhysical;
+                            ParallelMovieCopies[threadID].NFrames = NFrames;
+                            ParallelMovieCopies[threadID].FractionFrames = FractionFrames;
+                        },
+                        (iwiggle, threadID) =>
+                        {
+                            double[] WiggleParams = new double[InitialParametersDefocus.Length];
+                            WiggleParams[NParticlesOverall + iwiggle] = 10; // because it's weighted *0.1 later in SetDefocusFromVector
+                            SetDefocusFromVector(WiggleParams, ParallelMovieCopies[threadID], false);
+
+                            float2[] RawDiffs = new float2[NParticlesOverall];
+                            foreach (var species in allSpecies)
+                            {
+                                Particle[] Particles = SpeciesParticles[species];
+                                int NParticles = Particles.Length;
+                                if (NParticles == 0)
+                                    continue;
+
+                                int Offset = SpeciesParticleIDRanges[species].Start;
+
+                                float2[] ParticleAstigmatismAltered = ParallelMovieCopies[threadID].GetAstigmatism(Particles.Select(p => p.Coordinates[0]).ToArray());
+                                float2[] ParticleAstigmatismOriginal = SpeciesParticleAstigmatism[species];
+
+                                for (int p = 0; p < NParticles; p++)
+                                    RawDiffs[Offset + p] = ParticleAstigmatismAltered[p] - ParticleAstigmatismOriginal[p];
+                            }
+
+                            List<int> Indices = new List<int>(RawDiffs.Length);
+                            List<float> Weights = new List<float>(RawDiffs.Length);
+                            for (int i = 0; i < RawDiffs.Length; i++)
+                            {
+                                Indices.Add(i);
+                                Weights.Add(RawDiffs[i].X);
+                            }
+
+                            AllWiggleWeightsAstigmatism[iwiggle] = (Indices.ToArray(), Weights.ToArray());
+                        }, null);
+
+                    #endregion
+
+                    #region Doming
+
+                    //if ((optionsMPA.RefinedComponentsCTF & CTFOptimizationTypes.Doming) != 0)
+                    Helper.ForCPU(0, NWiggleDifferentiableDoming, ParallelMovieCopies.Length, (threadID) =>
                     {
                         ParallelMovieCopies[threadID].ImageDimensionsPhysical = ImageDimensionsPhysical;
                         ParallelMovieCopies[threadID].NFrames = NFrames;
@@ -5071,11 +5650,11 @@ namespace Warp
                     },
                     (iwiggle, threadID) =>
                     {
-                        double[] WiggleParams = new double[InitialParametersWarp.Length];
-                        WiggleParams[iwiggle * 2] = 1;
-                        SetWarpFromVector(WiggleParams, ParallelMovieCopies[threadID], false);
+                        double[] WiggleParams = new double[InitialParametersDefocus.Length];
+                        WiggleParams[NParticlesOverall + GridCTFDefocusDelta.Values.Length * 2 + iwiggle] = 10; // because it's weighted *0.1 later in SetDefocusFromVector
+                        SetDefocusFromVector(WiggleParams, ParallelMovieCopies[threadID], false);
 
-                        float2[] RawShifts = new float2[NParticlesOverall * NFrames];
+                        float[] RawDefoci = new float[NParticlesOverall * NFrames];
                         foreach (var species in allSpecies)
                         {
                             Particle[] Particles = SpeciesParticles[species];
@@ -5086,119 +5665,28 @@ namespace Warp
                             int Offset = SpeciesParticleIDRanges[species].Start;
 
                             float3[] ParticlePositionsProjected = ParallelMovieCopies[threadID].GetPositionInAllFrames(SpeciesParticlePositions[species]);
-                            float2[] ParticleExtractedAt = SpeciesParticleExtractedAt[species];
+                            float[] ParticleExtractedAt = SpeciesParticleExtractedAtDefocus[species];
 
                             for (int p = 0; p < NParticles; p++)
                                 for (int f = 0; f < NFrames; f++)
-                                    RawShifts[(Offset + p) * NFrames + f] = (new float2(ParticlePositionsProjected[p * NFrames + f]) - ParticleExtractedAt[p * NFrames + f]);
+                                    RawDefoci[(Offset + p) * NFrames + f] = ParticlePositionsProjected[p * NFrames + f].Z - ParticleExtractedAt[p * NFrames + f];
                         }
 
-                        List<int> Indices = new List<int>(RawShifts.Length / 5);
-                        List<float2> Weights = new List<float2>(RawShifts.Length / 5);
-                        List<float2> WeightsY = new List<float2>(RawShifts.Length / 5);
-                        for (int i = 0; i < RawShifts.Length; i++)
+                        List<int> Indices = new List<int>(RawDefoci.Length / NFrames);
+                        List<float> Weights = new List<float>(RawDefoci.Length / NFrames);
+                        for (int i = 0; i < RawDefoci.Length; i++)
                         {
-                            if (RawShifts[i].LengthSq() > 1e-6f)
+                            if (Math.Abs(RawDefoci[i]) > 1e-6f)
                             {
                                 Indices.Add(i);
-                                Weights.Add(RawShifts[i]);
-                                WeightsY.Add(new float2(RawShifts[i].Y, RawShifts[i].X));
+                                Weights.Add(RawDefoci[i]);
 
-                                if (Math.Abs(RawShifts[i].X) > 1.05f)
+                                if (Math.Abs(RawDefoci[i]) > 1.05f)
                                     throw new Exception();
                             }
                         }
 
-                        AllWiggleWeightsWarp[iwiggle * 2 + 0] = (Indices.ToArray(), Weights.ToArray());
-                        AllWiggleWeightsWarp[iwiggle * 2 + 1] = (Indices.ToArray(), WeightsY.ToArray());
-                    }, null);
-
-                    #endregion
-
-                    #region Astigmatism
-
-                    Helper.ForCPU(0, NWiggleDifferentiableAstigmatism, ParallelMovieCopies.Length, (threadID) =>
-                    {
-                        ParallelMovieCopies[threadID].ImageDimensionsPhysical = ImageDimensionsPhysical;
-                        ParallelMovieCopies[threadID].NFrames = NFrames;
-                        ParallelMovieCopies[threadID].FractionFrames = FractionFrames;
-                    },
-                    (iwiggle, threadID) =>
-                    {
-                        double[] WiggleParams = new double[InitialParametersDefocus.Length];
-                        WiggleParams[NParticlesOverall + iwiggle] = 10; // because it's weighted *0.1 later in SetDefocusFromVector
-                        SetDefocusFromVector(WiggleParams, ParallelMovieCopies[threadID], false);
-
-                        float2[] RawDiffs = new float2[NParticlesOverall];
-                        foreach (var species in allSpecies)
-                        {
-                            Particle[] Particles = SpeciesParticles[species];
-                            int NParticles = Particles.Length;
-                            if (NParticles == 0)
-                                continue;
-
-                            int Offset = SpeciesParticleIDRanges[species].Start;
-
-                            float2[] ParticleAstigmatismAltered = ParallelMovieCopies[threadID].GetAstigmatism(Particles.Select(p => p.Coordinates[0]).ToArray());
-                            float2[] ParticleAstigmatismOriginal = SpeciesParticleAstigmatism[species];
-
-                            for (int p = 0; p < NParticles; p++)
-                                RawDiffs[Offset + p] = ParticleAstigmatismAltered[p] - ParticleAstigmatismOriginal[p];
-                        }
-
-                        List<int> Indices = new List<int>(RawDiffs.Length);
-                        List<float> Weights = new List<float>(RawDiffs.Length);
-                        for (int i = 0; i < RawDiffs.Length; i++)
-                        {
-                            Indices.Add(i);
-                            Weights.Add(RawDiffs[i].X);
-                        }
-
-                        AllWiggleWeightsAstigmatism[iwiggle] = (Indices.ToArray(), Weights.ToArray());
-                    }, null);
-
-                    #endregion
-
-                    #region Beam tilt
-
-                    Helper.ForCPU(0, NWiggleDifferentiableBeamTilt, ParallelMovieCopies.Length, (threadID) =>
-                    {
-                        ParallelMovieCopies[threadID].ImageDimensionsPhysical = ImageDimensionsPhysical;
-                        ParallelMovieCopies[threadID].NFrames = NFrames;
-                        ParallelMovieCopies[threadID].FractionFrames = FractionFrames;
-                    },
-                    (iwiggle, threadID) =>
-                    {
-                        double[] WiggleParams = new double[InitialParametersWarp.Length];
-                        WiggleParams[NWiggleDifferentiableWarp + NParticlesOverall * 4 + iwiggle] = 1;
-                        SetWarpFromVector(WiggleParams, ParallelMovieCopies[threadID], false);
-
-                        float2[] RawDiffs = new float2[NParticlesOverall];
-                        foreach (var species in allSpecies)
-                        {
-                            Particle[] Particles = SpeciesParticles[species];
-                            int NParticles = Particles.Length;
-                            if (NParticles == 0)
-                                continue;
-
-                            int Offset = SpeciesParticleIDRanges[species].Start;
-
-                            float2[] ParticleBeamTiltAltered = ParallelMovieCopies[threadID].GetBeamTilt(Particles.Select(p => p.Coordinates[0]).ToArray());
-                            float2[] ParticleBeamTiltOriginal = SpeciesParticleBeamTilt[species];
-
-                            for (int p = 0; p < NParticles; p++)
-                                RawDiffs[Offset + p] = ParticleBeamTiltAltered[p] - ParticleBeamTiltOriginal[p];
-                        }
-
-                        List<int> Indices = new List<int>(RawDiffs.Length);
-                        List<float> Weights = new List<float>(RawDiffs.Length);
-                        for (int i = 0; i < RawDiffs.Length; i++)
-                        {
-                            Indices.Add(i);
-                            Weights.Add(RawDiffs[i].X);
-                        }
-
-                        AllWiggleWeightsBeamTilt[iwiggle] = (Indices.ToArray(), Weights.ToArray());
+                        AllWiggleWeightsDoming[iwiggle] = (Indices.ToArray(), Weights.ToArray());
                     }, null);
 
                     #endregion
@@ -5215,10 +5703,21 @@ namespace Warp
                 {
                     SetWarpFromVector(input, this, true);
 
-                    double[] TiltScores = GetPerFrameDiff2();
-                    double Score = TiltScores.Sum();
+                    float[] RawCC = GetRawCC(new float2(0));
+                    double SumAB = 0, SumA2 = 0, SumB2 = 0;
+                    for (int p = 0; p < NParticlesOverall; p++)
+                    {
+                        for (int f = 0; f < NFrames; f++)
+                        {
+                            SumAB += RawCC[(p * NFrames + f) * 3 + 0];
+                            SumA2 += RawCC[(p * NFrames + f) * 3 + 1];
+                            SumB2 += RawCC[(p * NFrames + f) * 3 + 2];
+                        }
+                    }
 
-                    Debug.WriteLine(Score);
+                    double Score = SumAB / Math.Max(1e-10, Math.Sqrt(SumA2 * SumB2)) * NParticlesOverall * NFrames * 100;
+
+                    Console.WriteLine(Score);
 
                     return Score;
                 };
@@ -5236,112 +5735,174 @@ namespace Warp
                     if (MathHelper.AllEqual(input, OldInput))
                         return OldGradient;
 
-                    float2[] RawShiftGradients = null;
-                    if ((CurrentOptimizationTypeWarp & WarpOptimizationTypes.ImageWarp) != 0) // Only using weighted gradients for image warping for now
-                    {
-                        SetWarpFromVector(input, this, true);
-                        RawShiftGradients = GetRawShiftGradients();
-                    }
-
                     int Offset = 0;
 
                     if ((CurrentOptimizationTypeWarp & WarpOptimizationTypes.ImageWarp) != 0) // Image shift pyramids
+                    {
+                        SetWarpFromVector(input, this, true);
+                        (var XP, var XM, var YP, var YM, var Delta2Movement) = GetRawShiftGradients();
+
                         Parallel.For(0, AllWiggleWeightsWarp.Length, iwiggle =>
                         {
-                            double Sum = 0;
+                            double SumGrad = 0;
+                            double SumWeights = 0;
+                            double SumWeightsGrad = 0;
+
                             int[] Indices = AllWiggleWeightsWarp[iwiggle].indices;
                             float2[] Weights = AllWiggleWeightsWarp[iwiggle].weights;
 
                             for (int i = 0; i < Indices.Length; i++)
-                                Sum += float2.Dot(Weights[i], RawShiftGradients[Indices[i]]);
+                            {
+                                int id = Indices[i];
 
-                            Result[iwiggle] = Sum;
+                                SumWeights += Math.Abs(Weights[i].X) * Math.Sqrt(XP[id * 3 + 1] + XM[id * 3 + 1]) +
+                                              Math.Abs(Weights[i].Y) * Math.Sqrt(YP[id * 3 + 1] + YM[id * 3 + 1]);
+                                SumWeightsGrad += Math.Abs(Weights[i].X) + Math.Abs(Weights[i].Y);
+
+                                double GradX = (XP[id * 3 + 0] / Math.Max(1e-15, Math.Sqrt(XP[id * 3 + 1] * XP[id * 3 + 2])) -
+                                                XM[id * 3 + 0] / Math.Max(1e-15, Math.Sqrt(XM[id * 3 + 1] * XM[id * 3 + 2]))) / Delta2Movement;
+                                double GradY = (YP[id * 3 + 0] / Math.Max(1e-15, Math.Sqrt(YP[id * 3 + 1] * YP[id * 3 + 2])) -
+                                                YM[id * 3 + 0] / Math.Max(1e-15, Math.Sqrt(YM[id * 3 + 1] * YM[id * 3 + 2]))) / Delta2Movement;
+
+                                SumGrad += Weights[i].X * Math.Sqrt(XP[id * 3 + 1] + XM[id * 3 + 1]) * GradX;
+                                SumGrad += Weights[i].Y * Math.Sqrt(YP[id * 3 + 1] + YM[id * 3 + 1]) * GradY;
+                            }
+
+                            Result[Offset + iwiggle] = SumGrad / Math.Max(1e-15, SumWeights) * 100 * SumWeightsGrad;
                         });
+                    }
                     Offset += AllWiggleWeightsWarp.Length;
 
+
+                    if ((CurrentOptimizationTypeWarp & WarpOptimizationTypes.AxisAngle) != 0) // GridAngleX, Y and Z
                     {
-                        Particle[] Particles = SpeciesParticles[allSpecies[0]];
+                        int SliceElements = (int)GridAngleX.Dimensions.ElementsSlice();
 
-                        int TemporalRes = allSpecies[0].TemporalResolutionMovement;
-
-                        if ((CurrentOptimizationTypeWarp & WarpOptimizationTypes.ParticlePosition) != 0)
-                            for (int iparam = 0; iparam < 2 * TemporalRes; iparam++)
-                            {
-                                double[] InputPlus = input.ToArray();
-                                for (int p = 0; p < Particles.Length; p++)
-                                    InputPlus[Offset + p * 5 * TemporalRes + iparam] += Delta;
-
-                                SetWarpFromVector(InputPlus, this, true);
-                                double[] ScoresPlus = GetPerParticleDiff2();
-
-                                double[] InputMinus = input.ToArray();
-                                for (int p = 0; p < Particles.Length; p++)
-                                    InputMinus[Offset + p * 5 * TemporalRes + iparam] -= Delta;
-
-                                SetWarpFromVector(InputMinus, this, true);
-                                double[] ScoresMinus = GetPerParticleDiff2();
-
-                                for (int p = 0; p < Particles.Length; p++)
-                                    Result[Offset + p * 5 * TemporalRes + iparam] = (ScoresPlus[p] - ScoresMinus[p]) / Delta2;
-                            }
-
-                        if ((CurrentOptimizationTypeWarp & WarpOptimizationTypes.ParticleAngle) != 0)
-                            for (int iparam = 2 * TemporalRes; iparam < 5 * TemporalRes; iparam++)
-                            {
-                                double[] InputPlus = input.ToArray();
-                                for (int p = 0; p < Particles.Length; p++)
-                                    InputPlus[Offset + p * 5 * TemporalRes + iparam] += Delta;
-
-                                SetWarpFromVector(InputPlus, this, true);
-                                double[] ScoresPlus = GetPerParticleDiff2();
-
-                                double[] InputMinus = input.ToArray();
-                                for (int p = 0; p < Particles.Length; p++)
-                                    InputMinus[Offset + p * 5 * TemporalRes + iparam] -= Delta;
-
-                                SetWarpFromVector(InputMinus, this, true);
-                                double[] ScoresMinus = GetPerParticleDiff2();
-
-                                for (int p = 0; p < Particles.Length; p++)
-                                    Result[Offset + p * 5 * TemporalRes + iparam] = (ScoresPlus[p] - ScoresMinus[p]) / Delta2;
-                            }
-
-                        Offset += Particles.Length * (TemporalRes * 2);
-                    }
-
-                    if ((CurrentOptimizationTypeWarp & WarpOptimizationTypes.BeamTilt) != 0)
-                    {
-                        for (int iparam = 0; iparam < 2; iparam++)
+                        for (int a = 0; a < 3; a++)
                         {
-                            double[] InputPlus = input.ToArray();
-                            for (int iwiggle = 0; iwiggle < NWiggleDifferentiableBeamTilt; iwiggle++)
-                                InputPlus[Offset + iparam * NWiggleDifferentiableBeamTilt + iwiggle] += 0.001;
-
-                            SetWarpFromVector(InputPlus, this, true);
-                            double[] ScoresPlus = GetPerParticleDiff2();
-
-                            double[] InputMinus = input.ToArray();
-                            for (int iwiggle = 0; iwiggle < NWiggleDifferentiableBeamTilt; iwiggle++)
-                                InputMinus[Offset + iparam * NWiggleDifferentiableBeamTilt + iwiggle] -= 0.001;
-
-                            SetWarpFromVector(InputMinus, this, true);
-                            double[] ScoresMinus = GetPerParticleDiff2();
-
-                            float[] Diff = new float[ScoresPlus.Length];
-                            for (int i = 0; i < Diff.Length; i++)
-                                Diff[i] = (float)(ScoresPlus[i] - ScoresMinus[i]);
-
-                            for (int iwiggle = 0; iwiggle < NWiggleDifferentiableBeamTilt; iwiggle++)
+                            for (int i = 0; i < SliceElements; i++)
                             {
-                                float Sum = 0;
-                                float[] Weights = AllWiggleWeightsBeamTilt[iwiggle].weights;
-                                for (int i = 0; i < Weights.Length; i++)
-                                    Sum += Diff[i] * Weights[i];
+                                double[] InputPlus = input.ToArray();
+                                for (int t = 0; t < NFrames; t++)
+                                    InputPlus[Offset + t * SliceElements + i] += Delta;
 
-                                Result[Offset + iparam * NWiggleDifferentiableBeamTilt + iwiggle] = Sum / 0.002;
+                                SetWarpFromVector(InputPlus, this, true);
+                                double[] ScoresPlus = GetPerFrameCC();
+
+                                double[] InputMinus = input.ToArray();
+                                for (int t = 0; t < NFrames; t++)
+                                    InputMinus[Offset + t * SliceElements + i] -= Delta;
+
+                                SetWarpFromVector(InputMinus, this, true);
+                                double[] ScoresMinus = GetPerFrameCC();
+
+                                for (int t = 0; t < NFrames; t++)
+                                    Result[Offset + t * SliceElements + i] = (ScoresPlus[t] - ScoresMinus[t]) / Delta2;
                             }
+
+                            Offset += GridAngleX.Values.Length;
                         }
                     }
+                    else
+                    {
+                        Offset += GridAngleX.Values.Length * 3;
+                    }
+
+                    {
+                        for (int ispecies = 0; ispecies < allSpecies.Length; ispecies++)
+                        {
+                            Species Species = allSpecies[ispecies];
+                            Particle[] Particles = SpeciesParticles[Species];
+
+                            int TemporalRes = allSpecies[ispecies].TemporalResolutionMovement;
+
+                            if ((CurrentOptimizationTypeWarp & WarpOptimizationTypes.ParticlePosition) != 0)
+                                for (int iparam = 0; iparam < 2 * TemporalRes; iparam++)
+                                {
+                                    double[] InputPlus = input.ToArray();
+                                    for (int p = 0; p < Particles.Length; p++)
+                                        InputPlus[Offset + p * 5 * TemporalRes + iparam] += Delta;
+
+                                    SetWarpFromVector(InputPlus, this, true);
+                                    double[] ScoresPlus = GetPerParticleCCSpecies(Species);
+
+                                    double[] InputMinus = input.ToArray();
+                                    for (int p = 0; p < Particles.Length; p++)
+                                        InputMinus[Offset + p * 5 * TemporalRes + iparam] -= Delta;
+
+                                    SetWarpFromVector(InputMinus, this, true);
+                                    double[] ScoresMinus = GetPerParticleCCSpecies(Species);
+
+                                    for (int p = 0; p < Particles.Length; p++)
+                                        Result[Offset + p * 5 * TemporalRes + iparam] = (ScoresPlus[p] - ScoresMinus[p]) / Delta2;
+                                }
+
+                            if ((CurrentOptimizationTypeWarp & WarpOptimizationTypes.ParticleAngle) != 0)
+                                for (int iparam = 2 * TemporalRes; iparam < 5 * TemporalRes; iparam++)
+                                {
+                                    double[] InputPlus = input.ToArray();
+                                    for (int p = 0; p < Particles.Length; p++)
+                                        InputPlus[Offset + p * 5 * TemporalRes + iparam] += Delta;
+
+                                    SetWarpFromVector(InputPlus, this, true);
+                                    double[] ScoresPlus = GetPerParticleCCSpecies(Species);
+
+                                    double[] InputMinus = input.ToArray();
+                                    for (int p = 0; p < Particles.Length; p++)
+                                        InputMinus[Offset + p * 5 * TemporalRes + iparam] -= Delta;
+
+                                    SetWarpFromVector(InputMinus, this, true);
+                                    double[] ScoresMinus = GetPerParticleCCSpecies(Species);
+
+                                    for (int p = 0; p < Particles.Length; p++)
+                                        Result[Offset + p * 5 * TemporalRes + iparam] = (ScoresPlus[p] - ScoresMinus[p]) / Delta2;
+                                }
+
+                            Offset += OriginalParticlePositions[ispecies].Length * 5; // No * TemporalRes because it's already included in OriginalParticlePositions
+                        }
+                    }
+
+                    if ((CurrentOptimizationTypeWarp & WarpOptimizationTypes.Zernike13) != 0)
+                    {
+                        for (int iparam = 0; iparam < Math.Min(6, CTF.ZernikeCoeffsOdd.Length); iparam++)
+                        {
+                            double[] InputPlus = input.ToArray();
+                            InputPlus[Offset + iparam] += Delta;
+
+                            //SetWarpFromVector(InputPlus, this, true);
+                            double ScoresPlus = WarpEval(InputPlus);
+
+                            double[] InputMinus = input.ToArray();
+                            InputMinus[Offset + iparam] -= Delta;
+
+                            //SetWarpFromVector(InputMinus, this, true);
+                            double ScoresMinus = WarpEval(InputMinus);
+
+                            Result[Offset + iparam] = (ScoresPlus - ScoresMinus) / Delta2;
+                        }
+                    }
+
+                    if ((CurrentOptimizationTypeWarp & WarpOptimizationTypes.Zernike5) != 0)
+                    {
+                        for (int iparam = Math.Min(6, CTF.ZernikeCoeffsOdd.Length); iparam < Math.Min(12, CTF.ZernikeCoeffsOdd.Length); iparam++)
+                        {
+                            double[] InputPlus = input.ToArray();
+                            InputPlus[Offset + iparam] += Delta;
+
+                            //SetWarpFromVector(InputPlus, this, true);
+                            double ScoresPlus = WarpEval(InputPlus);
+
+                            double[] InputMinus = input.ToArray();
+                            InputMinus[Offset + iparam] -= Delta;
+
+                            //SetWarpFromVector(InputMinus, this, true);
+                            double ScoresMinus = WarpEval(InputMinus);
+
+                            Result[Offset + iparam] = (ScoresPlus - ScoresMinus) / Delta2;
+                        }
+                    }
+
+                    Offset += CTF.ZernikeCoeffsOdd.Length;
 
                     if ((CurrentOptimizationTypeWarp & WarpOptimizationTypes.Magnification) != 0)
                     {
@@ -5350,14 +5911,14 @@ namespace Warp
                             double[] InputPlus = input.ToArray();
                             InputPlus[input.Length - 3 + iparam] += Delta;
 
-                            SetWarpFromVector(InputPlus, this, true);
-                            double ScoresPlus = GetPerParticleDiff2().Sum();
+                            //SetWarpFromVector(InputPlus, this, true);
+                            double ScoresPlus = WarpEval(InputPlus);
 
                             double[] InputMinus = input.ToArray();
                             InputMinus[input.Length - 3 + iparam] -= Delta;
 
-                            SetWarpFromVector(InputMinus, this, true);
-                            double ScoresMinus = GetPerParticleDiff2().Sum();
+                            //SetWarpFromVector(InputMinus, this, true);
+                            double ScoresMinus = WarpEval(InputMinus);
 
                             Result[input.Length - 3 + iparam] = (ScoresPlus - ScoresMinus) / Delta2;
                         }
@@ -5377,41 +5938,65 @@ namespace Warp
                 {
                     SetDefocusFromVector(input, this, true);
 
-                    double Score = 0;
+                    double ScoreAB = 0, ScoreA2 = 0, ScoreB2 = 0;
 
                     float AngPixExtract = (float)OptionsDataLoad.BinnedPixelSizeMean;
-                    int BatchSize = 24;
-                    float[] hp_Result = new float[BatchSize * 3];
+                    int BatchSize = optionsMPA.BatchSize;
+                    float[] ResultP = new float[BatchSize * 3];
+                    float[] ResultQ = new float[BatchSize * 3];
 
                     foreach (var species in allSpecies)
                     {
                         if (!SpeciesParticles.ContainsKey(species))
                             continue;
+
                         Particle[] Particles = SpeciesParticles[species];
                         int NParticles = Particles.Length;
+                        if (NParticles == 0)
+                            continue;
+
                         int SizeRefine = species.HalfMap1Projector[GPUID].Dims.X;
-                        int SizeRefineSuper = SizeRefine * 2;
+                        int SizeRefineSuper = SizeRefine * SpeciesCTFSuperresFactor[species];
                         int SizeFull = species.HalfMap1Reconstruction[GPUID].Dims.X;
-                        int SizeFullSuper = SizeFull * 2;
+                        int SizeFullSuper = SizeFull * SpeciesCTFSuperresFactor[species];
+
                         float AngPixRefine = species.ResolutionRefinement / 2;
                         int ParticleDiameterPix = (int)(species.DiameterAngstrom / AngPixRefine);
 
-                        Image CoordsCTF = CTF.GetCTFCoords(SizeRefineSuper, SizeRefineSuper);
-                        CTF CTFCopy = CTF.GetCopy();
-                        CTFCopy.PixelSize = species.PixelSize;
-                        Image BeamTiltCoords = CTFCopy.GetBeamTiltCoords(SizeRefine, SizeFull);
+                        int[] RelevantSizes = SpeciesRelevantRefinementSizes[species];
+
+                        Image CoordsCTF = CTF.GetCTFCoords(SizeRefineSuper, SizeRefineSuper);   // Not SizeFullSuper because CTF creation later adjusts pixel size to AngPixRefine
 
                         Image Extracted = new Image(IntPtr.Zero, new int3(SizeFullSuper, SizeFullSuper, BatchSize), true, true);
                         Image ExtractedFT = new Image(IntPtr.Zero, new int3(SizeFullSuper, SizeFullSuper, BatchSize), true, true);
-                        Image ExtractedCropped = new Image(IntPtr.Zero, new int3(SizeRefine, SizeRefine, BatchSize));
+                        Image ExtractedCropped = new Image(IntPtr.Zero, new int3(SizeRefine, SizeRefine, BatchSize), true, true);
                         Image ExtractedCroppedFT = new Image(IntPtr.Zero, new int3(SizeRefine, SizeRefine, BatchSize), true, true);
-                        Image ExtractedCTF = new Image(IntPtr.Zero, new int3(SizeRefineSuper, SizeRefineSuper, BatchSize), true);
-
-                        //Image SumAll = new Image(new int3(SizeRefine, SizeRefine, BatchSize));
+                        Image ExtractedCTF = new Image(IntPtr.Zero, new int3(SizeRefineSuper, SizeRefineSuper, BatchSize), true, true);
 
                         int PlanForwSuper = GPU.CreateFFTPlan(new int3(SizeFullSuper, SizeFullSuper, 1), (uint)BatchSize);
                         int PlanBackSuper = GPU.CreateIFFTPlan(new int3(SizeRefineSuper, SizeRefineSuper, 1), (uint)BatchSize);
                         int PlanForw = GPU.CreateFFTPlan(new int3(SizeRefine, SizeRefine, 1), (uint)BatchSize);
+
+                        if (PlanForwSuper <= 0 || PlanBackSuper <= 0 || PlanForw <= 0)
+                        {
+                            Console.WriteLine($"SizeFullSuper = {SizeFullSuper}, BatchSize = {BatchSize}, free memory = {GPU.GetFreeMemory(GPUID)}");
+                            throw new Exception("No FFT plans created!");
+                        }
+
+                        Image PhaseCorrection = CTF.GetPhaseCorrection(AngPixRefine, SizeRefine);
+                        Image PhaseCorrectionAll = new Image(new int3(SizeRefine, SizeRefine, NFrames), true, true);
+                        for (int f = 0; f < NFrames; f++)
+                            GPU.CropFT(PhaseCorrection.GetDevice(Intent.Read),
+                                       PhaseCorrectionAll.GetDeviceSlice(f, Intent.Write),
+                                       PhaseCorrection.Dims.Slice(),
+                                       new int3(RelevantSizes[f]).Slice(),
+                                       1);
+                        PhaseCorrection.Dispose();
+
+                        Image GammaCorrection = CTF.GetGammaCorrection(AngPixRefine, SizeRefineSuper);
+
+                        bool[] EwaldReverse = { species.EwaldReverse, !species.EwaldReverse };
+                        float[][] EwaldResults = { ResultP, ResultQ };
 
                         for (int batchStart = 0; batchStart < NParticles; batchStart += BatchSize)
                         {
@@ -5427,13 +6012,12 @@ namespace Warp
                                 for (int p = 0; p < CurBatch; p++)
                                 {
                                     CoordinatesFrame[p] = CoordinatesMoving[p * NFrames + f];
-                                    AnglesFrame[p] = AnglesMoving[p * NFrames + f] * Helper.ToRad;
+                                    AnglesFrame[p] = AnglesMoving[p * NFrames + f];// * Helper.ToRad;
                                 }
 
                                 float3[] ImageCoords = GetPositionsInOneFrame(CoordinatesFrame, f);
-                                float3[] ImageAngles = AnglesFrame;
+                                float3[] ImageAngles = GetAnglesInOneFrame(CoordinatesFrame, AnglesFrame, f);// AnglesFrame;
                                 float2[] Astigmatism = GetAstigmatism(CoordinatesFrame);
-                                float2[] BeamTilts = GetBeamTilt(CoordinatesFrame);
 
                                 float3[] Defoci = new float3[CurBatch];
                                 int3[] ExtractOrigins = new int3[CurBatch];
@@ -5448,108 +6032,124 @@ namespace Warp
                                     Defoci[p].Z = Astigmatism[p].Y;
                                 }
 
-                                GPU.Extract(FrameData[f].GetDevice(Intent.Read),
-                                            Extracted.GetDevice(Intent.Write),
-                                            FrameData[f].Dims.Slice(),
-                                            new int3(SizeFullSuper, SizeFullSuper, 1),
-                                            Helper.ToInterleaved(ExtractOrigins),
-                                            (uint)CurBatch);
-
-                                GPU.FFT(Extracted.GetDevice(Intent.Read),
-                                        ExtractedFT.GetDevice(Intent.Write),
-                                        new int3(SizeFullSuper, SizeFullSuper, 1),
-                                        (uint)CurBatch,
-                                        PlanForwSuper);
-
-                                ExtractedFT.ShiftSlices(ResidualShifts);
-                                ExtractedFT.Multiply(1f / (SizeFullSuper * SizeFullSuper));
-
-                                GPU.CropFT(ExtractedFT.GetDevice(Intent.Read),
-                                           Extracted.GetDevice(Intent.Write),
-                                           new int3(SizeFullSuper, SizeFullSuper, 1),
-                                           new int3(SizeRefineSuper, SizeRefineSuper, 1),
-                                           (uint)CurBatch);
-
-                                GetCTFsForOneFrame(AngPixRefine, Defoci, CoordsCTF, f, ExtractedCTF, true);
-
-                                //GPU.MultiplyComplexSlicesByComplex(Extracted.GetDevice(Intent.Read),
-                                //                                   BeamTiltCorrection.GetDevice(Intent.Read),
-                                //                                   Extracted.GetDevice(Intent.Write),
-                                //                                   BeamTiltCorrection.ElementsSliceComplex,
-                                //                                   (uint)CurBatch);
-
-                                GPU.MultiplyComplexSlicesByScalar(Extracted.GetDevice(Intent.Read),
-                                                                  ExtractedCTF.GetDevice(Intent.Read),
-                                                                  ExtractedFT.GetDevice(Intent.Write),
-                                                                  ExtractedCTF.ElementsReal,
-                                                                  1);
-
-                                GPU.IFFT(ExtractedFT.GetDevice(Intent.Read),
-                                         Extracted.GetDevice(Intent.Write),
-                                         new int3(SizeRefineSuper, SizeRefineSuper, 1),
-                                         (uint)CurBatch,
-                                         PlanBackSuper,
-                                         false);
-
-                                GPU.CropFTFull(Extracted.GetDevice(Intent.Read),
-                                                ExtractedCropped.GetDevice(Intent.Write),
-                                                new int3(SizeRefineSuper, SizeRefineSuper, 1),
-                                                new int3(SizeRefine, SizeRefine, 1),
+                                for (int iewald = 0; iewald < (species.DoEwald ? 2 : 1); iewald++)
+                                {
+                                    GPU.Extract(FrameData[f].GetDevice(Intent.Read),
+                                                Extracted.GetDevice(Intent.Write),
+                                                FrameData[f].Dims.Slice(),
+                                                new int3(SizeFullSuper, SizeFullSuper, 1),
+                                                Helper.ToInterleaved(ExtractOrigins),
                                                 (uint)CurBatch);
 
-                                GPU.SphereMask(ExtractedCropped.GetDevice(Intent.Read),
-                                               ExtractedCropped.GetDevice(Intent.Write),
-                                               ExtractedCropped.Dims.Slice(),
-                                               ParticleDiameterPix / 2f * 1.3f,
-                                               16 * AngPixExtract / AngPixRefine,
-                                               true,
+                                    GPU.FFT(Extracted.GetDevice(Intent.Read),
+                                            ExtractedFT.GetDevice(Intent.Write),
+                                            new int3(SizeFullSuper, SizeFullSuper, 1),
+                                            (uint)CurBatch,
+                                            PlanForwSuper);
+
+                                    ExtractedFT.ShiftSlices(ResidualShifts);
+                                    ExtractedFT.Multiply(1f / (SizeFullSuper * SizeFullSuper));
+
+                                    GPU.CropFT(ExtractedFT.GetDevice(Intent.Read),
+                                               Extracted.GetDevice(Intent.Write),
+                                               new int3(SizeFullSuper, SizeFullSuper, 1),
+                                               new int3(SizeRefineSuper, SizeRefineSuper, 1),
                                                (uint)CurBatch);
 
-                                //SumAll.Add(ExtractedCropped);
+                                    if (species.DoEwald)
+                                    {
+                                        GetComplexCTFsForOneFrame(AngPixRefine, Defoci, ImageCoords, CoordsCTF, GammaCorrection, f, EwaldReverse[iewald], ExtractedCTF, true);
 
-                                GPU.FFT(ExtractedCropped.GetDevice(Intent.Read),
-                                        ExtractedCroppedFT.GetDevice(Intent.Write),
-                                        new int3(SizeRefine, SizeRefine, 1),
-                                        (uint)CurBatch,
-                                        PlanForw);
+                                        GPU.MultiplyComplexSlicesByComplex(Extracted.GetDevice(Intent.Read),
+                                                                          ExtractedCTF.GetDevice(Intent.Read),
+                                                                          ExtractedFT.GetDevice(Intent.Write),
+                                                                          ExtractedCTF.ElementsComplex,
+                                                                          1);
+                                    }
+                                    else
+                                    {
+                                        GetCTFsForOneFrame(AngPixRefine, Defoci, ImageCoords, CoordsCTF, GammaCorrection, f, ExtractedCTF, true);
 
-                                ExtractedCroppedFT.Multiply(1f / (SizeRefine * SizeRefine));
+                                        GPU.MultiplyComplexSlicesByScalar(Extracted.GetDevice(Intent.Read),
+                                                                          ExtractedCTF.GetDevice(Intent.Read),
+                                                                          ExtractedFT.GetDevice(Intent.Write),
+                                                                          ExtractedCTF.ElementsComplex,
+                                                                          1);
+                                    }
+
+                                    GPU.IFFT(ExtractedFT.GetDevice(Intent.Read),
+                                             Extracted.GetDevice(Intent.Write),
+                                             new int3(SizeRefineSuper, SizeRefineSuper, 1),
+                                             (uint)CurBatch,
+                                             PlanBackSuper,
+                                             false);
+
+                                    GPU.CropFTFull(Extracted.GetDevice(Intent.Read),
+                                                    ExtractedCropped.GetDevice(Intent.Write),
+                                                    new int3(SizeRefineSuper, SizeRefineSuper, 1),
+                                                    new int3(SizeRefine, SizeRefine, 1),
+                                                    (uint)CurBatch);
+
+                                    GPU.SphereMask(ExtractedCropped.GetDevice(Intent.Read),
+                                                   ExtractedCropped.GetDevice(Intent.Write),
+                                                   ExtractedCropped.Dims.Slice(),
+                                                   ParticleDiameterPix / 2f * 1.3f,
+                                                   16 * AngPixExtract / AngPixRefine,
+                                                   true,
+                                                   (uint)CurBatch);
+
+                                    //SumAll.Add(ExtractedCropped);
+
+                                    GPU.FFT(ExtractedCropped.GetDevice(Intent.Read),
+                                            ExtractedCroppedFT.GetDevice(Intent.Write),
+                                            new int3(SizeRefine, SizeRefine, 1),
+                                            (uint)CurBatch,
+                                            PlanForw);
+
+                                    ExtractedCroppedFT.Multiply(1f / (SizeRefine * SizeRefine));
+
+                                    GPU.CropFT(ExtractedCroppedFT.GetDevice(Intent.Read),
+                                               ExtractedCropped.GetDevice(Intent.Write),
+                                               new int3(SizeRefine).Slice(),
+                                               new int3(RelevantSizes[f]).Slice(),
+                                               (uint)CurBatch);
 
 
-                                GPU.MultiParticleDiff(hp_Result,
-                                                      new IntPtr[] { ExtractedCroppedFT.GetDevice(Intent.Read) },
-                                                      SizeRefine,
-                                                      null,
-                                                      new float[CurBatch * 2],
-                                                      Helper.ToInterleaved(ImageAngles),
-                                                      MagnificationCorrection * new float3(species.HalfMap1Projector[GPUID].Oversampling,
-                                                                                           species.HalfMap1Projector[GPUID].Oversampling,
-                                                                                           1),
-                                                      Helper.ToInterleaved(BeamTilts),
-                                                      SpeciesCTFWeights[species].GetDeviceSlice(f, Intent.Read),
-                                                      BeamTiltCoords.GetDevice(Intent.Read),
-                                                      new[] { species.HalfMap1Projector[GPUID].t_DataRe, species.HalfMap2Projector[GPUID].t_DataRe },
-                                                      new[] { species.HalfMap1Projector[GPUID].t_DataIm, species.HalfMap2Projector[GPUID].t_DataIm },
-                                                      species.HalfMap1Projector[GPUID].DimsOversampled.X,
-                                                      new IntPtr((long)SpeciesParticleSubsets[species] + batchStart * sizeof(int)),
-                                                      CurBatch,
-                                                      1);
+                                    GPU.MultiParticleDiff(EwaldResults[iewald],
+                                                          new IntPtr[] { ExtractedCropped.GetDevice(Intent.Read) },
+                                                          SizeRefine,
+                                                          new[] { RelevantSizes[f] },
+                                                          new float[CurBatch * 2],
+                                                          Helper.ToInterleaved(ImageAngles),
+                                                          MagnificationCorrection,
+                                                          SpeciesCTFWeights[species].GetDeviceSlice(f, Intent.Read),
+                                                          PhaseCorrectionAll.GetDeviceSlice(f, Intent.Read),
+                                                          species.DoEwald ? CTF.GetEwaldRadius(SizeFull, (float)species.PixelSize) * (iewald == 0 ? 1 : -1) : 0,
+                                                          species.CurrentMaxShellRefinement,
+                                                          new[] { species.HalfMap1Projector[GPUID].t_DataRe, species.HalfMap2Projector[GPUID].t_DataRe },
+                                                          new[] { species.HalfMap1Projector[GPUID].t_DataIm, species.HalfMap2Projector[GPUID].t_DataIm },
+                                                          species.HalfMap1Projector[GPUID].Oversampling,
+                                                          species.HalfMap1Projector[GPUID].DimsOversampled.X,
+                                                          new IntPtr((long)SpeciesParticleSubsets[species] + batchStart * sizeof(int)),
+                                                          CurBatch,
+                                                          1);
+                                }
 
                                 for (int i = 0; i < CurBatch; i++)
                                 {
-                                    //if (CoordinatesFrame[i].X < ImageDimensionsPhysical.X / 3 || CoordinatesFrame[i].X > ImageDimensionsPhysical.X * 2 / 3 ||
-                                    //    CoordinatesFrame[i].Y < ImageDimensionsPhysical.Y / 3 || CoordinatesFrame[i].Y > ImageDimensionsPhysical.Y * 2 / 3)
-                                    //    continue;
-
-                                    Score += hp_Result[i];
+                                    ScoreAB += ResultP[i * 3 + 0] + ResultQ[i * 3 + 0];
+                                    ScoreA2 += ResultP[i * 3 + 1] + ResultQ[i * 3 + 1];
+                                    ScoreB2 += ResultP[i * 3 + 2] + ResultQ[i * 3 + 2];
+                                    //Debug.WriteLine(Result[i * 3 + 0]);
+                                    //Debug.WriteLine(Result[i * 3 + 1]);
+                                    //Debug.WriteLine(Result[i * 3 + 2]);
                                 }
                             }
                         }
 
-                        //SumAll.WriteMRC("d_eval_sumall.mrc", true);
-
+                        PhaseCorrectionAll.Dispose();
+                        GammaCorrection.Dispose();
                         CoordsCTF.Dispose();
-                        BeamTiltCoords.Dispose();
                         Extracted.Dispose();
                         ExtractedFT.Dispose();
                         ExtractedCropped.Dispose();
@@ -5561,12 +6161,13 @@ namespace Warp
                         GPU.DestroyFFTPlan(PlanForw);
                     }
 
-                    foreach (var image in FrameData)
-                        image.FreeDevice();
+                    //foreach (var image in FrameData)
+                    //    image.FreeDevice();
 
+                    double Score = ScoreAB / Math.Max(1e-10, Math.Sqrt(ScoreA2 * ScoreB2)) * NParticlesOverall * NFrames;
                     Score *= 100;
 
-                    Debug.WriteLine(Score);
+                    Console.WriteLine(Score);
 
                     return Score;
                 };
@@ -5579,9 +6180,14 @@ namespace Warp
                     double[] Deltas = { Delta, -Delta };
 
                     double[] Result = new double[input.Length];
-                    double[] Scores = new double[input.Length * 2];
+                    double[] ScoresAB = new double[input.Length * 2];
+                    double[] ScoresA2 = new double[input.Length * 2];
+                    double[] ScoresB2 = new double[input.Length * 2];
+                    int[] ScoresSamples = new int[input.Length * 2];
 
-                    float[][] PerParticleScores = Helper.ArrayOfFunction(i => new float[NParticlesOverall * 2], CTFStepTypes.Length);
+                    float[][] PerParticleScoresAB = Helper.ArrayOfFunction(i => new float[(CTFStepTypes[i] & CTFOptimizationTypes.Doming) == 0 ? NParticlesOverall * 2 : NParticlesOverall * NFrames * 2], CTFStepTypes.Length);
+                    float[][] PerParticleScoresA2 = Helper.ArrayOfFunction(i => new float[(CTFStepTypes[i] & CTFOptimizationTypes.Doming) == 0 ? NParticlesOverall * 2 : NParticlesOverall * NFrames * 2], CTFStepTypes.Length);
+                    float[][] PerParticleScoresB2 = Helper.ArrayOfFunction(i => new float[(CTFStepTypes[i] & CTFOptimizationTypes.Doming) == 0 ? NParticlesOverall * 2 : NParticlesOverall * NFrames * 2], CTFStepTypes.Length);
 
                     if (BFGSIterations-- <= 0)
                         return Result;
@@ -5590,35 +6196,63 @@ namespace Warp
                         return OldGradient;
 
                     float AngPixExtract = (float)OptionsDataLoad.BinnedPixelSizeMean;
-                    int BatchSize = 24;
-                    float[] hp_Result = new float[BatchSize * 3];
+                    int BatchSize = optionsMPA.BatchSize;
+                    float[] ResultP = new float[BatchSize * 3];
+                    float[] ResultQ = new float[BatchSize * 3];
 
                     foreach (var species in allSpecies)
                     {
-                        if (!SpeciesParticles.ContainsKey(species))
+                        if (!SpeciesParticles.ContainsKey(species) ||
+                            species.ResolutionRefinement > (float)optionsMPA.MinimumCTFRefinementResolution)
                             continue;
+
                         Particle[] Particles = SpeciesParticles[species];
                         int NParticles = Particles.Length;
+                        if (NParticles == 0)
+                            continue;
+
+                        int SpeciesOffset = SpeciesParticleIDRanges[species].Start;
+
                         int SizeRefine = species.HalfMap1Projector[GPUID].Dims.X;
-                        int SizeRefineSuper = SizeRefine * 2;
+                        int SizeRefineSuper = SizeRefine * SpeciesCTFSuperresFactor[species];
                         int SizeFull = species.HalfMap1Reconstruction[GPUID].Dims.X;
-                        int SizeFullSuper = SizeFull * 2;
+                        int SizeFullSuper = SizeFull * SpeciesCTFSuperresFactor[species];
                         float AngPixRefine = species.ResolutionRefinement / 2;
                         int ParticleDiameterPix = (int)(species.DiameterAngstrom / AngPixRefine);
 
+                        int[] RelevantSizes = SpeciesRelevantRefinementSizes[species];
+
                         Image CoordsCTF = CTF.GetCTFCoords(SizeRefineSuper, SizeRefineSuper);
-                        //Image BeamTiltCorrection = CTF.GetBeamTilt(SizeRefineSuper, SizeFullSuper);
 
                         Image Extracted = new Image(IntPtr.Zero, new int3(SizeFullSuper, SizeFullSuper, BatchSize), true, true);
                         Image ExtractedFT = new Image(IntPtr.Zero, new int3(SizeFullSuper, SizeFullSuper, BatchSize), true, true);
                         Image ExtractedRefineSuper = new Image(IntPtr.Zero, new int3(SizeRefineSuper, SizeRefineSuper, BatchSize), true, true);
-                        Image ExtractedCropped = new Image(IntPtr.Zero, new int3(SizeRefine, SizeRefine, BatchSize));
+                        Image ExtractedCropped = new Image(IntPtr.Zero, new int3(SizeRefine, SizeRefine, BatchSize), true, true);
                         Image ExtractedCroppedFT = new Image(IntPtr.Zero, new int3(SizeRefine, SizeRefine, BatchSize), true, true);
-                        Image ExtractedCTF = new Image(IntPtr.Zero, new int3(SizeRefineSuper, SizeRefineSuper, BatchSize), true);
+                        Image ExtractedCTF = new Image(IntPtr.Zero, new int3(SizeRefineSuper, SizeRefineSuper, BatchSize), true, true);
 
                         int PlanForwSuper = GPU.CreateFFTPlan(new int3(SizeFullSuper, SizeFullSuper, 1), (uint)BatchSize);
                         int PlanBackSuper = GPU.CreateIFFTPlan(new int3(SizeRefineSuper, SizeRefineSuper, 1), (uint)BatchSize);
                         int PlanForw = GPU.CreateFFTPlan(new int3(SizeRefine, SizeRefine, 1), (uint)BatchSize);
+
+                        if (PlanForwSuper <= 0 || PlanBackSuper <= 0 || PlanForw <= 0)
+                        {
+                            Console.WriteLine($"SizeFullSuper = {SizeFullSuper}, BatchSize = {BatchSize}, free memory = {GPU.GetFreeMemory(GPUID)}");
+                            throw new Exception("No FFT plans created!");
+                        }
+
+                        Image PhaseCorrection = CTF.GetPhaseCorrection(AngPixRefine, SizeRefine);
+                        Image PhaseCorrectionAll = new Image(new int3(SizeRefine, SizeRefine, NFrames), true, true);
+                        for (int t = 0; t < NFrames; t++)
+                            GPU.CropFT(PhaseCorrection.GetDevice(Intent.Read),
+                                        PhaseCorrectionAll.GetDeviceSlice(t, Intent.Write),
+                                        PhaseCorrection.Dims.Slice(),
+                                        new int3(RelevantSizes[t]).Slice(),
+                                        1);
+                        PhaseCorrection.Dispose();
+
+                        bool[] EwaldReverse = { species.EwaldReverse, !species.EwaldReverse };
+                        float[][] EwaldResults = { ResultP, ResultQ };
 
                         for (int batchStart = 0; batchStart < NParticles; batchStart += BatchSize)
                         {
@@ -5634,11 +6268,11 @@ namespace Warp
                                 for (int p = 0; p < CurBatch; p++)
                                 {
                                     CoordinatesFrame[p] = CoordinatesMoving[p * NFrames + f];
-                                    AnglesFrame[p] = AnglesMoving[p * NFrames + f] * Helper.ToRad;
+                                    AnglesFrame[p] = AnglesMoving[p * NFrames + f];// * Helper.ToRad;
                                 }
 
                                 float3[] ImageCoords = GetPositionsInOneFrame(CoordinatesFrame, f);
-                                float3[] ImageAngles = AnglesFrame;
+                                float3[] ImageAngles = GetAnglesInOneFrame(CoordinatesFrame, AnglesFrame, f);// AnglesFrame;
 
                                 float3[] Defoci = new float3[CurBatch];
                                 int3[] ExtractOrigins = new int3[CurBatch];
@@ -5651,11 +6285,11 @@ namespace Warp
                                 }
 
                                 GPU.Extract(FrameData[f].GetDevice(Intent.Read),
-                                            Extracted.GetDevice(Intent.Write),
-                                            FrameData[f].Dims.Slice(),
-                                            new int3(SizeFullSuper, SizeFullSuper, 1),
-                                            Helper.ToInterleaved(ExtractOrigins),
-                                            (uint)CurBatch);
+                                        Extracted.GetDevice(Intent.Write),
+                                        FrameData[f].Dims.Slice(),
+                                        new int3(SizeFullSuper, SizeFullSuper, 1),
+                                        Helper.ToInterleaved(ExtractOrigins),
+                                        (uint)CurBatch);
 
                                 GPU.FFT(Extracted.GetDevice(Intent.Read),
                                         ExtractedFT.GetDevice(Intent.Write),
@@ -5696,6 +6330,11 @@ namespace Warp
                                             for (int i = 0; i < GridCTFDefocusAngle.Values.Length; i++)
                                                 InputAltered[NParticlesOverall + GridCTFDefocusDelta.Values.Length + i] += Deltas[idelta];
                                         }
+                                        else if (CTFStepTypes[iparam] == CTFOptimizationTypes.Doming)
+                                        {
+                                            for (int i = 0; i < GridCTFDoming.Values.Length; i++)
+                                                InputAltered[NParticlesOverall + GridCTFDefocusDelta.Values.Length * 2 + i] += Deltas[idelta];
+                                        }
                                         else
                                         {
                                             InputAltered[InputAltered.Length - CTFStepTypes.Length + iparam] += Deltas[idelta];
@@ -5708,95 +6347,113 @@ namespace Warp
 
                                         ImageCoords = GetPositionsInOneFrame(CoordinatesFrame, f);
                                         float2[] Astigmatism = GetAstigmatism(CoordinatesFrame);
-                                        float2[] BeamTilts = GetBeamTilt(CoordinatesFrame);
                                         for (int p = 0; p < CurBatch; p++)
                                         {
                                             Defoci[p].X = ImageCoords[p].Z;
                                             Defoci[p].Y = Astigmatism[p].X;
                                             Defoci[p].Z = Astigmatism[p].Y;
                                         }
-                                        GetCTFsForOneFrame(AngPixRefine, Defoci, CoordsCTF, f, ExtractedCTF, true);
-
-                                        CTF CTFCopy = CTF.GetCopy();
-                                        CTFCopy.PixelSize = species.PixelSize;
-                                        Image BeamTiltCoords = CTFCopy.GetBeamTiltCoords(SizeRefine, SizeFull);
-
-                                        //GPU.MultiplyComplexSlicesByComplex(Extracted.GetDevice(Intent.Read),
-                                        //                                   BeamTiltCorrection.GetDevice(Intent.Read),
-                                        //                                   ExtractedFT.GetDevice(Intent.Write),
-                                        //                                   BeamTiltCorrection.ElementsSliceComplex,
-                                        //                                   (uint)CurBatch);
 
 
-                                        GPU.MultiplyComplexSlicesByScalar(Extracted.GetDevice(Intent.Read),
-                                                                          ExtractedCTF.GetDevice(Intent.Read),
-                                                                          ExtractedFT.GetDevice(Intent.Write),
-                                                                          ExtractedCTF.ElementsReal,
-                                                                          1);
+                                        Image GammaCorrection = CTF.GetGammaCorrection(AngPixRefine, SizeRefineSuper);
 
-                                        GPU.IFFT(ExtractedFT.GetDevice(Intent.Read),
-                                                 ExtractedRefineSuper.GetDevice(Intent.Write),
-                                                 new int3(SizeRefineSuper, SizeRefineSuper, 1),
-                                                 (uint)CurBatch,
-                                                 PlanBackSuper,
-                                                 false);
+                                        for (int iewald = 0; iewald < (species.DoEwald ? 2 : 1); iewald++)
+                                        {
+                                            if (species.DoEwald)
+                                            {
+                                                GetComplexCTFsForOneFrame(AngPixRefine, Defoci, ImageCoords, CoordsCTF, GammaCorrection, f, EwaldReverse[iewald], ExtractedCTF, true);
 
-                                        GPU.CropFTFull(ExtractedRefineSuper.GetDevice(Intent.Read),
-                                                        ExtractedCropped.GetDevice(Intent.Write),
-                                                        new int3(SizeRefineSuper, SizeRefineSuper, 1),
-                                                        new int3(SizeRefine, SizeRefine, 1),
-                                                        (uint)CurBatch);
+                                                GPU.MultiplyComplexSlicesByComplex(Extracted.GetDevice(Intent.Read),
+                                                                                  ExtractedCTF.GetDevice(Intent.Read),
+                                                                                  ExtractedFT.GetDevice(Intent.Write),
+                                                                                  ExtractedCTF.ElementsComplex,
+                                                                                  1);
+                                            }
+                                            else
+                                            {
+                                                GetCTFsForOneFrame(AngPixRefine, Defoci, ImageCoords, CoordsCTF, GammaCorrection, f, ExtractedCTF, true);
 
-                                        GPU.SphereMask(ExtractedCropped.GetDevice(Intent.Read),
+                                                GPU.MultiplyComplexSlicesByScalar(Extracted.GetDevice(Intent.Read),
+                                                                                  ExtractedCTF.GetDevice(Intent.Read),
+                                                                                  ExtractedFT.GetDevice(Intent.Write),
+                                                                                  ExtractedCTF.ElementsComplex,
+                                                                                  1);
+                                            }
+
+                                            GPU.IFFT(ExtractedFT.GetDevice(Intent.Read),
+                                                     ExtractedRefineSuper.GetDevice(Intent.Write),
+                                                     new int3(SizeRefineSuper, SizeRefineSuper, 1),
+                                                     (uint)CurBatch,
+                                                     PlanBackSuper,
+                                                     false);
+
+                                            GPU.CropFTFull(ExtractedRefineSuper.GetDevice(Intent.Read),
+                                                            ExtractedCropped.GetDevice(Intent.Write),
+                                                            new int3(SizeRefineSuper, SizeRefineSuper, 1),
+                                                            new int3(SizeRefine, SizeRefine, 1),
+                                                            (uint)CurBatch);
+
+                                            GPU.SphereMask(ExtractedCropped.GetDevice(Intent.Read),
+                                                           ExtractedCropped.GetDevice(Intent.Write),
+                                                           ExtractedCropped.Dims.Slice(),
+                                                           ParticleDiameterPix / 2f * 1.3f,
+                                                           16 * AngPixExtract / AngPixRefine,
+                                                           true,
+                                                           (uint)CurBatch);
+
+                                            GPU.FFT(ExtractedCropped.GetDevice(Intent.Read),
+                                                    ExtractedCroppedFT.GetDevice(Intent.Write),
+                                                    new int3(SizeRefine, SizeRefine, 1),
+                                                    (uint)CurBatch,
+                                                    PlanForw);
+
+                                            ExtractedCroppedFT.Multiply(1f / (SizeRefine * SizeRefine));
+
+                                            GPU.CropFT(ExtractedCroppedFT.GetDevice(Intent.Read),
                                                        ExtractedCropped.GetDevice(Intent.Write),
-                                                       ExtractedCropped.Dims.Slice(),
-                                                       ParticleDiameterPix / 2f * 1.3f,
-                                                       16 * AngPixExtract / AngPixRefine,
-                                                       true,
+                                                       new int3(SizeRefine).Slice(),
+                                                       new int3(RelevantSizes[f]).Slice(),
                                                        (uint)CurBatch);
 
-                                        GPU.FFT(ExtractedCropped.GetDevice(Intent.Read),
-                                                ExtractedCroppedFT.GetDevice(Intent.Write),
-                                                new int3(SizeRefine, SizeRefine, 1),
-                                                (uint)CurBatch,
-                                                PlanForw);
+                                            GPU.MultiParticleDiff(EwaldResults[iewald],
+                                                                  new IntPtr[] { ExtractedCropped.GetDevice(Intent.Read) },
+                                                                  SizeRefine,
+                                                                  new[] { RelevantSizes[f] },
+                                                                  new float[CurBatch * 2],
+                                                                  Helper.ToInterleaved(ImageAngles),
+                                                                  MagnificationCorrection,
+                                                                  SpeciesCTFWeights[species].GetDeviceSlice(f, Intent.Read),
+                                                                  PhaseCorrectionAll.GetDeviceSlice(f, Intent.Read),
+                                                                  species.DoEwald ? CTF.GetEwaldRadius(SizeFull, (float)species.PixelSize) * (iewald == 0 ? 1 : -1) : 0,
+                                                                  species.CurrentMaxShellRefinement,
+                                                                  new[] { species.HalfMap1Projector[GPUID].t_DataRe, species.HalfMap2Projector[GPUID].t_DataRe },
+                                                                  new[] { species.HalfMap1Projector[GPUID].t_DataIm, species.HalfMap2Projector[GPUID].t_DataIm },
+                                                                  species.HalfMap1Projector[GPUID].Oversampling,
+                                                                  species.HalfMap1Projector[GPUID].DimsOversampled.X,
+                                                                  new IntPtr((long)SpeciesParticleSubsets[species] + batchStart * sizeof(int)),
+                                                                  CurBatch,
+                                                                  1);
+                                        }
 
-                                        ExtractedCroppedFT.Multiply(1f / (SizeRefine * SizeRefine));
+                                        GammaCorrection.Dispose();
 
-
-                                        GPU.MultiParticleDiff(hp_Result,
-                                                              new IntPtr[] { ExtractedCroppedFT.GetDevice(Intent.Read) },
-                                                              SizeRefine,
-                                                              null,
-                                                              new float[CurBatch * 2],
-                                                              Helper.ToInterleaved(ImageAngles),
-                                                              MagnificationCorrection * new float3(species.HalfMap1Projector[GPUID].Oversampling,
-                                                                                                   species.HalfMap1Projector[GPUID].Oversampling,
-                                                                                                   1),
-                                                              Helper.ToInterleaved(BeamTilts),
-                                                              SpeciesCTFWeights[species].GetDeviceSlice(f, Intent.Read),
-                                                              BeamTiltCoords.GetDevice(Intent.Read),
-                                                              new[] { species.HalfMap1Projector[GPUID].t_DataRe, species.HalfMap2Projector[GPUID].t_DataRe },
-                                                              new[] { species.HalfMap1Projector[GPUID].t_DataIm, species.HalfMap2Projector[GPUID].t_DataIm },
-                                                              species.HalfMap1Projector[GPUID].DimsOversampled.X,
-                                                              new IntPtr((long)SpeciesParticleSubsets[species] + batchStart * sizeof(int)),
-                                                              CurBatch,
-                                                              1);
-
-                                        BeamTiltCoords.Dispose();
-
-                                        for (int i = 0; i < CurBatch; i++)
+                                        if ((CTFStepTypes[iparam] & CTFOptimizationTypes.Doming) == 0)
                                         {
-                                            //if (CoordinatesFrame[i].X < ImageDimensionsPhysical.X / 3 || CoordinatesFrame[i].X > ImageDimensionsPhysical.X * 2 / 3 ||
-                                            //    CoordinatesFrame[i].Y < ImageDimensionsPhysical.Y / 3 || CoordinatesFrame[i].Y > ImageDimensionsPhysical.Y * 2 / 3)
-                                            //    continue;
-
-                                            PerParticleScores[iparam][(batchStart + i) * 2 + idelta] += hp_Result[i];
-
-                                            //if (iparam > 0)
-                                            //    Scores[(input.Length - CTFStepTypes.Length + iparam) * 2 + idelta] += hp_Result[i];
-                                            //else
-                                            //    Scores[(batchStart + i) * 2 + idelta] += hp_Result[i];
+                                            for (int i = 0; i < CurBatch; i++)
+                                            {
+                                                PerParticleScoresAB[iparam][(SpeciesOffset + batchStart + i) * 2 + idelta] += ResultP[i * 3 + 0] + ResultQ[i * 3 + 0];
+                                                PerParticleScoresA2[iparam][(SpeciesOffset + batchStart + i) * 2 + idelta] += ResultP[i * 3 + 1] + ResultQ[i * 3 + 1];
+                                                PerParticleScoresB2[iparam][(SpeciesOffset + batchStart + i) * 2 + idelta] += ResultP[i * 3 + 2] + ResultQ[i * 3 + 2];
+                                            }
+                                        }
+                                        else
+                                        {
+                                            for (int i = 0; i < CurBatch; i++)
+                                            {
+                                                PerParticleScoresAB[iparam][((SpeciesOffset + batchStart + i) * NFrames + f) * 2 + idelta] = ResultP[i * 3 + 0] + ResultQ[i * 3 + 0];
+                                                PerParticleScoresA2[iparam][((SpeciesOffset + batchStart + i) * NFrames + f) * 2 + idelta] = ResultP[i * 3 + 1] + ResultQ[i * 3 + 1];
+                                                PerParticleScoresB2[iparam][((SpeciesOffset + batchStart + i) * NFrames + f) * 2 + idelta] = ResultP[i * 3 + 2] + ResultQ[i * 3 + 2];
+                                            }
                                         }
                                     }
                                 }
@@ -5804,7 +6461,7 @@ namespace Warp
                         }
 
                         CoordsCTF.Dispose();
-                        //BeamTiltCorrection.Dispose();
+                        PhaseCorrectionAll.Dispose();
                         Extracted.Dispose();
                         ExtractedFT.Dispose();
                         ExtractedRefineSuper.Dispose();
@@ -5817,48 +6474,144 @@ namespace Warp
                         GPU.DestroyFFTPlan(PlanForw);
                     }
 
-                    //foreach (var image in FrameData)
-                    //    image.FreeDevice();
-
-                    //for (int i = 0; i < Result.Length; i++)
-                    //    Result[i] = (Scores[i * 2 + 0] - Scores[i * 2 + 1]) / Delta2 * 100;
-
                     for (int iparam = 0; iparam < CTFStepTypes.Length; iparam++)
                     {
-                        float[] PerParticleDiff = Helper.ArrayOfFunction(i => PerParticleScores[iparam][i * 2] - PerParticleScores[iparam][i * 2 + 1], NParticlesOverall);
+                        if ((CurrentOptimizationTypeCTF & CTFStepTypes[iparam]) == 0)
+                            continue;
 
                         if (CTFStepTypes[iparam] == CTFOptimizationTypes.Defocus)
                         {
                             for (int i = 0; i < NParticlesOverall; i++)
-                                Result[i] = PerParticleDiff[i] / Delta2 * 100;
+                            {
+                                double ScorePlus = PerParticleScoresAB[iparam][i * 2 + 0] /
+                                                   Math.Max(1e-10, Math.Sqrt(PerParticleScoresA2[iparam][i * 2 + 0] *
+                                                                             PerParticleScoresB2[iparam][i * 2 + 0]));
+                                double ScoreMinus = PerParticleScoresAB[iparam][i * 2 + 1] /
+                                                    Math.Max(1e-10, Math.Sqrt(PerParticleScoresA2[iparam][i * 2 + 1] *
+                                                                              PerParticleScoresB2[iparam][i * 2 + 1]));
+                                Result[i] = (ScorePlus - ScoreMinus) / Delta2 * NFrames * 100;
+                            }
                         }
                         else if (CTFStepTypes[iparam] == CTFOptimizationTypes.AstigmatismDelta)
                         {
                             for (int iwiggle = 0; iwiggle < NWiggleDifferentiableAstigmatism; iwiggle++)
                             {
-                                float DiffSum = 0;
-                                float[] Weights = AllWiggleWeightsAstigmatism[iwiggle].weights;
-                                for (int i = 0; i < Weights.Length; i++)
-                                    DiffSum += PerParticleDiff[i] * Weights[i];
+                                double SumGrad = 0;
+                                double SumWeights = 0;
+                                double SumWeightsGrad = 0;
 
-                                Result[NParticlesOverall + iwiggle] = DiffSum / Delta2 * 100;
+                                int[] Indices = AllWiggleWeightsAstigmatism[iwiggle].indices;
+                                float[] Weights = AllWiggleWeightsAstigmatism[iwiggle].weights;
+
+                                for (int i = 0; i < Indices.Length; i++)
+                                {
+                                    int id = Indices[i];
+                                    float ABPlus = PerParticleScoresAB[iparam][id * 2 + 0];
+                                    float ABMinus = PerParticleScoresAB[iparam][id * 2 + 1];
+                                    float A2Plus = PerParticleScoresA2[iparam][id * 2 + 0];
+                                    float A2Minus = PerParticleScoresA2[iparam][id * 2 + 1];
+                                    float B2Plus = PerParticleScoresB2[iparam][id * 2 + 0];
+                                    float B2Minus = PerParticleScoresB2[iparam][id * 2 + 1];
+
+                                    SumWeights += Math.Abs(Weights[i]) * Math.Sqrt(A2Plus + A2Minus);
+                                    SumWeightsGrad += Math.Abs(Weights[i]);
+
+                                    double Grad = (ABPlus / Math.Max(1e-15, Math.Sqrt(A2Plus * B2Plus)) -
+                                                    ABMinus / Math.Max(1e-15, Math.Sqrt(A2Minus * B2Minus))) / Delta2;
+
+                                    SumGrad += Weights[i] * Math.Sqrt(A2Plus + A2Minus) * Grad;
+                                }
+
+                                Result[NParticlesOverall + iwiggle] = SumGrad / Math.Max(1e-15, SumWeights) * 100 * SumWeightsGrad;
                             }
                         }
                         else if (CTFStepTypes[iparam] == CTFOptimizationTypes.AstigmatismAngle)
                         {
                             for (int iwiggle = 0; iwiggle < NWiggleDifferentiableAstigmatism; iwiggle++)
                             {
-                                float DiffSum = 0;
-                                float[] Weights = AllWiggleWeightsAstigmatism[iwiggle].weights;
-                                for (int i = 0; i < Weights.Length; i++)
-                                    DiffSum += PerParticleDiff[i] * Weights[i];
+                                double SumGrad = 0;
+                                double SumWeights = 0;
+                                double SumWeightsGrad = 0;
 
-                                Result[NParticlesOverall + GridCTFDefocusDelta.Values.Length + iwiggle] = DiffSum / Delta2 * 100;
+                                int[] Indices = AllWiggleWeightsAstigmatism[iwiggle].indices;
+                                float[] Weights = AllWiggleWeightsAstigmatism[iwiggle].weights;
+
+                                for (int i = 0; i < Indices.Length; i++)
+                                {
+                                    int id = Indices[i];
+                                    float ABPlus = PerParticleScoresAB[iparam][id * 2 + 0];
+                                    float ABMinus = PerParticleScoresAB[iparam][id * 2 + 1];
+                                    float A2Plus = PerParticleScoresA2[iparam][id * 2 + 0];
+                                    float A2Minus = PerParticleScoresA2[iparam][id * 2 + 1];
+                                    float B2Plus = PerParticleScoresB2[iparam][id * 2 + 0];
+                                    float B2Minus = PerParticleScoresB2[iparam][id * 2 + 1];
+
+                                    SumWeights += Math.Abs(Weights[i]) * Math.Sqrt(A2Plus + A2Minus);
+                                    SumWeightsGrad += Math.Abs(Weights[i]);
+
+                                    double Grad = (ABPlus / Math.Max(1e-15, Math.Sqrt(A2Plus * B2Plus)) -
+                                                   ABMinus / Math.Max(1e-15, Math.Sqrt(A2Minus * B2Minus))) / Delta2;
+
+                                    SumGrad += Weights[i] * Math.Sqrt(A2Plus + A2Minus) * Grad;
+                                }
+
+                                Result[NParticlesOverall + GridCTFDefocusDelta.Values.Length + iwiggle] = SumGrad / Math.Max(1e-15, SumWeights) * 100 * SumWeightsGrad;
+                            }
+                        }
+                        else if (CTFStepTypes[iparam] == CTFOptimizationTypes.Doming)
+                        {
+                            for (int iwiggle = 0; iwiggle < NWiggleDifferentiableDoming; iwiggle++)
+                            {
+                                double SumGrad = 0;
+                                double SumWeights = 0;
+                                double SumWeightsGrad = 0;
+
+                                int[] Indices = AllWiggleWeightsDoming[iwiggle].indices;
+                                float[] Weights = AllWiggleWeightsDoming[iwiggle].weights;
+
+                                for (int i = 0; i < Indices.Length; i++)
+                                {
+                                    int id = Indices[i];
+                                    float ABPlus = PerParticleScoresAB[iparam][id * 2 + 0];
+                                    float ABMinus = PerParticleScoresAB[iparam][id * 2 + 1];
+                                    float A2Plus = PerParticleScoresA2[iparam][id * 2 + 0];
+                                    float A2Minus = PerParticleScoresA2[iparam][id * 2 + 1];
+                                    float B2Plus = PerParticleScoresB2[iparam][id * 2 + 0];
+                                    float B2Minus = PerParticleScoresB2[iparam][id * 2 + 1];
+
+                                    SumWeights += Math.Abs(Weights[i]) * Math.Sqrt(A2Plus + A2Minus);
+                                    SumWeightsGrad += Math.Abs(Weights[i]);
+
+                                    double Grad = (ABPlus / Math.Max(1e-15, Math.Sqrt(A2Plus * B2Plus)) -
+                                                    ABMinus / Math.Max(1e-15, Math.Sqrt(A2Minus * B2Minus))) / Delta2;
+
+                                    SumGrad += Weights[i] * Math.Sqrt(A2Plus + A2Minus) * Grad;
+                                }
+
+                                Result[NParticlesOverall + GridCTFDefocusDelta.Values.Length * 2 + iwiggle] = SumGrad / Math.Max(1e-15, SumWeights) * 100 * SumWeightsGrad;
                             }
                         }
                         else
                         {
-                            Result[Result.Length - CTFStepTypes.Length + iparam] = PerParticleDiff.Sum() / Delta2 * 100;
+                            double ABPlus = 0, ABMinus = 0;
+                            double A2Plus = 0, A2Minus = 0;
+                            double B2Plus = 0, B2Minus = 0;
+                            for (int i = 0; i < NParticlesOverall; i++)
+                            {
+                                ABPlus += PerParticleScoresAB[iparam][i * 2 + 0];
+                                ABMinus += PerParticleScoresAB[iparam][i * 2 + 1];
+
+                                A2Plus += PerParticleScoresA2[iparam][i * 2 + 0];
+                                A2Minus += PerParticleScoresA2[iparam][i * 2 + 1];
+
+                                B2Plus += PerParticleScoresB2[iparam][i * 2 + 0];
+                                B2Minus += PerParticleScoresB2[iparam][i * 2 + 1];
+                            }
+
+                            double Grad = (ABPlus / Math.Max(1e-15, Math.Sqrt(A2Plus * B2Plus)) -
+                                           ABMinus / Math.Max(1e-15, Math.Sqrt(A2Minus * B2Minus))) / Delta2;
+
+                            Result[Result.Length - CTFStepTypes.Length + iparam] = Grad * NParticlesOverall * NFrames * 100;
                         }
                     }
 
@@ -5875,8 +6628,9 @@ namespace Warp
                 Func<double[], double[]> DefocusGridSearch = input =>
                 {
                     float AngPixExtract = (float)OptionsDataLoad.BinnedPixelSizeMean;
-                    int BatchSize = 24;
-                    float[] hp_Result = new float[BatchSize * 3];
+                    int BatchSize = optionsMPA.BatchSize;
+                    float[] ResultP = new float[BatchSize * 3];
+                    float[] ResultQ = new float[BatchSize * 3];
 
                     foreach (var species in allSpecies)
                     {
@@ -5884,34 +6638,54 @@ namespace Warp
                             continue;
                         Particle[] Particles = SpeciesParticles[species];
                         int NParticles = Particles.Length;
+                        if (NParticles == 0)
+                            continue;
+
+                        int SpeciesOffset = SpeciesParticleIDRanges[species].Start;
+
                         int SizeRefine = species.HalfMap1Projector[GPUID].Dims.X;
-                        int SizeRefineSuper = SizeRefine * 2;
+                        int SizeRefineSuper = SizeRefine * SpeciesCTFSuperresFactor[species];
                         int SizeFull = species.HalfMap1Reconstruction[GPUID].Dims.X;
-                        int SizeFullSuper = SizeFull * 2;
+                        int SizeFullSuper = SizeFull * SpeciesCTFSuperresFactor[species];
+
                         float AngPixRefine = species.ResolutionRefinement / 2;
                         int ParticleDiameterPix = (int)(species.DiameterAngstrom / AngPixRefine);
 
+                        int[] RelevantSizes = SpeciesRelevantRefinementSizes[species];
+
                         Image CoordsCTF = CTF.GetCTFCoords(SizeRefineSuper, SizeRefineSuper);
-                        //Image BeamTiltCorrection = CTF.GetBeamTilt(SizeRefineSuper, SizeFullSuper);
 
                         Image Extracted = new Image(IntPtr.Zero, new int3(SizeFullSuper, SizeFullSuper, BatchSize), true, true);
                         Image ExtractedFT = new Image(IntPtr.Zero, new int3(SizeFullSuper, SizeFullSuper, BatchSize), true, true);
                         Image ExtractedRefineSuper = new Image(IntPtr.Zero, new int3(SizeRefineSuper, SizeRefineSuper, BatchSize), true, true);
-                        Image ExtractedCropped = new Image(IntPtr.Zero, new int3(SizeRefine, SizeRefine, BatchSize));
+                        Image ExtractedCropped = new Image(IntPtr.Zero, new int3(SizeRefine, SizeRefine, BatchSize), true, true);
                         Image ExtractedCroppedFT = new Image(IntPtr.Zero, new int3(SizeRefine, SizeRefine, BatchSize), true, true);
-                        Image ExtractedCTF = new Image(IntPtr.Zero, new int3(SizeRefineSuper, SizeRefineSuper, BatchSize), true);
-
-                        //Image SumAll = new Image(new int3(SizeRefine, SizeRefine, BatchSize));
+                        Image ExtractedCTF = new Image(IntPtr.Zero, new int3(SizeRefineSuper, SizeRefineSuper, BatchSize), true, true);
 
                         int PlanForwSuper = GPU.CreateFFTPlan(new int3(SizeFullSuper, SizeFullSuper, 1), (uint)BatchSize);
                         int PlanBackSuper = GPU.CreateIFFTPlan(new int3(SizeRefineSuper, SizeRefineSuper, 1), (uint)BatchSize);
                         int PlanForw = GPU.CreateFFTPlan(new int3(SizeRefine, SizeRefine, 1), (uint)BatchSize);
 
-                        CTF CTFCopy = CTF.GetCopy();
-                        CTFCopy.PixelSize = species.PixelSize;
-                        Image BeamTiltCoords = CTFCopy.GetBeamTiltCoords(SizeRefine, SizeFull);
+                        if (PlanForwSuper <= 0 || PlanBackSuper <= 0 || PlanForw <= 0)
+                        {
+                            Console.WriteLine($"SizeFullSuper = {SizeFullSuper}, BatchSize = {BatchSize}, free memory = {GPU.GetFreeMemory(GPUID)}");
+                            throw new Exception("No FFT plans created!");
+                        }
 
-                        double OverallScore = 0;
+                        Image PhaseCorrection = CTF.GetPhaseCorrection(AngPixRefine, SizeRefine);
+                        Image PhaseCorrectionAll = new Image(new int3(SizeRefine, SizeRefine, NFrames), true, true);
+                        for (int f = 0; f < NFrames; f++)
+                            GPU.CropFT(PhaseCorrection.GetDevice(Intent.Read),
+                                        PhaseCorrectionAll.GetDeviceSlice(f, Intent.Write),
+                                        PhaseCorrection.Dims.Slice(),
+                                        new int3(RelevantSizes[f]).Slice(),
+                                        1);
+                        PhaseCorrection.Dispose();
+
+                        Image GammaCorrection = CTF.GetGammaCorrection(AngPixRefine, SizeRefineSuper);
+
+                        bool[] EwaldReverse = { species.EwaldReverse, !species.EwaldReverse };
+                        float[][] EwaldResults = { ResultP, ResultQ };
 
                         for (int batchStart = 0; batchStart < NParticles; batchStart += BatchSize)
                         {
@@ -5920,12 +6694,12 @@ namespace Warp
                             float3[] CoordinatesMoving = Helper.Combine(BatchParticles.Select(p => p.GetCoordinateSeries(DoseInterpolationSteps)));
                             float3[] AnglesMoving = Helper.Combine(BatchParticles.Select(p => p.GetAngleSeries(DoseInterpolationSteps)));
 
-                            List<float2>[] AllSearchValues = Helper.ArrayOfFunction(i => new List<float2>(), CurBatch);
-                            List<float2>[] CurrentSearchValues = Helper.ArrayOfFunction(i => new List<float2>(), CurBatch);
+                            List<float4>[] AllSearchValues = Helper.ArrayOfFunction(i => new List<float4>(), CurBatch);
+                            List<float4>[] CurrentSearchValues = Helper.ArrayOfFunction(i => new List<float4>(), CurBatch);
                             decimal GridSearchDelta = 0.05M;
                             foreach (var list in CurrentSearchValues)
                                 for (decimal d = -0.3M; d <= 0.3M; d += GridSearchDelta)
-                                    list.Add(new float2((float)d, 0));
+                                    list.Add(new float4((float)d, 0, 0, 0));
                             //for (decimal d = 0M; d <= 0M; d += GridSearchDelta)
                             //    list.Add(new float2((float)d, 0));
 
@@ -5938,11 +6712,11 @@ namespace Warp
                                     for (int p = 0; p < CurBatch; p++)
                                     {
                                         CoordinatesFrame[p] = CoordinatesMoving[p * NFrames + f];
-                                        AnglesFrame[p] = AnglesMoving[p * NFrames + f] * Helper.ToRad;
+                                        AnglesFrame[p] = AnglesMoving[p * NFrames + f];// * Helper.ToRad;
                                     }
 
                                     float3[] ImageCoords = GetPositionsInOneFrame(CoordinatesFrame, f);
-                                    float3[] ImageAngles = AnglesFrame;
+                                    float3[] ImageAngles = GetAnglesInOneFrame(CoordinatesFrame, AnglesFrame, f);// AnglesFrame;
 
                                     float3[] Defoci = new float3[CurBatch];
                                     int3[] ExtractOrigins = new int3[CurBatch];
@@ -5953,8 +6727,6 @@ namespace Warp
                                         ExtractOrigins[p] = new int3((int)ScaledX - SizeFullSuper / 2, (int)ScaledY - SizeFullSuper / 2, 0);
                                         ResidualShifts[p] = -new float3(ScaledX - (int)ScaledX - SizeFullSuper / 2, ScaledY - (int)ScaledY - SizeFullSuper / 2, 0);
                                     }
-
-                                    float2[] BeamTilts = GetBeamTilt(CoordinatesFrame);
 
                                     GPU.Extract(FrameData[f].GetDevice(Intent.Read),
                                                 Extracted.GetDevice(Intent.Write),
@@ -5982,7 +6754,7 @@ namespace Warp
                                     {
                                         double[] InputAltered = input.ToArray();
                                         for (int i = 0; i < CurBatch; i++)
-                                            InputAltered[batchStart + i] += CurrentSearchValues[i][idelta].X;
+                                            InputAltered[SpeciesOffset + batchStart + i] += CurrentSearchValues[i][idelta].X;
 
                                         SetDefocusFromVector(InputAltered, this, true);
 
@@ -5998,86 +6770,105 @@ namespace Warp
                                             Defoci[p].Z = Astigmatism[p].Y;
                                         }
 
-                                        GetCTFsForOneFrame(AngPixRefine, Defoci, CoordsCTF, f, ExtractedCTF, true);
+                                        for (int iewald = 0; iewald < (species.DoEwald ? 2 : 1); iewald++)
+                                        {
+                                            if (species.DoEwald)
+                                            {
+                                                GetComplexCTFsForOneFrame(AngPixRefine, Defoci, ImageCoords, CoordsCTF, GammaCorrection, f, EwaldReverse[iewald], ExtractedCTF, true);
 
-                                        //GPU.MultiplyComplexSlicesByComplex(Extracted.GetDevice(Intent.Read),
-                                        //                                    BeamTiltCorrection.GetDevice(Intent.Read),
-                                        //                                    ExtractedFT.GetDevice(Intent.Write),
-                                        //                                    BeamTiltCorrection.ElementsSliceComplex,
-                                        //                                    (uint)CurBatch);
+                                                GPU.MultiplyComplexSlicesByComplex(Extracted.GetDevice(Intent.Read),
+                                                                                    ExtractedCTF.GetDevice(Intent.Read),
+                                                                                    ExtractedFT.GetDevice(Intent.Write),
+                                                                                    ExtractedCTF.ElementsComplex,
+                                                                                    1);
+                                            }
+                                            else
+                                            {
+                                                GetCTFsForOneFrame(AngPixRefine, Defoci, ImageCoords, CoordsCTF, GammaCorrection, f, ExtractedCTF, true);
 
-                                        GPU.MultiplyComplexSlicesByScalar(Extracted.GetDevice(Intent.Read),
-                                                                            ExtractedCTF.GetDevice(Intent.Read),
-                                                                            ExtractedFT.GetDevice(Intent.Write),
-                                                                            ExtractedCTF.ElementsReal,
-                                                                            1);
+                                                GPU.MultiplyComplexSlicesByScalar(Extracted.GetDevice(Intent.Read),
+                                                                                  ExtractedCTF.GetDevice(Intent.Read),
+                                                                                  ExtractedFT.GetDevice(Intent.Write),
+                                                                                  ExtractedCTF.ElementsComplex,
+                                                                                  1);
+                                            }
 
-                                        GPU.IFFT(ExtractedFT.GetDevice(Intent.Read),
-                                                    ExtractedRefineSuper.GetDevice(Intent.Write),
-                                                    new int3(SizeRefineSuper, SizeRefineSuper, 1),
-                                                    (uint)CurBatch,
-                                                    PlanBackSuper,
-                                                    false);
-
-                                        GPU.CropFTFull(ExtractedRefineSuper.GetDevice(Intent.Read),
-                                                        ExtractedCropped.GetDevice(Intent.Write),
+                                            GPU.IFFT(ExtractedFT.GetDevice(Intent.Read),
+                                                        ExtractedRefineSuper.GetDevice(Intent.Write),
                                                         new int3(SizeRefineSuper, SizeRefineSuper, 1),
-                                                        new int3(SizeRefine, SizeRefine, 1),
-                                                        (uint)CurBatch);
+                                                        (uint)CurBatch,
+                                                        PlanBackSuper,
+                                                        false);
 
-                                        GPU.SphereMask(ExtractedCropped.GetDevice(Intent.Read),
-                                                        ExtractedCropped.GetDevice(Intent.Write),
-                                                        ExtractedCropped.Dims.Slice(),
-                                                        ParticleDiameterPix / 2f * 1.3f,
-                                                        16 * AngPixExtract / AngPixRefine,
-                                                        true,
-                                                        (uint)CurBatch);
+                                            GPU.CropFTFull(ExtractedRefineSuper.GetDevice(Intent.Read),
+                                                            ExtractedCropped.GetDevice(Intent.Write),
+                                                            new int3(SizeRefineSuper, SizeRefineSuper, 1),
+                                                            new int3(SizeRefine, SizeRefine, 1),
+                                                            (uint)CurBatch);
 
-                                        //SumAll.Add(ExtractedCropped);
+                                            GPU.SphereMask(ExtractedCropped.GetDevice(Intent.Read),
+                                                            ExtractedCropped.GetDevice(Intent.Write),
+                                                            ExtractedCropped.Dims.Slice(),
+                                                            ParticleDiameterPix / 2f * 1.3f,
+                                                            16 * AngPixExtract / AngPixRefine,
+                                                            true,
+                                                            (uint)CurBatch);
 
-                                        GPU.FFT(ExtractedCropped.GetDevice(Intent.Read),
-                                                ExtractedCroppedFT.GetDevice(Intent.Write),
-                                                new int3(SizeRefine, SizeRefine, 1),
-                                                (uint)CurBatch,
-                                                PlanForw);
+                                            //SumAll.Add(ExtractedCropped);
 
-                                        ExtractedCroppedFT.Multiply(1f / (SizeRefine * SizeRefine));
+                                            GPU.FFT(ExtractedCropped.GetDevice(Intent.Read),
+                                                    ExtractedCroppedFT.GetDevice(Intent.Write),
+                                                    new int3(SizeRefine, SizeRefine, 1),
+                                                    (uint)CurBatch,
+                                                    PlanForw);
 
-                                        GPU.MultiParticleDiff(hp_Result,
-                                                                new IntPtr[] { ExtractedCroppedFT.GetDevice(Intent.Read) },
-                                                                SizeRefine,
-                                                                null,
-                                                                new float[CurBatch * 2],
-                                                                Helper.ToInterleaved(ImageAngles),
-                                                                MagnificationCorrection * new float3(species.HalfMap1Projector[GPUID].Oversampling,
-                                                                                                     species.HalfMap1Projector[GPUID].Oversampling,
-                                                                                                     1),
-                                                                Helper.ToInterleaved(BeamTilts),
-                                                                SpeciesCTFWeights[species].GetDeviceSlice(f, Intent.Read),
-                                                                BeamTiltCoords.GetDevice(Intent.Read),
-                                                                new[] { species.HalfMap1Projector[GPUID].t_DataRe, species.HalfMap2Projector[GPUID].t_DataRe },
-                                                                new[] { species.HalfMap1Projector[GPUID].t_DataIm, species.HalfMap2Projector[GPUID].t_DataIm },
-                                                                species.HalfMap1Projector[GPUID].DimsOversampled.X,
-                                                                new IntPtr((long)SpeciesParticleSubsets[species] + batchStart * sizeof(int)),
-                                                                CurBatch,
-                                                                1);
+                                            ExtractedCroppedFT.Multiply(1f / (SizeRefine * SizeRefine));
+
+                                            GPU.CropFT(ExtractedCroppedFT.GetDevice(Intent.Read),
+                                                       ExtractedCropped.GetDevice(Intent.Write),
+                                                       new int3(SizeRefine).Slice(),
+                                                       new int3(RelevantSizes[f]).Slice(),
+                                                       (uint)CurBatch);
+
+                                            GPU.MultiParticleDiff(EwaldResults[iewald],
+                                                                    new IntPtr[] { ExtractedCropped.GetDevice(Intent.Read) },
+                                                                    SizeRefine,
+                                                                    new[] { RelevantSizes[f] },
+                                                                    new float[CurBatch * 2],
+                                                                    Helper.ToInterleaved(ImageAngles),
+                                                                    MagnificationCorrection,
+                                                                    SpeciesCTFWeights[species].GetDeviceSlice(f, Intent.Read),
+                                                                    PhaseCorrectionAll.GetDeviceSlice(f, Intent.Read),
+                                                                    species.DoEwald ? CTF.GetEwaldRadius(SizeFull, (float)species.PixelSize) * (iewald == 0 ? 1 : -1) : 0,
+                                                                    species.CurrentMaxShellRefinement,
+                                                                    new[] { species.HalfMap1Projector[GPUID].t_DataRe, species.HalfMap2Projector[GPUID].t_DataRe },
+                                                                    new[] { species.HalfMap1Projector[GPUID].t_DataIm, species.HalfMap2Projector[GPUID].t_DataIm },
+                                                                    species.HalfMap1Projector[GPUID].Oversampling,
+                                                                    species.HalfMap1Projector[GPUID].DimsOversampled.X,
+                                                                    new IntPtr((long)SpeciesParticleSubsets[species] + batchStart * sizeof(int)),
+                                                                    CurBatch,
+                                                                    1);
+                                        }
 
                                         for (int i = 0; i < CurBatch; i++)
-                                            CurrentSearchValues[i][idelta] += new float2(0, hp_Result[i]);
+                                            CurrentSearchValues[i][idelta] += new float4(0,
+                                                                                         ResultP[i * 3 + 0] + ResultQ[i * 3 + 0],
+                                                                                         ResultP[i * 3 + 1] + ResultQ[i * 3 + 1],
+                                                                                         ResultP[i * 3 + 2] + ResultQ[i * 3 + 2]);
                                     }
                                 }
 
                                 GridSearchDelta /= 2;
                                 for (int i = 0; i < CurBatch; i++)
                                 {
-                                    CurrentSearchValues[i].Sort((a, b) => -(a.Y.CompareTo(b.Y)));
+                                    CurrentSearchValues[i].Sort((a, b) => -((a.Y / Math.Max(1e-20, Math.Sqrt(a.Z * a.W))).CompareTo(b.Y / Math.Max(1e-20, Math.Sqrt(b.Z * b.W)))));
                                     AllSearchValues[i].AddRange(CurrentSearchValues[i]);
 
-                                    List<float2> NewSearchValues = new List<float2>();
+                                    List<float4> NewSearchValues = new List<float4>();
                                     for (int j = 0; j < 2; j++)
                                     {
-                                        NewSearchValues.Add(new float2(CurrentSearchValues[i][j].X + (float)GridSearchDelta, 0f));
-                                        NewSearchValues.Add(new float2(CurrentSearchValues[i][j].X - (float)GridSearchDelta, 0f));
+                                        NewSearchValues.Add(new float4(CurrentSearchValues[i][j].X + (float)GridSearchDelta, 0, 0, 0));
+                                        NewSearchValues.Add(new float4(CurrentSearchValues[i][j].X - (float)GridSearchDelta, 0, 0, 0));
                                     }
 
                                     CurrentSearchValues[i] = NewSearchValues;
@@ -6086,23 +6877,22 @@ namespace Warp
 
                             for (int i = 0; i < CurBatch; i++)
                             {
-                                AllSearchValues[i].Sort((a, b) => -(a.Y.CompareTo(b.Y)));
-                                input[batchStart + i] += AllSearchValues[i][0].X;
+                                AllSearchValues[i].Sort((a, b) => -((a.Y / Math.Max(1e-10, Math.Sqrt(a.Z * a.W))).CompareTo(b.Y / Math.Max(1e-10, Math.Sqrt(b.Z * b.W)))));
+                                input[SpeciesOffset + batchStart + i] += AllSearchValues[i][0].X;
                             }
                         }
 
                         //SumAll.WriteMRC("d_sumall.mrc", true);
 
                         CoordsCTF.Dispose();
-                        //BeamTiltCorrection.Dispose();
+                        GammaCorrection.Dispose();
+                        PhaseCorrectionAll.Dispose();
                         Extracted.Dispose();
                         ExtractedFT.Dispose();
                         ExtractedRefineSuper.Dispose();
                         ExtractedCropped.Dispose();
                         ExtractedCroppedFT.Dispose();
                         ExtractedCTF.Dispose();
-
-                        BeamTiltCoords.Dispose();
 
                         GPU.DestroyFFTPlan(PlanForwSuper);
                         GPU.DestroyFFTPlan(PlanBackSuper);
@@ -6117,37 +6907,47 @@ namespace Warp
                 BroydenFletcherGoldfarbShanno OptimizerWarp = new BroydenFletcherGoldfarbShanno(InitialParametersWarp.Length, WarpEval, WarpGrad);
                 BroydenFletcherGoldfarbShanno OptimizerDefocus = new BroydenFletcherGoldfarbShanno(InitialParametersDefocus.Length, CTFEval, CTFGrad);
 
-
-                SetWarpFromVector(InitialParametersWarp, this, true);
-                SetDefocusFromVector(InitialParametersDefocus, this, true);
-
-                List<(WarpOptimizationTypes Type, int Iterations, string Name)> OptimizationStepsWarping = new List<(WarpOptimizationTypes Type, int Iterations, string Name)>
-                {
-                    (WarpOptimizationTypes.BeamTilt | WarpOptimizationTypes.ImageWarp, 8, "beam tilt"),
-                    (WarpOptimizationTypes.ImageWarp, 12, "image warping"),
-                    (WarpOptimizationTypes.ParticlePosition | WarpOptimizationTypes.ParticleAngle, 12, "particle poses"),
-                    //(WarpOptimizationTypes.Magnification, 4, "magnification")
-                };
-
-                List<(CTFOptimizationTypes Type, int Iterations, string Name)> OptimizationStepsCTF = new List<(CTFOptimizationTypes Type, int Iterations, string Name)>
-                {
-                    //(CTFOptimizationTypes.PhaseShift | CTFOptimizationTypes.Defocus | CTFOptimizationTypes.Cs, 8, "phase shift"),
-                    //(CTFOptimizationTypes.Defocus, 4, "defocus"),
-                    //(CTFOptimizationTypes.AstigmatismDelta | CTFOptimizationTypes.AstigmatismAngle, 8, "astigmatism")
-                };
-
                 bool NeedReextraction = true;
 
-                for (int ioptim = 0; ioptim < OptimizationIterations; ioptim++)
+                for (int ioptim = 0; ioptim < optionsMPA.NIterations; ioptim++)
                 {
-                    if (allSpecies.Any(s => s.ResolutionRefinement < 2))
+                    foreach (var species in allSpecies)
+                        species.CurrentMaxShellRefinement = (int)Math.Round(MathHelper.Lerp(optionsMPA.InitialResolutionPercent / 100f,
+                                                                                            1f,
+                                                                                            optionsMPA.NIterations == 1 ? 1 : ((float)ioptim / (optionsMPA.NIterations - 1))) *
+                                                                            species.HalfMap1Projector[GPUID].Dims.X / 2);
+
+                    if (NeedReextraction)
+                    {
+                        progressCallback($"Re-extracting particles for optimization iteration {ioptim + 1}/{optionsMPA.NIterations}");
+                        ReextractPaddedParticles(false);
+                    }
+                    NeedReextraction = false;
+
+                    //WarpEval(InitialParametersWarp);
+                    //CTFEval(InitialParametersDefocus);
+
+                    foreach (var step in OptimizationStepsWarp)
+                    {
+                        progressCallback($"Running optimization iteration {ioptim + 1}/{optionsMPA.NIterations}, " + step.Name);
+
+                        BFGSIterations = step.Iterations;
+                        CurrentOptimizationTypeWarp = step.Type;
+                        CurrentWeightsDict = SpeciesCTFWeights;
+
+                        OptimizerWarp.Maximize(InitialParametersWarp);
+
+                        OldInput = null;
+                    }
+
+                    if (allSpecies.Any(s => s.ResolutionRefinement < (float)optionsMPA.MinimumCTFRefinementResolution))
                     {
                         //ReextractPaddedParticles();
                         //WarpEval(InitialParametersWarp);
 
-                        if (ioptim == -1)
+                        if (ioptim == 0 && optionsMPA.DoDefocusGridSearch)
                         {
-                            progressCallback($"Running optimization iteration {ioptim + 1}/{OptimizationIterations}, defocus");
+                            progressCallback($"Running optimization iteration {ioptim + 1}/{optionsMPA.NIterations}, defocus grid search");
 
                             InitialParametersDefocus = DefocusGridSearch(InitialParametersDefocus);
 
@@ -6160,7 +6960,7 @@ namespace Warp
 
                         foreach (var step in OptimizationStepsCTF)
                         {
-                            progressCallback($"Running optimization iteration {ioptim + 1}/{OptimizationIterations}, " + step.Name);
+                            progressCallback($"Running optimization iteration {ioptim + 1}/{optionsMPA.NIterations}, " + step.Name);
 
                             BFGSIterations = step.Iterations;
                             CurrentOptimizationTypeCTF = step.Type;
@@ -6172,23 +6972,6 @@ namespace Warp
                             NeedReextraction = true;
                         }
                     }
-
-                    if (NeedReextraction)
-                        ReextractPaddedParticles(false);
-                    NeedReextraction = false;
-
-                    foreach (var step in OptimizationStepsWarping)
-                    {
-                        progressCallback($"Running optimization iteration {ioptim + 1}/{OptimizationIterations}, " + step.Name);
-
-                        BFGSIterations = step.Iterations;
-                        CurrentOptimizationTypeWarp = step.Type;
-                        CurrentWeightsDict = SpeciesCTFWeights;
-
-                        OptimizerWarp.Maximize(InitialParametersWarp);
-
-                        OldInput = null;
-                    }
                 }
 
                 SetWarpFromVector(InitialParametersWarp, this, true);
@@ -6196,18 +6979,24 @@ namespace Warp
 
                 #region Compute FSC between refs and particles to estimate frame and micrograph weights
 
-                if (OptimizationIterations > 0)
+                if (true)
                 {
-                    ReextractPaddedParticles(true);
+                    progressCallback($"Calculating FRC between projections and particles for weight optimization");
 
                     int FSCLength = 128;
-                    Image FSC = new Image(new int3(FSCLength, NFrames, 3));
-                    float[][] FSCData = FSC.GetHost(Intent.ReadWrite);
+                    Image FSC = new Image(new int3(FSCLength, FSCLength, NFrames * 3), true);
+                    Image FSCPerParticle = new Image(new int3(FSCLength / 2, NParticlesOverall * 3, 1));
+                    //float[][] FSCData = FSC.GetHost(Intent.ReadWrite);
+                    //float[][] FSCPerParticleData = FSCPerParticle.GetHost(Intent.ReadWrite);
+                    Image PhaseResiduals = new Image(new int3(FSCLength, FSCLength, 2), true);
+
+                    Star TableOut = new Star(new string[] { "wrpNormCoordinateX", "wrpNormCoordinateY" });
+
+                    int BatchSize = optionsMPA.BatchSize;
+                    float AngPixExtract = (float)OptionsDataLoad.BinnedPixelSizeMean;
 
                     for (int ispecies = 0; ispecies < allSpecies.Length; ispecies++)
                     {
-                        #region Prerequisites for comparison
-
                         Species Species = allSpecies[ispecies];
                         Particle[] Particles = SpeciesParticles[Species];
 
@@ -6216,131 +7005,221 @@ namespace Warp
                         if (NParticles == 0)
                             continue;
 
-                        float3[] ParticlePositions = new float3[NParticles * NFrames];
-                        float3[] ParticleAngles = new float3[NParticles * NFrames];
-                        for (int p = 0; p < NParticles; p++)
-                        {
-                            float3[] Positions = Particles[p].GetCoordinateSeries(DoseInterpolationSteps);
-                            float3[] Angles = Particles[p].GetAngleSeries(DoseInterpolationSteps);
+                        int SpeciesOffset = SpeciesParticleIDRanges[Species].Start;
 
-                            for (int f = 0; f < NFrames; f++)
+                        int SizeRefine = SpeciesRefinementSize[Species];
+                        int[] RelevantSizes = SpeciesRelevantRefinementSizes[Species];
+
+                        //Image CorrAB = new Image(new int3(SizeRefine, SizeRefine, NFrames), true);
+                        //Image CorrA2 = new Image(new int3(SizeRefine, SizeRefine, NFrames), true);
+                        //Image CorrB2 = new Image(new int3(SizeRefine, SizeRefine, NFrames), true);
+
+                        float ScaleFactor = (float)Species.PixelSize * (FSCLength / 2 - 1) /
+                                            (float)(Species.ResolutionRefinement / 2 * (SizeRefine / 2 - 1));
+
+                        {
+                            int SizeRefineSuper = SizeRefine * SpeciesCTFSuperresFactor[Species];
+                            int SizeFull = Species.HalfMap1Reconstruction[GPUID].Dims.X;
+                            int SizeFullSuper = SizeFull * SpeciesCTFSuperresFactor[Species];
+                            float AngPixRefine = Species.ResolutionRefinement / 2;
+                            int ParticleDiameterPix = (int)(Species.DiameterAngstrom / AngPixRefine);
+
+                            Image CoordsCTF = CTF.GetCTFCoords(SizeRefineSuper, SizeRefineSuper);   // Not SizeFullSuper because CTF creation later adjusts pixel size to AngPixRefine
+                            Image CoordsCTFCropped = CTF.GetCTFCoords(SizeRefine, SizeRefine);
+
+                            Image Extracted = new Image(IntPtr.Zero, new int3(SizeFullSuper, SizeFullSuper, BatchSize), true, true);
+                            Image ExtractedFT = new Image(IntPtr.Zero, new int3(SizeFullSuper, SizeFullSuper, BatchSize), true, true);
+                            Image ExtractedCropped = new Image(IntPtr.Zero, new int3(SizeRefine, SizeRefine, BatchSize), true, true);
+                            Image ExtractedCroppedFT = new Image(IntPtr.Zero, new int3(SizeRefine, SizeRefine, BatchSize), true, true);
+                            Image ExtractedCTF = new Image(IntPtr.Zero, new int3(SizeRefineSuper, SizeRefineSuper, BatchSize), true, true);
+
+                            int PlanForwSuper = GPU.CreateFFTPlan(new int3(SizeFullSuper, SizeFullSuper, 1), (uint)BatchSize);
+                            int PlanBackSuper = GPU.CreateIFFTPlan(new int3(SizeRefineSuper, SizeRefineSuper, 1), (uint)BatchSize);
+                            int PlanForw = GPU.CreateFFTPlan(new int3(SizeRefine, SizeRefine, 1), (uint)BatchSize);
+
+                            if (PlanForwSuper <= 0 || PlanBackSuper <= 0 || PlanForw <= 0)
+                                throw new Exception("No FFT plans created!");
+
+                            Image PhaseCorrection = CTF.GetPhaseCorrection(AngPixRefine, SizeRefineSuper);
+                            Image GammaCorrection = CTF.GetGammaCorrection(AngPixRefine, SizeRefineSuper);
+
+                            bool[] EwaldReverse = { Species.EwaldReverse, !Species.EwaldReverse };
+
+                            for (int batchStart = 0; batchStart < NParticles; batchStart += BatchSize)
                             {
-                                ParticlePositions[p * NFrames + f] = Positions[f];
-                                ParticleAngles[p * NFrames + f] = Angles[f] * Helper.ToRad;
+                                int CurBatch = Math.Min(BatchSize, NParticles - batchStart);
+                                IEnumerable<Particle> BatchParticles = Particles.Skip(batchStart).Take(CurBatch);
+                                float3[] CoordinatesMoving = Helper.Combine(BatchParticles.Select(p => p.GetCoordinateSeries(DoseInterpolationSteps)));
+                                float3[] AnglesMoving = Helper.Combine(BatchParticles.Select(p => p.GetAngleSeries(DoseInterpolationSteps)));
+
+                                for (int i = 0; i < CurBatch; i++)
+                                {
+                                    float2 Coords = new float2(CoordinatesMoving[i * NFrames].X, CoordinatesMoving[i * NFrames].Y);
+                                    Coords /= ImageDimensionsPhysical;
+                                    TableOut.AddRow(new List<string>() { Coords.X.ToString(CultureInfo.InvariantCulture),
+                                                                         Coords.Y.ToString(CultureInfo.InvariantCulture) });
+                                }
+
+                                for (int f = 0; f < NFrames; f++)
+                                {
+                                    float3[] CoordinatesFrame = new float3[CurBatch];
+                                    float3[] AnglesFrame = new float3[CurBatch];
+                                    for (int p = 0; p < CurBatch; p++)
+                                    {
+                                        CoordinatesFrame[p] = CoordinatesMoving[p * NFrames + f];
+                                        AnglesFrame[p] = AnglesMoving[p * NFrames + f];
+                                    }
+
+                                    float3[] ImageCoords = GetPositionsInOneFrame(CoordinatesFrame, f);
+                                    float3[] ImageAngles = GetAnglesInOneFrame(CoordinatesFrame, AnglesFrame, f);
+                                    float2[] Astigmatism = GetAstigmatism(CoordinatesFrame);
+
+                                    float3[] Defoci = new float3[CurBatch];
+                                    int3[] ExtractOrigins = new int3[CurBatch];
+                                    float3[] ResidualShifts = new float3[BatchSize];
+                                    for (int p = 0; p < CurBatch; p++)
+                                    {
+                                        float ScaledX = ImageCoords[p].X / AngPixExtract, ScaledY = ImageCoords[p].Y / AngPixExtract;
+                                        ExtractOrigins[p] = new int3((int)ScaledX - SizeFullSuper / 2, (int)ScaledY - SizeFullSuper / 2, 0);
+                                        ResidualShifts[p] = -new float3(ScaledX - (int)ScaledX - SizeFullSuper / 2, ScaledY - (int)ScaledY - SizeFullSuper / 2, 0);
+                                        Defoci[p].X = ImageCoords[p].Z;
+                                        Defoci[p].Y = Astigmatism[p].X;
+                                        Defoci[p].Z = Astigmatism[p].Y;
+                                    }
+
+                                    for (int iewald = 0; iewald < (Species.DoEwald ? 2 : 1); iewald++)
+                                    {
+                                        GPU.Extract(FrameData[f].GetDevice(Intent.Read),
+                                                    Extracted.GetDevice(Intent.Write),
+                                                    FrameData[f].Dims.Slice(),
+                                                    new int3(SizeFullSuper, SizeFullSuper, 1),
+                                                    Helper.ToInterleaved(ExtractOrigins),
+                                                    (uint)CurBatch);
+
+                                        GPU.FFT(Extracted.GetDevice(Intent.Read),
+                                                ExtractedFT.GetDevice(Intent.Write),
+                                                new int3(SizeFullSuper, SizeFullSuper, 1),
+                                                (uint)CurBatch,
+                                                PlanForwSuper);
+
+                                        ExtractedFT.ShiftSlices(ResidualShifts);
+                                        ExtractedFT.Multiply(1f / (SizeFullSuper * SizeFullSuper));
+
+                                        GPU.CropFT(ExtractedFT.GetDevice(Intent.Read),
+                                                   Extracted.GetDevice(Intent.Write),
+                                                   new int3(SizeFullSuper, SizeFullSuper, 1),
+                                                   new int3(SizeRefineSuper, SizeRefineSuper, 1),
+                                                   (uint)CurBatch);
+
+                                        GPU.MultiplyComplexSlicesByComplex(Extracted.GetDevice(Intent.Read),
+                                                                           PhaseCorrection.GetDevice(Intent.Read),
+                                                                           Extracted.GetDevice(Intent.Write),
+                                                                           PhaseCorrection.ElementsSliceComplex,
+                                                                           (uint)CurBatch);
+
+                                        if (Species.DoEwald)
+                                        {
+                                            GetComplexCTFsForOneFrame(AngPixRefine, Defoci, ImageCoords, CoordsCTF, GammaCorrection, f, EwaldReverse[iewald], ExtractedCTF, true);
+
+                                            GPU.MultiplyComplexSlicesByComplex(Extracted.GetDevice(Intent.Read),
+                                                                               ExtractedCTF.GetDevice(Intent.Read),
+                                                                               ExtractedFT.GetDevice(Intent.Write),
+                                                                               ExtractedCTF.ElementsComplex,
+                                                                               1);
+                                        }
+                                        else
+                                        {
+                                            GetCTFsForOneFrame(AngPixRefine, Defoci, ImageCoords, CoordsCTF, GammaCorrection, f, ExtractedCTF, true);
+
+                                            GPU.MultiplyComplexSlicesByScalar(Extracted.GetDevice(Intent.Read),
+                                                                              ExtractedCTF.GetDevice(Intent.Read),
+                                                                              ExtractedFT.GetDevice(Intent.Write),
+                                                                              ExtractedCTF.ElementsComplex,
+                                                                              1);
+                                        }
+
+                                        GPU.IFFT(ExtractedFT.GetDevice(Intent.Read),
+                                                 Extracted.GetDevice(Intent.Write),
+                                                 new int3(SizeRefineSuper, SizeRefineSuper, 1),
+                                                 (uint)CurBatch,
+                                                 PlanBackSuper,
+                                                 false);
+
+                                        GPU.CropFTFull(Extracted.GetDevice(Intent.Read),
+                                                        ExtractedCropped.GetDevice(Intent.Write),
+                                                        new int3(SizeRefineSuper, SizeRefineSuper, 1),
+                                                        new int3(SizeRefine, SizeRefine, 1),
+                                                        (uint)CurBatch);
+
+                                        GPU.SphereMask(ExtractedCropped.GetDevice(Intent.Read),
+                                                       ExtractedCropped.GetDevice(Intent.Write),
+                                                       ExtractedCropped.Dims.Slice(),
+                                                       ParticleDiameterPix / 2f * 1.3f,
+                                                       16 * AngPixExtract / AngPixRefine,
+                                                       true,
+                                                       (uint)CurBatch);
+
+                                        GPU.FFT(ExtractedCropped.GetDevice(Intent.Read),
+                                                ExtractedCroppedFT.GetDevice(Intent.Write),
+                                                new int3(SizeRefine, SizeRefine, 1),
+                                                (uint)CurBatch,
+                                                PlanForw);
+
+                                        ExtractedCroppedFT.Multiply(1f / (SizeRefine * SizeRefine));
+
+                                        GetCTFsForOneFrame(AngPixRefine, Defoci, ImageCoords, CoordsCTFCropped, null, f, ExtractedCTF, true, true, true);
+
+                                        GPU.MultiParticleCorr2D(FSC.GetDeviceSlice(f * 3, Intent.ReadWrite),
+                                                                new IntPtr((long)FSCPerParticle.GetDevice(Intent.ReadWrite) + (SpeciesOffset + batchStart) * FSCPerParticle.Dims.X * 3 * sizeof(float)),
+                                                                PhaseResiduals.GetDevice(Intent.ReadWrite),
+                                                                FSCLength,
+                                                                new IntPtr[] { ExtractedCroppedFT.GetDevice(Intent.Read) },
+                                                                ExtractedCTF.GetDevice(Intent.Read),
+                                                                SizeRefine,
+                                                                ScaleFactor,
+                                                                null,
+                                                                new float[CurBatch * 2],
+                                                                Helper.ToInterleaved(ImageAngles),
+                                                                MagnificationCorrection,
+                                                                Species.DoEwald ? CTF.GetEwaldRadius(SizeFull, (float)Species.PixelSize) * (iewald == 0 ? 1 : -1) : 0,
+                                                                new[] { Species.HalfMap1Projector[GPUID].t_DataRe, Species.HalfMap2Projector[GPUID].t_DataRe },
+                                                                new[] { Species.HalfMap1Projector[GPUID].t_DataIm, Species.HalfMap2Projector[GPUID].t_DataIm },
+                                                                Species.HalfMap1Projector[GPUID].Oversampling,
+                                                                Species.HalfMap1Projector[GPUID].DimsOversampled.X,
+                                                                new IntPtr((long)SpeciesParticleSubsets[Species] + batchStart * sizeof(int)),
+                                                                CurBatch,
+                                                                1);
+                                    }
+                                }
                             }
+
+                            PhaseCorrection.Dispose();
+                            GammaCorrection.Dispose();
+
+                            CoordsCTFCropped.Dispose();
+                            CoordsCTF.Dispose();
+                            Extracted.Dispose();
+                            ExtractedFT.Dispose();
+                            ExtractedCropped.Dispose();
+                            ExtractedCroppedFT.Dispose();
+                            ExtractedCTF.Dispose();
+
+                            GPU.DestroyFFTPlan(PlanForwSuper);
+                            GPU.DestroyFFTPlan(PlanBackSuper);
+                            GPU.DestroyFFTPlan(PlanForw);
                         }
-
-                        float3[] ParticlePositionsProjected = GetPositionInAllFrames(ParticlePositions);
-                        float3[] ParticleAnglesInFrames = ParticleAngles;
-
-                        float2[] ParticleExtractedAt = SpeciesParticleExtractedAt[Species];
-                        float2[] ParticleShifts = new float2[NFrames * NParticles];
-                        for (int p = 0; p < NParticles; p++)
-                            for (int t = 0; t < NFrames; t++)
-                                ParticleShifts[p * NFrames + t] = (new float2(ParticlePositionsProjected[p * NFrames + t]) - ParticleExtractedAt[p * NFrames + t]) / SpeciesAngPix;
-
-                        Image CorrAB = new Image(new int3(SpeciesRefinementSize[Species], SpeciesRefinementSize[Species], NFrames), true);
-                        Image CorrA2 = new Image(new int3(SpeciesRefinementSize[Species], SpeciesRefinementSize[Species], NFrames), true);
-                        Image CorrB2 = new Image(new int3(SpeciesRefinementSize[Species], SpeciesRefinementSize[Species], NFrames), true);
-
-                        Image Residuals = new Image(new int3(SpeciesRefinementSize[Species], SpeciesRefinementSize[Species], NFrames), true, true);
-
-                        #endregion
-
-                        GPU.MultiParticleCorr2D(CorrAB.GetDevice(Intent.ReadWrite),
-                                                CorrA2.GetDevice(Intent.ReadWrite),
-                                                CorrB2.GetDevice(Intent.ReadWrite),
-                                                SpeciesParticleImages[Species],
-                                                SpeciesRefinementSize[Species],
-                                                null,
-                                                Helper.ToInterleaved(ParticleShifts),
-                                                Helper.ToInterleaved(ParticleAnglesInFrames),
-                                                MagnificationCorrection * new float3(Species.HalfMap1Projector[GPUID].Oversampling,
-                                                                                     Species.HalfMap1Projector[GPUID].Oversampling,
-                                                                                     1),
-                                                new[] { Species.HalfMap1Projector[GPUID].t_DataRe, Species.HalfMap2Projector[GPUID].t_DataRe },
-                                                new[] { Species.HalfMap1Projector[GPUID].t_DataIm, Species.HalfMap2Projector[GPUID].t_DataIm },
-                                                Species.HalfMap1Projector[GPUID].DimsOversampled.X,
-                                                SpeciesParticleSubsets[Species],
-                                                NParticles,
-                                                NFrames);
-
-                        GPU.MultiParticleResidual(Residuals.GetDevice(Intent.ReadWrite),
-                                                SpeciesParticleImages[Species],
-                                                SpeciesRefinementSize[Species],
-                                                Helper.ToInterleaved(ParticleShifts),
-                                                Helper.ToInterleaved(ParticleAnglesInFrames),
-                                                MagnificationCorrection * new float3(Species.HalfMap1Projector[GPUID].Oversampling,
-                                                                                     Species.HalfMap1Projector[GPUID].Oversampling,
-                                                                                     1),
-                                                SpeciesFrameWeights[Species].GetDevice(Intent.Read),
-                                                new[] { Species.HalfMap1Projector[GPUID].t_DataRe, Species.HalfMap2Projector[GPUID].t_DataRe },
-                                                new[] { Species.HalfMap1Projector[GPUID].t_DataIm, Species.HalfMap2Projector[GPUID].t_DataIm },
-                                                Species.HalfMap1Projector[GPUID].DimsOversampled.X,
-                                                SpeciesParticleSubsets[Species],
-                                                NParticles,
-                                                NFrames);
-
-                        //Image MotionEnvelope = GetMotionEnvelope(SpeciesRefinementSize[Species], Species.ResolutionRefinement / 2, ImageDimensionsPhysical / 2);
-                        //CorrAB.Multiply(MotionEnvelope);
-                        //CorrAB.Multiply(MotionEnvelope);
-                        //CorrA2.Multiply(MotionEnvelope);
-                        //CorrA2.Multiply(MotionEnvelope);
-                        //CorrB2.Multiply(MotionEnvelope);
-                        //CorrB2.Multiply(MotionEnvelope);
-                        //MotionEnvelope.Dispose();
-
-                        CorrAB.FreeDevice();
-                        CorrA2.FreeDevice();
-                        CorrB2.FreeDevice();
-
-                        float[][] ABData = CorrAB.GetHost(Intent.Read);
-                        float[][] A2Data = CorrA2.GetHost(Intent.Read);
-                        float[][] B2Data = CorrB2.GetHost(Intent.Read);
-                        float ScaleFactor = (float)Species.PixelSize * (FSCLength - 1) /
-                                            (float)(Species.ResolutionRefinement / 2) / (SpeciesRefinementSize[Species] / 2 - 1);
-                        Helper.ForEachElementFT(CorrAB.Dims, (x, y, z, xx, yy, zz, r) =>
-                        {
-                            float R = (float)Math.Sqrt(xx * xx + yy * yy);
-                            if (R >= CorrAB.Dims.X / 2)
-                                return;
-
-                            R *= ScaleFactor;
-                            int R0 = (int)R;
-                            int R1 = Math.Min(R0 + 1, FSCLength - 1);
-                            float W1 = R - R0;
-                            float W0 = 1 - W1;
-
-                            FSCData[0][z * FSCLength + R0] += W0 * ABData[z][y * (CorrAB.Dims.X / 2 + 1) + x];
-                            FSCData[0][z * FSCLength + R1] += W1 * ABData[z][y * (CorrAB.Dims.X / 2 + 1) + x];
-
-                            FSCData[1][z * FSCLength + R0] += W0 * A2Data[z][y * (CorrA2.Dims.X / 2 + 1) + x];
-                            FSCData[1][z * FSCLength + R1] += W1 * A2Data[z][y * (CorrA2.Dims.X / 2 + 1) + x];
-
-                            FSCData[2][z * FSCLength + R0] += W0 * B2Data[z][y * (CorrB2.Dims.X / 2 + 1) + x];
-                            FSCData[2][z * FSCLength + R1] += W1 * B2Data[z][y * (CorrB2.Dims.X / 2 + 1) + x];
-                        });
-
-                        CorrAB.Dispose();
-                        CorrA2.Dispose();
-                        CorrB2.Dispose();
-
-                        Image ResidualsMean = Residuals.AsReducedAlongZ();
-                        Residuals.Dispose();
-
-                        Image ResRe = ResidualsMean.AsReal();
-                        ResRe.WriteMRC(RootName + "_residual_re.mrc", true);
-                        ResRe.Dispose();
-
-                        Image ResIm = ResidualsMean.AsImaginary();
-                        ResIm.WriteMRC(RootName + "_residual_im.mrc", true);
-                        ResIm.Dispose();
-
-                        ResidualsMean.Dispose();
                     }
 
-                    FSC.WriteMRC(RootName + "_fsc.mrc", true);
+                    FSC.WriteMRC(System.IO.Path.Combine(workingDirectory, "..", RootName + "_fsc.mrc"), true);
                     FSC.Dispose();
+
+                    FSCPerParticle.WriteMRC(System.IO.Path.Combine(workingDirectory, "..", RootName + "_fscparticles.mrc"), true);
+                    FSCPerParticle.Dispose();
+
+                    PhaseResiduals.WriteMRC(System.IO.Path.Combine(workingDirectory, "..", RootName + "_phaseresiduals.mrc"), true);
+                    PhaseResiduals.Dispose();
+
+                    TableOut.Save(System.IO.Path.Combine(workingDirectory, "..", RootName + "_fscparticles.star"));
                 }
 
                 #endregion
@@ -6351,9 +7230,11 @@ namespace Warp
                 {
                     foreach (var ptr in SpeciesParticleImages[pair.Key])
                         GPU.FreeHostPinned(ptr);
+                    if (pair.Key.DoEwald)
+                        foreach (var ptr in SpeciesParticleQImages[pair.Key])
+                            GPU.FreeDevice(ptr);
                     SpeciesCTFWeights[pair.Key].Dispose();
                     SpeciesFrameWeights[pair.Key].Dispose();
-                    SpeciesVanillaWeights[pair.Key].Dispose();
                     GPU.FreeDevice(SpeciesParticleSubsets[pair.Key]);
 
                     pair.Key.HalfMap1Projector[GPUID].FreeDevice();
@@ -6375,27 +7256,48 @@ namespace Warp
                     Projector[] Reconstructions = { species.HalfMap1Reconstruction[GPUID], species.HalfMap2Reconstruction[GPUID] };
 
                     float AngPixExtract = (float)OptionsDataLoad.BinnedPixelSizeMean;
-                    int BatchSize = 16;
+                    int BatchSize = optionsMPA.BatchSize;
+
+                    CTF MaxDefocusCTF = CTF.GetCopy();
+                    float ExpectedResolution = Math.Max((float)dataSource.PixelSizeMean * 2, (float)species.GlobalResolution * 0.8f);
+                    int ExpectedBoxSize = (int)(species.DiameterAngstrom / (ExpectedResolution / 2)) * 2;
+                    int MinimumBoxSize = Math.Max(ExpectedBoxSize, MaxDefocusCTF.GetAliasingFreeSize(ExpectedResolution));
+                    int CTFSuperresFactor = (int)Math.Ceiling((float)MinimumBoxSize / ExpectedBoxSize);
 
                     int SizeFull = species.HalfMap1Reconstruction[GPUID].Dims.X;
-                    int SizeFullSuper = SizeFull * 4;
+                    int SizeFullSuper = SizeFull * CTFSuperresFactor;
 
                     Image CTFCoords = CTF.GetCTFCoords(SizeFullSuper, SizeFullSuper);
-                    CTF CTFCopy = CTF.GetCopy();
-                    CTFCopy.PixelSize = species.PixelSize;
+                    float2[] CTFCoordsData = CTFCoords.GetHostComplexCopy()[0];
+                    Image CTFCoordsP = CTF.GetCTFPCoords(SizeFullSuper, SizeFullSuper);
+                    float2[] CTFCoordsPData = CTFCoordsP.GetHostComplexCopy()[0];
+                    Image CTFCoordsCropped = CTF.GetCTFCoords(SizeFull, SizeFull);
 
-                    Image Extracted = new Image(IntPtr.Zero, new int3(SizeFullSuper, SizeFullSuper, BatchSize), true, true);
+                    Image GammaCorrection = CTF.GetGammaCorrection(AngPixExtract, SizeFullSuper);
+
+                    float[] PQSigns = new float[CTFCoordsData.Length];
+                    CTF.PrecomputePQSigns(SizeFullSuper, 2, species.EwaldReverse, CTFCoordsData, CTFCoordsPData, PQSigns);
+
+                    Image PhaseCorrection = CTF.GetPhaseCorrection(AngPixExtract, SizeFullSuper);
+
+                    Image IntermediateMaskAngles = new Image(IntPtr.Zero, new int3(SizeFull, SizeFull, 2), true);
+                    Image IntermediateFTCorr = new Image(IntPtr.Zero, new int3(SizeFullSuper, SizeFullSuper, BatchSize), true, true);
+                    Image IntermediateCTFP = new Image(IntPtr.Zero, new int3(SizeFullSuper, SizeFullSuper, BatchSize), true, true);
+
+                    Image MaskParticle = new Image(new int3(SizeFullSuper, SizeFullSuper, 1));
+                    MaskParticle.Fill(1);
+                    MaskParticle.MaskSpherically((float)(species.DiameterAngstrom + 6) / AngPixExtract, 3, false);
+                    MaskParticle.RemapToFT();
+
+                    Image Extracted = new Image(IntPtr.Zero, new int3(SizeFullSuper, SizeFullSuper, BatchSize));
                     Image ExtractedFT = new Image(IntPtr.Zero, new int3(SizeFullSuper, SizeFullSuper, BatchSize), true, true);
                     Image ExtractedCropped = new Image(IntPtr.Zero, new int3(SizeFull, SizeFull, BatchSize));
-                    Image ExtractedCroppedFT = new Image(IntPtr.Zero, new int3(SizeFull, SizeFull, BatchSize), true, true);
+                    Image ExtractedCroppedFTp = new Image(new int3(SizeFull, SizeFull, BatchSize), true, true);
+                    Image ExtractedCroppedFTq = new Image(new int3(SizeFull, SizeFull, BatchSize), true, true);
 
                     Image ExtractedCTF = new Image(IntPtr.Zero, new int3(SizeFullSuper, SizeFullSuper, BatchSize), true);
-                    Image ExtractedCTFUnweighted = new Image(IntPtr.Zero, new int3(SizeFullSuper, SizeFullSuper, BatchSize), true);
                     Image ExtractedCTFCropped = new Image(IntPtr.Zero, new int3(SizeFull, SizeFull, BatchSize), true);
-
-                    //Image MotionEnvelope = GetMotionEnvelope(SizeFull, (float)species.PixelSize, ImageDimensionsPhysical / 2);
-                    //Image MotionEnvelope2 = MotionEnvelope.GetCopyGPU();
-                    //MotionEnvelope2.Multiply(MotionEnvelope2);
+                    Image CTFWeights = new Image(IntPtr.Zero, new int3(SizeFull, SizeFull, BatchSize), true);
 
                     int PlanForwSuper = GPU.CreateFFTPlan(new int3(SizeFullSuper, SizeFullSuper, 1), (uint)BatchSize);
                     int PlanBackSuper = GPU.CreateIFFTPlan(new int3(SizeFullSuper, SizeFullSuper, 1), (uint)BatchSize);
@@ -6416,10 +7318,6 @@ namespace Warp
                             float3[] CoordinatesMoving = Helper.Combine(BatchParticles.Select(p => p.GetCoordinateSeries(DoseInterpolationSteps)));
                             float3[] AnglesMoving = Helper.Combine(BatchParticles.Select(p => p.GetAngleSeries(DoseInterpolationSteps)));
 
-                            Image BeamTiltCorrection = CTFCopy.GetBeamTilt(SizeFullSuper,
-                                                                           SizeFullSuper,
-                                                                           GetBeamTilt(BatchParticles.Select(p => p.Coordinates[0]).ToArray()));
-
                             for (int f = 0; f < NFrames; f++)
                             {
                                 float3[] CoordinatesFrame = new float3[CurBatch];
@@ -6427,10 +7325,11 @@ namespace Warp
                                 for (int p = 0; p < CurBatch; p++)
                                 {
                                     CoordinatesFrame[p] = CoordinatesMoving[p * NFrames + f];
-                                    AnglesFrame[p] = AnglesMoving[p * NFrames + f] * Helper.ToRad;
+                                    AnglesFrame[p] = AnglesMoving[p * NFrames + f];// * Helper.ToRad;
                                 }
 
                                 float3[] ImageCoords = GetPositionsInOneFrame(CoordinatesFrame, f);
+                                float3[] ImageAngles = GetAnglesInOneFrame(CoordinatesFrame, AnglesFrame, f);// AnglesFrame;
                                 float2[] Astigmatism = GetAstigmatism(CoordinatesFrame);
 
                                 float3[] Defoci = new float3[CurBatch];
@@ -6464,52 +7363,61 @@ namespace Warp
                                 ExtractedFT.ShiftSlices(ResidualShifts);
                                 ExtractedFT.Multiply(1f / (SizeFullSuper * SizeFullSuper));
 
-                                GetCTFsForOneFrame(AngPixExtract, Defoci, CTFCoords, f, ExtractedCTF, true, false, true);
-
                                 GPU.MultiplyComplexSlicesByComplex(ExtractedFT.GetDevice(Intent.Read),
-                                                                   BeamTiltCorrection.GetDevice(Intent.Read),
+                                                                   PhaseCorrection.GetDevice(Intent.Read),
                                                                    ExtractedFT.GetDevice(Intent.Write),
-                                                                   BeamTiltCorrection.ElementsComplex,
-                                                                   1);
+                                                                   PhaseCorrection.ElementsComplex,
+                                                                   (uint)CurBatch);
 
-                                GPU.MultiplyComplexSlicesByScalar(ExtractedFT.GetDevice(Intent.Read),
-                                                                  ExtractedCTF.GetDevice(Intent.Read),
-                                                                  ExtractedFT.GetDevice(Intent.Write),
-                                                                  ExtractedCTF.ElementsReal,
-                                                                  1);
+                                CTF[] CTFParams = GetCTFParamsForOneFrame(AngPixExtract, Defoci, ImageCoords, f, false, false, false);
 
-                                GPU.IFFT(ExtractedFT.GetDevice(Intent.Read),
-                                         Extracted.GetDevice(Intent.Write),
-                                         new int3(SizeFullSuper, SizeFullSuper, 1),
-                                         (uint)CurBatch,
-                                         PlanBackSuper,
-                                         false);
+                                CTF.ApplyPandQPrecomp(ExtractedFT,
+                                                      CTFParams,
+                                                      IntermediateFTCorr,
+                                                      Extracted,
+                                                      ExtractedCropped,
+                                                      IntermediateCTFP,
+                                                      CTFCoords,
+                                                      GammaCorrection,
+                                                      species.EwaldReverse,
+                                                      null,
+                                                      PlanForw,
+                                                      PlanBackSuper,
+                                                      ExtractedCroppedFTp,
+                                                      ExtractedCroppedFTq);
 
-                                GPU.CropFTFull(Extracted.GetDevice(Intent.Read),
-                                               ExtractedCropped.GetDevice(Intent.Write),
-                                               new int3(SizeFullSuper, SizeFullSuper, 1),
-                                               new int3(SizeFull, SizeFull, 1),
-                                               (uint)CurBatch);
+                                //CTF.ApplyPandQ(ExtractedFT,
+                                //                CTFParams,
+                                //                IntermediateFTCorr,
+                                //                Extracted,
+                                //                ExtractedCropped,
+                                //                IntermediateCTFP,
+                                //                IntermediateMaskAngles,
+                                //                CTFCoordsData,
+                                //                CTFCoordsPData,
+                                //                MaskParticle,
+                                //                PlanForw,
+                                //                PlanBackSuper,
+                                //                2,
+                                //                species.EwaldReverse,
+                                //                ExtractedCroppedFTp,
+                                //                ExtractedCroppedFTq);
 
-                                GPU.FFT(ExtractedCropped.GetDevice(Intent.Read),
-                                        ExtractedCroppedFT.GetDevice(Intent.Write),
-                                        new int3(SizeFull, SizeFull, 1),
-                                        (uint)CurBatch,
-                                        PlanForw);
+                                GetCTFsForOneFrame(AngPixExtract, Defoci, ImageCoords, CTFCoordsCropped, null, f, CTFWeights, true, true, true);
 
-                                ExtractedCroppedFT.Multiply(1f / (SizeFull * SizeFull));
-                                //GPU.MultiplyComplexSlicesByScalar(ExtractedCroppedFT.GetDevice(Intent.Read),
-                                //                                  MotionEnvelope.GetDeviceSlice(f, Intent.Read),
-                                //                                  ExtractedCroppedFT.GetDevice(Intent.Write),
-                                //                                  MotionEnvelope.ElementsSliceReal,
-                                //                                  (uint)CurBatch);
+                                ExtractedCroppedFTp.Multiply(CTFWeights);
+                                ExtractedCroppedFTq.Multiply(CTFWeights);
 
                                 #endregion
 
                                 #region CTF data
 
-                                GetCTFsForOneFrame(AngPixExtract, Defoci, CTFCoords, f, ExtractedCTFUnweighted, false);
-                                ExtractedCTF.Multiply(ExtractedCTFUnweighted);
+                                float[][] ExtractedCTFData = ExtractedCTF.GetHost(Intent.Write);
+                                Parallel.For(0, CurBatch, i =>
+                                {
+                                    CTFParams[i].GetEwaldWeights(CTFCoordsData, species.DiameterAngstrom, ExtractedCTFData[i]);
+                                });
+                                ExtractedCTF.Multiply(ExtractedCTF);
 
                                 ExtractedFT.Fill(new float2(1, 0));
                                 ExtractedFT.Multiply(ExtractedCTF);
@@ -6538,31 +7446,49 @@ namespace Warp
                                          ExtractedCTFCropped.ElementsReal);
 
                                 ExtractedCTFCropped.Multiply(1f / (SizeFull * SizeFull));
+                                GPU.MultiplySlices(ExtractedCTFCropped.GetDevice(Intent.Read),
+                                                    CTFWeights.GetDeviceSlice(f, Intent.Read),
+                                                    ExtractedCTFCropped.GetDevice(Intent.Write),
+                                                    CTFWeights.ElementsSliceReal,
+                                                    (uint)CurBatch);
+
+                                // Try to correct motion-dampened amplitudes
+                                //GetCTFsForOneFrame(AngPixExtract, Defoci, ImageCoords, CTFCoordsCropped, f, CTFWeights, true, true, true, true);
                                 //GPU.MultiplySlices(ExtractedCTFCropped.GetDevice(Intent.Read),
-                                //                    MotionEnvelope2.GetDeviceSlice(f, Intent.Read),
+                                //                    CTFWeights.GetDeviceSlice(f, Intent.Read),
                                 //                    ExtractedCTFCropped.GetDevice(Intent.Write),
-                                //                    MotionEnvelope2.ElementsSliceReal,
+                                //                    CTFWeights.ElementsSliceReal,
                                 //                    (uint)CurBatch);
 
                                 #endregion
 
-                                Reconstructions[isubset].BackProject(ExtractedCroppedFT, ExtractedCTFCropped, AnglesFrame, MagnificationCorrection);
+                                Reconstructions[isubset].BackProject(ExtractedCroppedFTp, ExtractedCTFCropped, ImageAngles, MagnificationCorrection, CTFParams[0].GetEwaldRadius(SizeFull, (float)species.PixelSize));
+                                Reconstructions[isubset].BackProject(ExtractedCroppedFTq, ExtractedCTFCropped, ImageAngles, MagnificationCorrection, -CTFParams[0].GetEwaldRadius(SizeFull, (float)species.PixelSize));
                             }
 
-                            BeamTiltCorrection.Dispose();
+                            GPU.CheckGPUExceptions();
                         }
                     }
 
                     CTFCoords.Dispose();
+                    CTFCoordsP.Dispose();
+                    CTFCoordsCropped.Dispose();
+                    GammaCorrection.Dispose();
+                    PhaseCorrection.Dispose();
                     Extracted.Dispose();
                     ExtractedFT.Dispose();
                     ExtractedCropped.Dispose();
-                    ExtractedCroppedFT.Dispose();
+                    ExtractedCroppedFTp.Dispose();
+                    ExtractedCroppedFTq.Dispose();
                     ExtractedCTF.Dispose();
-                    ExtractedCTFUnweighted.Dispose();
                     ExtractedCTFCropped.Dispose();
-                    //MotionEnvelope.Dispose();
-                    //MotionEnvelope2.Dispose();
+                    CTFWeights.Dispose();
+
+                    MaskParticle.Dispose();
+
+                    IntermediateMaskAngles.Dispose();
+                    IntermediateFTCorr.Dispose();
+                    IntermediateCTFP.Dispose();
 
                     GPU.DestroyFFTPlan(PlanForwSuper);
                     GPU.DestroyFFTPlan(PlanBackSuper);
@@ -6577,6 +7503,105 @@ namespace Warp
 
 
             #endregion
+        }
+
+        public virtual long MultiParticleRefinementCalculateHostMemory(ProcessingOptionsMPARefine optionsMPA,
+                                                                       Species[] allSpecies,
+                                                                       DataSource dataSource)
+        {
+            long Result = 0;
+
+            string DataHash = GetDataHash();
+            int GPUID = GPU.GetDevice();
+
+            NFrames = Math.Min(MapHeader.ReadFromFile(Path).Dimensions.Z, dataSource.FrameLimit);
+
+            foreach (var species in allSpecies)
+            {
+                int NParticles = species.GetParticles(DataHash).Length;
+
+                int Size = species.HalfMap1Projector[GPUID].Dims.X;
+                int SizeFull = species.HalfMap1Reconstruction[GPUID].Dims.X;
+
+                int[] RelevantSizes = GetRelevantImageSizes(SizeFull, (float)optionsMPA.BFactorWeightingThreshold).Select(v => Math.Min(Size, v)).ToArray();
+
+                long OneSet = Helper.ArrayOfFunction(t => (new int3(RelevantSizes[t]).Slice().ElementsFFT()) * 2 * (long)NParticles * sizeof(float), NFrames).Sum();
+                if (species.DoEwald)
+                    OneSet *= 2;
+
+                Result += OneSet;
+            }
+
+            return Result;
+        }
+
+        public virtual long MultiParticleRefinementCalculateAvailableDeviceMemory(ProcessingOptionsMPARefine optionsMPA,
+                                                                                  Species[] allSpecies,
+                                                                                  DataSource dataSource)
+        {
+
+            string DataHash = GetDataHash();
+            int GPUID = GPU.GetDevice();
+
+            long Result = GPU.GetFreeMemory(GPUID);
+
+            NFrames = Math.Min(MapHeader.ReadFromFile(Path).Dimensions.Z, dataSource.FrameLimit);
+
+            foreach (var species in allSpecies)
+            {
+                species.HalfMap1Projector[GPUID].PutTexturesOnDevice();
+                species.HalfMap2Projector[GPUID].PutTexturesOnDevice();
+            }
+
+            foreach (var species in allSpecies)
+            {
+                int NParticles = species.GetParticles(DataHash).Length;
+
+                CTF MaxDefocusCTF = CTF.GetCopy();
+                int MinimumBoxSize = Math.Max(species.HalfMap1Projector[GPUID].Dims.X, MaxDefocusCTF.GetAliasingFreeSize(species.ResolutionRefinement));
+                int CTFSuperresFactor = (int)Math.Ceiling((float)MinimumBoxSize / species.HalfMap1Projector[GPUID].Dims.X);
+
+                int SizeRefine = species.HalfMap1Projector[GPUID].Dims.X;
+                int SizeRefineSuper = SizeRefine * CTFSuperresFactor;
+                int SizeFull = species.HalfMap1Reconstruction[GPUID].Dims.X;
+                int SizeFullSuper = species.HalfMap1Reconstruction[GPUID].Dims.X * CTFSuperresFactor;
+
+                int BatchSize = optionsMPA.BatchSize;
+
+                Image CoordsCTF = CTF.GetCTFCoords(SizeRefineSuper, SizeRefineSuper);
+                Image PhaseCorrection = CTF.GetPhaseCorrection((float)species.PixelSize, SizeRefineSuper);
+
+                Image Extracted = new Image(IntPtr.Zero, new int3(SizeFullSuper, SizeFullSuper, BatchSize), true, true);
+                Image ExtractedFT = new Image(IntPtr.Zero, new int3(SizeFullSuper, SizeFullSuper, BatchSize), true, true);
+                Image ExtractedCropped = new Image(IntPtr.Zero, new int3(SizeRefine, SizeRefine, BatchSize));
+                Image ExtractedCroppedFT = new Image(IntPtr.Zero, new int3(SizeRefine, SizeRefine, BatchSize), true, true);
+                Image ExtractedCroppedFTRelevantSize = new Image(IntPtr.Zero, new int3(SizeRefine, SizeRefine, BatchSize), true, true);
+                Image ExtractedCTF = new Image(IntPtr.Zero, new int3(SizeRefineSuper, SizeRefineSuper, BatchSize), true);
+
+                int PlanForwSuper = GPU.CreateFFTPlan(new int3(SizeFullSuper, SizeFullSuper, 1), (uint)BatchSize);
+                int PlanBackSuper = GPU.CreateIFFTPlan(new int3(SizeRefineSuper, SizeRefineSuper, 1), (uint)BatchSize);
+                int PlanForw = GPU.CreateFFTPlan(new int3(SizeRefine, SizeRefine, 1), (uint)BatchSize);
+
+                Result = Math.Min(Result, GPU.GetFreeMemory(GPUID));
+
+                GPU.DestroyFFTPlan(PlanForw);
+                GPU.DestroyFFTPlan(PlanBackSuper);
+                GPU.DestroyFFTPlan(PlanForwSuper);
+
+                ExtractedCTF.Dispose();
+                ExtractedCroppedFTRelevantSize.Dispose();
+                ExtractedCroppedFT.Dispose();
+                ExtractedCropped.Dispose();
+                ExtractedFT.Dispose();
+                Extracted.Dispose();
+
+                PhaseCorrection.Dispose();
+                CoordsCTF.Dispose();
+            }
+
+            Result = Math.Max(0, Result - (1 << 30));   // Subtract 1 GB just in case
+
+            return Result;
         }
 
         #endregion
@@ -6624,9 +7649,7 @@ namespace Warp
             }
 
             float[] GridDefocusInterp = GridCTFDefocus.GetInterpolatedNative(GridCoords);
-
-
-            float3[] TransformedCoords = new float3[coords.Length];
+            float[] GridDomingInterp = GridCTFDoming.GetInterpolatedNative(GridCoords);
 
             for (int i = 0; i < coords.Length; i++)
             {
@@ -6644,7 +7667,7 @@ namespace Warp
                     Transformed.Y -= GridPyramidYInterp[p][i];
                 }
 
-                Transformed.Z = Transformed.Z * 1e-4f + GridDefocusInterp[i];
+                Transformed.Z = Transformed.Z * 1e-4f + GridDefocusInterp[i] + GridDomingInterp[i];
 
 
                 Result[i] = Transformed;
@@ -6683,9 +7706,7 @@ namespace Warp
             }
 
             float[] GridDefocusInterp = GridCTFDefocus.GetInterpolatedNative(GridCoords);
-
-
-            float3[] TransformedCoords = new float3[coords.Length];
+            float[] GridDomingInterp = GridCTFDoming.GetInterpolatedNative(GridCoords);
 
             for (int i = 0; i < coords.Length; i++)
             {
@@ -6703,10 +7724,101 @@ namespace Warp
                     Transformed.Y -= GridPyramidYInterp[p][i];
                 }
 
-                Transformed.Z = Transformed.Z * 1e-4f + GridDefocusInterp[i];
+                Transformed.Z = Transformed.Z * 1e-4f + GridDefocusInterp[i] + GridDomingInterp[i];
 
 
                 Result[i] = Transformed;
+            }
+
+            return Result;
+        }
+
+        #endregion
+
+        #region GetAngle methods
+
+        public Matrix3[] GetParticleRotationMatrixInAllFrames(float3[] coords, float3[] angle)
+        {
+            Matrix3[] Result = new Matrix3[coords.Length];
+
+            float GridStep = 1f / (NFrames - 1);
+
+            float3[] GridCoords = new float3[coords.Length];
+            for (int i = 0; i < coords.Length; i++)
+            {
+                int f = i % NFrames;
+                GridCoords[i] = new float3(coords[i].X / ImageDimensionsPhysical.X, coords[i].Y / ImageDimensionsPhysical.X, f * GridStep);
+            }
+
+            float[] GridAngleXInterp = GridAngleX.GetInterpolatedNative(GridCoords);
+            float[] GridAngleYInterp = GridAngleY.GetInterpolatedNative(GridCoords);
+            float[] GridAngleZInterp = GridAngleZ.GetInterpolatedNative(GridCoords);
+
+            for (int i = 0; i < coords.Length; i++)
+            {
+                Matrix3 ParticleMatrix = Matrix3.Euler(angle[i].X * Helper.ToRad,
+                                                       angle[i].Y * Helper.ToRad,
+                                                       angle[i].Z * Helper.ToRad);
+
+                Matrix3 CorrectionMatrix = Matrix3.RotateZ(GridAngleZInterp[i] * Helper.ToRad) *
+                                           Matrix3.RotateY(GridAngleYInterp[i] * Helper.ToRad) *
+                                           Matrix3.RotateX(GridAngleXInterp[i] * Helper.ToRad);
+
+                Matrix3 Rotation = CorrectionMatrix * ParticleMatrix;
+
+                Result[i] = Rotation;
+            }
+
+            return Result;
+        }
+
+        public float3[] GetParticleAngleInAllFrames(float3 coords, float3 angle)
+        {
+            float3[] PerTiltCoords = new float3[NFrames];
+            float3[] PerTiltAngles = new float3[NFrames];
+            for (int i = 0; i < NFrames; i++)
+            {
+                PerTiltCoords[i] = coords;
+                PerTiltAngles[i] = angle;
+            }
+
+            return GetParticleAngleInAllFrames(PerTiltCoords, PerTiltAngles);
+        }
+
+        public float3[] GetParticleAngleInAllFrames(float3[] coords, float3[] angle)
+        {
+            float3[] Result = new float3[coords.Length];
+
+            Matrix3[] Matrices = GetParticleRotationMatrixInAllFrames(coords, angle);
+
+            for (int i = 0; i < Result.Length; i++)
+                Result[i] = Matrix3.EulerFromMatrix(Matrices[i]);
+
+            return Result;
+        }
+
+        public float3[] GetAnglesInOneFrame(float3[] coords, float3[] particleAngles, int frameID)
+        {
+            int NParticles = coords.Length;
+            float3[] Result = new float3[NParticles];
+
+            float GridStep = 1f / (NFrames - 1);
+
+            for (int p = 0; p < NParticles; p++)
+            {
+                float3 GridCoords = new float3(coords[p].X / ImageDimensionsPhysical.X, coords[p].Y / ImageDimensionsPhysical.Y, frameID * GridStep);
+
+                Matrix3 ParticleMatrix = Matrix3.Euler(particleAngles[p].X * Helper.ToRad,
+                                                       particleAngles[p].Y * Helper.ToRad,
+                                                       particleAngles[p].Z * Helper.ToRad);
+
+                Matrix3 CorrectionMatrix = Matrix3.RotateZ(GridAngleZ.GetInterpolated(GridCoords) * Helper.ToRad) *
+                                           Matrix3.RotateY(GridAngleY.GetInterpolated(GridCoords) * Helper.ToRad) *
+                                           Matrix3.RotateX(GridAngleX.GetInterpolated(GridCoords) * Helper.ToRad);
+
+                Matrix3 Rotation = CorrectionMatrix * ParticleMatrix;
+
+                Result[p] = Matrix3.EulerFromMatrix(Rotation);
             }
 
             return Result;
@@ -6729,7 +7841,7 @@ namespace Warp
             for (int t = 0; t < ImagePositions.Length; t++)
                 ImagePositions[t] /= (float)options.BinnedPixelSizeMean;
 
-            Image Result = new Image(new int3(size, size, NFrames));
+            Image Result = result == null ? new Image(new int3(size, size, NFrames)) : result;
             float[][] ResultData = Result.GetHost(Intent.Write);
             float3[] Shifts = new float3[NFrames];
 
@@ -6777,11 +7889,17 @@ namespace Warp
                                 false,
                                 (uint)Result.Dims.Z);
 
-            Image ResultFT = Result.AsFFT(false, planForw);
+            Image ResultFT = resultFT == null ? new Image(IntPtr.Zero, new int3(size, size, NFrames), true, true) : resultFT;
+            GPU.FFT(Result.GetDevice(Intent.Read),
+                    ResultFT.GetDevice(Intent.Write),
+                    Result.Dims,
+                    (uint)Result.Dims.Z,
+                    planForw);
             ResultFT.Multiply(1f / (size * size));
             ResultFT.ShiftSlices(Shifts);
 
-            Result.Dispose();
+            if (result == null)
+                Result.Dispose();
 
             return ResultFT;
         }
@@ -6790,14 +7908,14 @@ namespace Warp
 
         #region GetCTFs methods
 
-        public virtual Image GetCTFsForOneParticle(ProcessingOptionsBase options, float3 coords, Image ctfCoords, bool weighted = true, bool weightsonly = false, bool useglobalweights = false, Image result = null)
+        public virtual Image GetCTFsForOneParticle(ProcessingOptionsBase options, float3 coords, Image ctfCoords, Image gammaCorrection, bool weighted = true, bool weightsonly = false, bool useglobalweights = false, Image result = null)
         {
             float3[] PerFrameCoords = Helper.ArrayOfConstant(coords, NFrames);
 
-            return GetCTFsForOneParticle(options, PerFrameCoords, ctfCoords, weighted, weightsonly, useglobalweights, result);
+            return GetCTFsForOneParticle(options, PerFrameCoords, ctfCoords, gammaCorrection, weighted, weightsonly, useglobalweights, result);
         }
 
-        public virtual Image GetCTFsForOneParticle(ProcessingOptionsBase options, float3[] coordsMoving, Image ctfCoords, bool weighted = true, bool weightsonly = false, bool useglobalweights = false, Image result = null)
+        public virtual Image GetCTFsForOneParticle(ProcessingOptionsBase options, float3[] coordsMoving, Image ctfCoords, Image gammaCorrection, bool weighted = true, bool weightsonly = false, bool useglobalweights = false, Image result = null)
         {
             float3[] ImagePositions = GetPositionInAllFrames(coordsMoving);
 
@@ -6824,8 +7942,19 @@ namespace Warp
 
                 if (weighted)
                 {
-                    CurrCTF.Bfactor = (decimal)GridDoseBfacs.GetInterpolated(new float3(0.5f, 0.5f, f * GridStep));
-                    CurrCTF.Scale = (decimal)GridDoseWeights.GetInterpolated(new float3(0.5f, 0.5f, f * GridStep));
+                    float3 InterpAt = new float3(coordsMoving[f].X / ImageDimensionsPhysical.X,
+                                                 coordsMoving[f].Y / ImageDimensionsPhysical.Y,
+                                                 f * GridStep);
+
+                    CurrCTF.Bfactor = (decimal)GridDoseBfacs.GetInterpolated(new float3(0.5f, 0.5f, f * GridStep)) +
+                                      (decimal)GridLocationBfacs.GetInterpolated(InterpAt);
+                    CurrCTF.BfactorDelta = (decimal)GridDoseBfacsDelta.GetInterpolated(new float3(0.5f, 0.5f, f * GridStep));
+                    CurrCTF.BfactorAngle = (decimal)GridDoseBfacsAngle.GetInterpolated(new float3(0.5f, 0.5f, f * GridStep));
+
+                    CurrCTF.Bfactor = Math.Min(CurrCTF.Bfactor, -Math.Abs(CurrCTF.BfactorDelta));
+
+                    CurrCTF.Scale = (decimal)GridDoseWeights.GetInterpolated(new float3(0.5f, 0.5f, f * GridStep)) *
+                                    (decimal)GridLocationWeights.GetInterpolated(InterpAt);
 
                     if (useglobalweights)
                     {
@@ -6838,12 +7967,18 @@ namespace Warp
             }
 
             Image Result = new Image(IntPtr.Zero, new int3(ctfCoords.Dims.X, ctfCoords.Dims.Y, NFrames), true);
-            GPU.CreateCTF(Result.GetDevice(Intent.Write), ctfCoords.GetDevice(Intent.Read), (uint)Result.ElementsSliceReal, Params, false, (uint)NFrames);
+            GPU.CreateCTF(Result.GetDevice(Intent.Write),
+                          ctfCoords.GetDevice(Intent.Read),
+                          gammaCorrection == null ? IntPtr.Zero : gammaCorrection.GetDevice(Intent.Read),
+                          (uint)ctfCoords.ElementsSliceComplex,
+                          Params,
+                          false,
+                          (uint)NFrames);
 
             return Result;
         }
 
-        public void GetCTFsForOneFrame(float pixelSize, float3[] defoci, Image ctfCoords, int frameID, Image outSimulated, bool weighted = true, bool weightsonly = false, bool useglobalweights = false)
+        public void GetCTFsForOneFrame(float pixelSize, float3[] defoci, float3[] coords, Image ctfCoords, Image gammaCorrection, int frameID, Image outSimulated, bool weighted = true, bool weightsonly = false, bool useglobalweights = false)
         {
             int NParticles = defoci.Length;
             CTFStruct[] Params = new CTFStruct[NParticles];
@@ -6864,15 +7999,30 @@ namespace Warp
                 ProtoCTF.Amplitude = 1;
             }
 
+            decimal Bfac = 0;
+            decimal BfacDelta = 0;
+            decimal BfacAngle = 0;
+            decimal Weight = 1;
+
             if (weighted)
             {
-                ProtoCTF.Bfactor = (decimal)GridDoseBfacs.GetInterpolated(new float3(0.5f, 0.5f, frameID * GridStep));
-                ProtoCTF.Scale = (decimal)GridDoseWeights.GetInterpolated(new float3(0.5f, 0.5f, frameID * GridStep));
+                Bfac = (decimal)GridDoseBfacs.GetInterpolated(new float3(0.5f, 0.5f, frameID * GridStep));
+                BfacDelta = (decimal)GridDoseBfacsDelta.GetInterpolated(new float3(0.5f, 0.5f, frameID * GridStep));
+                BfacAngle = (decimal)GridDoseBfacsAngle.GetInterpolated(new float3(0.5f, 0.5f, frameID * GridStep));
+                Weight = (decimal)GridDoseWeights.GetInterpolated(new float3(0.5f, 0.5f, frameID * GridStep));
 
-                if (useglobalweights)
+                Bfac = Math.Min(Bfac, -Math.Abs(BfacDelta));
+
+                //if (onlyanisoweights)
+                //{
+                //    Bfac = -Math.Abs(BfacDelta);
+                //    Weight = 1;
+                //}
+
+                if (useglobalweights)// && !onlyanisoweights)
                 {
-                    ProtoCTF.Bfactor += (decimal)GlobalBfactor;
-                    ProtoCTF.Scale *= (decimal)GlobalWeight;
+                    Bfac += (decimal)GlobalBfactor;
+                    Weight *= (decimal)GlobalWeight;
                 }
             }
 
@@ -6885,10 +8035,176 @@ namespace Warp
                     ProtoCTF.DefocusAngle = (decimal)defoci[p].Z;
                 }
 
+                if (weighted)
+                {
+                    ProtoCTF.Bfactor = Bfac;
+                    ProtoCTF.BfactorDelta = BfacDelta;
+                    ProtoCTF.BfactorAngle = BfacAngle;
+                    ProtoCTF.Scale = Weight;
+
+                    float3 InterpAt = new float3(coords[p].X / ImageDimensionsPhysical.X,
+                                                 coords[p].Y / ImageDimensionsPhysical.Y,
+                                                 0.5f);
+                    ProtoCTF.Bfactor += (decimal)GridLocationBfacs.GetInterpolated(InterpAt);
+                    ProtoCTF.Scale *= (decimal)GridLocationWeights.GetInterpolated(InterpAt);
+                }
+
                 Params[p] = ProtoCTF.ToStruct();
             }
 
-            GPU.CreateCTF(outSimulated.GetDevice(Intent.Write), ctfCoords.GetDevice(Intent.Read), (uint)outSimulated.ElementsSliceReal, Params, false, (uint)NParticles);
+            GPU.CreateCTF(outSimulated.GetDevice(Intent.Write),
+                          ctfCoords.GetDevice(Intent.Read),
+                          gammaCorrection == null ? IntPtr.Zero : gammaCorrection.GetDevice(Intent.Read),
+                          (uint)ctfCoords.ElementsSliceComplex,
+                          Params,
+                          false,
+                          (uint)NParticles);
+        }
+
+        public void GetComplexCTFsForOneFrame(float pixelSize, float3[] defoci, float3[] coords, Image ctfCoords, Image gammaCorrection, int frameID, bool reverse, Image outSimulated, bool weighted = true, bool weightsonly = false, bool useglobalweights = false)
+        {
+            int NParticles = defoci.Length;
+            CTFStruct[] Params = new CTFStruct[NParticles];
+
+            float GridStep = 1f / Math.Max(1, NFrames - 1);
+
+            CTF ProtoCTF = CTF.GetCopy();
+            ProtoCTF.PixelSize = (decimal)pixelSize;
+            if (!weightsonly)
+            {
+
+            }
+            else
+            {
+                ProtoCTF.Defocus = 0;
+                ProtoCTF.DefocusDelta = 0;
+                ProtoCTF.Cs = 0;
+                ProtoCTF.Amplitude = 1;
+            }
+
+            decimal Bfac = 0;
+            decimal BfacDelta = 0;
+            decimal BfacAngle = 0;
+            decimal Weight = 1;
+
+            if (weighted)
+            {
+                Bfac = (decimal)GridDoseBfacs.GetInterpolated(new float3(0.5f, 0.5f, frameID * GridStep));
+                BfacDelta = (decimal)GridDoseBfacsDelta.GetInterpolated(new float3(0.5f, 0.5f, frameID * GridStep));
+                BfacAngle = (decimal)GridDoseBfacsAngle.GetInterpolated(new float3(0.5f, 0.5f, frameID * GridStep));
+                Weight = (decimal)GridDoseWeights.GetInterpolated(new float3(0.5f, 0.5f, frameID * GridStep));
+
+                Bfac = Math.Min(Bfac, -Math.Abs(BfacDelta));
+
+                if (useglobalweights)
+                {
+                    Bfac += (decimal)GlobalBfactor;
+                    Weight *= (decimal)GlobalWeight;
+                }
+            }
+
+            for (int p = 0; p < NParticles; p++)
+            {
+                if (!weightsonly)
+                {
+                    ProtoCTF.Defocus = (decimal)defoci[p].X;
+                    ProtoCTF.DefocusDelta = (decimal)defoci[p].Y;
+                    ProtoCTF.DefocusAngle = (decimal)defoci[p].Z;
+                }
+
+                if (weighted)
+                {
+                    ProtoCTF.Bfactor = Bfac;
+                    ProtoCTF.BfactorDelta = BfacDelta;
+                    ProtoCTF.BfactorAngle = BfacAngle;
+                    ProtoCTF.Scale = Weight;
+
+                    float3 InterpAt = new float3(coords[p].X / ImageDimensionsPhysical.X,
+                                                 coords[p].Y / ImageDimensionsPhysical.Y,
+                                                 0.5f);
+                    ProtoCTF.Bfactor += (decimal)GridLocationBfacs.GetInterpolated(InterpAt);
+                    ProtoCTF.Scale *= (decimal)GridLocationWeights.GetInterpolated(InterpAt);
+                }
+
+                Params[p] = ProtoCTF.ToStruct();
+            }
+
+            GPU.CreateCTFComplex(outSimulated.GetDevice(Intent.Write), 
+                                ctfCoords.GetDevice(Intent.Read), 
+                                gammaCorrection.GetDevice(Intent.Read), 
+                                (uint)ctfCoords.ElementsSliceComplex, 
+                                Params, 
+                                reverse, 
+                                (uint)NParticles);
+        }
+
+        public CTF[] GetCTFParamsForOneFrame(float pixelSize, float3[] defoci, float3[] coords, int frameID, bool weighted = true, bool weightsonly = false, bool useglobalweights = false)
+        {
+            int NParticles = defoci.Length;
+            CTF[] Params = new CTF[NParticles];
+
+            float GridStep = 1f / Math.Max(1, NFrames - 1);
+
+            CTF ProtoCTF = CTF.GetCopy();
+            ProtoCTF.PixelSize = (decimal)pixelSize;
+            if (!weightsonly)
+            {
+
+            }
+            else
+            {
+                ProtoCTF.Defocus = 0;
+                ProtoCTF.DefocusDelta = 0;
+                ProtoCTF.Cs = 0;
+                ProtoCTF.Amplitude = 1;
+            }
+
+            decimal Bfac = 0;
+            decimal BfacDelta = 0;
+            decimal BfacAngle = 0;
+            decimal Weight = 1;
+
+            if (weighted)
+            {
+                Bfac = (decimal)GridDoseBfacs.GetInterpolated(new float3(0.5f, 0.5f, frameID * GridStep));
+                BfacDelta = (decimal)GridDoseBfacsDelta.GetInterpolated(new float3(0.5f, 0.5f, frameID * GridStep));
+                BfacAngle = (decimal)GridDoseBfacsAngle.GetInterpolated(new float3(0.5f, 0.5f, frameID * GridStep));
+                Weight = (decimal)GridDoseWeights.GetInterpolated(new float3(0.5f, 0.5f, frameID * GridStep));
+
+                if (useglobalweights)
+                {
+                    Bfac += (decimal)GlobalBfactor;
+                    Weight *= (decimal)GlobalWeight;
+                }
+            }
+
+            for (int p = 0; p < NParticles; p++)
+            {
+                if (!weightsonly)
+                {
+                    ProtoCTF.Defocus = (decimal)defoci[p].X;
+                    ProtoCTF.DefocusDelta = (decimal)defoci[p].Y;
+                    ProtoCTF.DefocusAngle = (decimal)defoci[p].Z;
+                }
+
+                if (weighted)
+                {
+                    ProtoCTF.Bfactor = Bfac;
+                    ProtoCTF.BfactorDelta = BfacDelta;
+                    ProtoCTF.BfactorAngle = BfacAngle;
+                    ProtoCTF.Scale = Weight;
+
+                    float3 InterpAt = new float3(coords[p].X / ImageDimensionsPhysical.X,
+                                                 coords[p].Y / ImageDimensionsPhysical.Y,
+                                                 0.5f);
+                    ProtoCTF.Bfactor += (decimal)GridLocationBfacs.GetInterpolated(InterpAt);
+                    ProtoCTF.Scale *= (decimal)GridLocationWeights.GetInterpolated(InterpAt);
+                }
+
+                Params[p] = ProtoCTF.GetCopy();
+            }
+
+            return Params;
         }
 
         public float2[] GetAstigmatism(float3[] coords)
@@ -6951,91 +8267,80 @@ namespace Warp
         }
 
         #endregion
-        
+
         static float[][][] RawLayers = new float[GPU.GetDeviceCount()][][];
 
         public void LoadFrameData(ProcessingOptionsBase options, Image imageGain, out Image[] frameData)
         {
             MapHeader Header = MapHeader.ReadFromFile(Path, new int2(1), 0, typeof(float));
 
-            if (imageGain != null)
-                if (Header.Dimensions.X != imageGain.Dims.X || Header.Dimensions.Y != imageGain.Dims.Y)
-                    throw new Exception("Gain reference dimensions do not match image.");
-
-            bool NeedIOLock = Header.GetType() != typeof(HeaderTiff);   // No need to create additional IO competition without compression
+            string Extension = Helper.PathToExtension(Path).ToLower();
             bool IsTiff = Header.GetType() == typeof(HeaderTiff);
+            bool IsEER = Header.GetType() == typeof(HeaderEER);
 
-            int NThreads = IsTiff ? 6 : 2;
+            if (imageGain != null)
+                if (!IsEER)
+                    if (Header.Dimensions.X != imageGain.Dims.X || Header.Dimensions.Y != imageGain.Dims.Y)
+                        throw new Exception("Gain reference dimensions do not match image.");
+
+            int EERSupersample = 1;
+            if (imageGain != null && IsEER)
+            {
+                if (Header.Dimensions.X == imageGain.Dims.X)
+                    EERSupersample = 1;
+                else if (Header.Dimensions.X * 2 == imageGain.Dims.X)
+                    EERSupersample = 2;
+                else if (Header.Dimensions.X * 4 == imageGain.Dims.X)
+                    EERSupersample = 3;
+                else
+                    throw new Exception("Invalid supersampling factor requested for EER based on gain reference dimensions");
+            }
+
+            HeaderEER.SuperResolution = EERSupersample;
+
+            if (IsEER && imageGain != null)
+            {
+                Header.Dimensions.X = imageGain.Dims.X;
+                Header.Dimensions.Y = imageGain.Dims.Y;
+            }
+
+            int NThreads = (IsTiff || IsEER) ? 6 : 2;
             int GPUThreads = 2;
 
             int CurrentDevice = GPU.GetDevice();
 
-            if (RawLayers[CurrentDevice] == null || 
-                RawLayers[CurrentDevice].Length != NThreads || 
+            if (RawLayers[CurrentDevice] == null ||
+                RawLayers[CurrentDevice].Length != NThreads ||
                 RawLayers[CurrentDevice][0].Length != Header.Dimensions.ElementsSlice())
                 RawLayers[CurrentDevice] = Helper.ArrayOfFunction(i => new float[Header.Dimensions.ElementsSlice()], NThreads);
 
             Image[] GPULayers = Helper.ArrayOfFunction(i => new Image(IntPtr.Zero, Header.Dimensions.Slice()), GPUThreads);
 
             float ScaleFactor = 1 / (float)options.DownsampleFactor;
-
-            byte[] TiffBytes = null;
-            if (IsTiff)
-            {
-                MemoryStream Stream = new MemoryStream();
-                using (Stream BigBufferStream = IOHelper.OpenWithBigBuffer(Path))
-                    BigBufferStream.CopyTo(Stream);
-                TiffBytes = Stream.GetBuffer();
-            }
-
+            
             int3 ScaledDims = new int3((int)Math.Round(Header.Dimensions.X * ScaleFactor) / 2 * 2,
-                                        (int)Math.Round(Header.Dimensions.Y * ScaleFactor) / 2 * 2,
-                                        1);
+                                       (int)Math.Round(Header.Dimensions.Y * ScaleFactor) / 2 * 2,
+                                       Math.Min(NFrames, Header.Dimensions.Z));
 
-            Image[] FrameData = Helper.ArrayOfFunction(i => new Image(IntPtr.Zero, ScaledDims), Math.Min(NFrames, Header.Dimensions.Z));
+            Image[] FrameData = Helper.ArrayOfFunction(i => new Image(IntPtr.Zero, ScaledDims.Slice()), ScaledDims.Z);
 
             if (ScaleFactor == 1f)
             {
-                //Helper.ForCPU(0, FrameData.Length, NThreads, threadID => GPU.SetDevice(CurrentDevice), (z, threadID) =>
-                //{
-                //    Image Layer = null;
-                //    MemoryStream TiffStream = TiffBytes != null ? new MemoryStream(TiffBytes) : null;
-
-                //    if (NeedIOLock)
-                //    {
-                //        lock (IOLock)
-                //            Layer = Image.FromFile(Path, new int2(1), 0, typeof(float), z, TiffStream);
-                //    }
-                //    else
-                //    {
-                //        Layer = Image.FromFile(Path, new int2(1), 0, typeof(float), z, TiffStream);
-                //    }
-
-                //    lock (FrameData)
-                //    {
-                //        if (imageGain != null)
-                //            Layer.MultiplySlices(imageGain);
-                //        Layer.Xray(20f);
-
-                //        FrameData[z] = Layer;
-                //    }
-
-                //}, null);
-
-
                 object[] Locks = Helper.ArrayOfFunction(i => new object(), GPUThreads);
 
                 Helper.ForCPU(0, FrameData.Length, NThreads, threadID => GPU.SetDevice(CurrentDevice), (z, threadID) =>
                 {
                     if (IsTiff)
                         TiffNative.ReadTIFFPatient(50, 500, Path, z, true, RawLayers[CurrentDevice][threadID]);
+                    else if (IsEER)
+                        EERNative.ReadEERPatient(50, 500, Path, z * 10, (z + 1) * 10, EERSupersample, RawLayers[CurrentDevice][threadID]);
                     else
                         IOHelper.ReadMapFloatPatient(50, 500,
                                                      Path,
                                                      new int2(1),
                                                      0,
                                                      typeof(float),
-                                                     z,
+                                                     new[] { z },
                                                      null,
                                                      new[] { RawLayers[CurrentDevice][threadID] });
 
@@ -7059,38 +8364,68 @@ namespace Warp
             }
             else
             {
-                throw new Exception();
-                //int PlanForw = GPU.CreateFFTPlan(Header.Dimensions.Slice(), 1);
-                //int PlanBack = GPU.CreateIFFTPlan(ScaledDims.Slice(), 1);
+                int[] PlanForw = Helper.ArrayOfFunction(i => GPU.CreateFFTPlan(Header.Dimensions.Slice(), 1), GPUThreads);
+                int[] PlanBack = Helper.ArrayOfFunction(i => GPU.CreateIFFTPlan(ScaledDims.Slice(), 1), GPUThreads);
 
-                //Helper.ForCPU(0, FrameData.Length, NThreads, threadID => GPU.SetDevice(CurrentDevice), (z, threadID) =>
-                //{
-                //    Image Layer = null;
-                //    MemoryStream TiffStream = TiffBytes != null ? new MemoryStream(TiffBytes) : null;
+                Image[] GPULayers2 = Helper.ArrayOfFunction(i => new Image(IntPtr.Zero, Header.Dimensions.Slice()), GPUThreads);
 
-                //    if (NeedIOLock)
-                //        lock (IOLock)
-                //            Layer = Image.FromFile(Path, new int2(1), 0, typeof(float), z, TiffStream);
-                //    else
-                //        Layer = Image.FromFile(Path, new int2(1), 0, typeof(float), z, TiffStream);
+                Image[] GPULayersInputFT = Helper.ArrayOfFunction(i => new Image(IntPtr.Zero, Header.Dimensions.Slice(), true, true), GPUThreads);
+                Image[] GPULayersOutputFT = Helper.ArrayOfFunction(i => new Image(IntPtr.Zero, ScaledDims.Slice(), true, true), GPUThreads);
 
-                //    Image ScaledLayer = null;
-                //    lock (FrameData)
-                //    {
-                //        if (imageGain != null)
-                //            Layer.MultiplySlices(imageGain);
-                //        Layer.Xray(20f);
+                object[] Locks = Helper.ArrayOfFunction(i => new object(), GPUThreads);
 
-                //        ScaledLayer = Layer.AsScaled(new int2(ScaledDims), PlanForw, PlanBack);
-                //        Layer.Dispose();
-                //    }
+                Helper.ForCPU(0, FrameData.Length, NThreads, threadID => GPU.SetDevice(CurrentDevice), (z, threadID) =>
+                {
+                    if (IsTiff)
+                        TiffNative.ReadTIFFPatient(50, 500, Path, z, true, RawLayers[CurrentDevice][threadID]);
+                    else if (IsEER)
+                        EERNative.ReadEERPatient(50, 500, Path, z * 10, (z + 1) * 10, EERSupersample, RawLayers[CurrentDevice][threadID]);
+                    else
+                        IOHelper.ReadMapFloatPatient(50, 500,
+                                                     Path,
+                                                     new int2(1),
+                                                     0,
+                                                     typeof(float),
+                                                     new[] { z },
+                                                     null,
+                                                     new[] { RawLayers[CurrentDevice][threadID] });
 
-                //    FrameData[z] = ScaledLayer;
+                    int GPUThreadID = threadID % GPUThreads;
 
-                //}, null);
+                    lock (Locks[GPUThreadID])
+                    {
+                        GPU.CopyHostToDevice(RawLayers[CurrentDevice][threadID], GPULayers[GPUThreadID].GetDevice(Intent.Write), RawLayers[CurrentDevice][threadID].Length);
 
-                //GPU.DestroyFFTPlan(PlanForw);
-                //GPU.DestroyFFTPlan(PlanBack);
+                        if (imageGain != null)
+                            GPULayers[GPUThreadID].MultiplySlices(imageGain);
+
+                        GPU.Xray(GPULayers[GPUThreadID].GetDevice(Intent.Read),
+                                 GPULayers2[GPUThreadID].GetDevice(Intent.Write),
+                                 20f,
+                                 new int2(Header.Dimensions),
+                                 1);
+
+                        GPU.Scale(GPULayers2[GPUThreadID].GetDevice(Intent.Read),
+                                  FrameData[z].GetDevice(Intent.Write),
+                                  Header.Dimensions.Slice(),
+                                  ScaledDims.Slice(),
+                                  1,
+                                  PlanForw[GPUThreadID],
+                                  PlanBack[GPUThreadID],
+                                  GPULayersInputFT[GPUThreadID].GetDevice(Intent.Write),
+                                  GPULayersOutputFT[GPUThreadID].GetDevice(Intent.Write));
+                    }
+
+                }, null);
+
+                for (int i = 0; i < GPUThreads; i++)
+                {
+                    GPU.DestroyFFTPlan(PlanForw[i]);
+                    GPU.DestroyFFTPlan(PlanBack[i]);
+                    GPULayersInputFT[i].Dispose();
+                    GPULayersOutputFT[i].Dispose();
+                    GPULayers2[i].Dispose();
+                }
             }
 
             foreach (var item in GPULayers)
@@ -7196,6 +8531,55 @@ namespace Warp
             return Result;
         }
 
+        public virtual int[] GetRelevantImageSizes(int fullSize, float weightingThreshold)
+        {
+            int[] Result = new int[NFrames];
+
+            float[][] AllWeights = new float[NFrames][];
+
+            float GridStep = 1f / (NFrames - 1);
+            for (int f = 0; f < NFrames; f++)
+            {
+                CTF CurrCTF = CTF.GetCopy();
+
+                CurrCTF.Defocus = 0;
+                CurrCTF.DefocusDelta = 0;
+                CurrCTF.Cs = 0;
+                CurrCTF.Amplitude = 1;
+
+                if (GridDoseBfacs.Dimensions.Elements() <= 1)
+                    CurrCTF.Bfactor = (decimal)(-f * (float)OptionsMovieExport.DosePerAngstromFrame * 4);
+                else
+                    CurrCTF.Bfactor = (decimal)(GridDoseBfacs.GetInterpolated(new float3(0.5f, 0.5f, f * GridStep)) +
+                                                Math.Abs(GridDoseBfacsDelta.GetInterpolated(new float3(0.5f, 0.5f, f * GridStep))));
+
+                AllWeights[f] = CurrCTF.Get1D(fullSize / 2, false);
+            }
+
+            int elementID = 0;
+            if (GridDoseBfacs.Dimensions.Elements() > 1)
+                (elementID, _) = MathHelper.MaxElement(GridDoseBfacs.FlatValues);
+            float[] LowerDoseWeights = AllWeights[elementID].ToList().ToArray();
+
+            for (int t = 0; t < NFrames; t++)
+            {
+                for (int i = 0; i < LowerDoseWeights.Length; i++)
+                    AllWeights[t][i] /= LowerDoseWeights[i];
+
+                int MaxShell = 0;
+                while (MaxShell < AllWeights[t].Length)
+                {
+                    if (AllWeights[t][MaxShell] < weightingThreshold)
+                        break;
+                    MaxShell++;
+                }
+
+                Result[t] = Math.Max(2, Math.Min(fullSize, MaxShell * 2));
+            }
+
+            return Result;
+        }
+
         #endregion
     }
 
@@ -7207,7 +8591,8 @@ namespace Warp
         ParticlePosition = 1 << 3,
         ParticleAngle = 1 << 4,
         Magnification = 1 << 5,
-        BeamTilt = 1 << 6
+        Zernike13 = 1 << 6,
+        Zernike5 = 1 << 7
     }
 
     public enum CTFOptimizationTypes
@@ -7216,10 +8601,11 @@ namespace Warp
         AstigmatismDelta = 1 << 1,
         AstigmatismAngle = 1 << 2,
         PhaseShift = 1 << 3,
-        PixelSize = 1 << 4,
-        Cs = 1 << 5,
-        BeamTilt = 1 << 6,
-        BeamTilt2 = 1 << 7
+        Cs = 1 << 4,
+        Doming = 1 << 5,
+        Zernike2 = 1 << 6,
+        Zernike4 = 1 << 7,
+        DefocusGridSearch = 1 << 8
     }
 
     [Serializable]
@@ -7583,27 +8969,254 @@ namespace Warp
     }
 
     [Serializable]
-    public class ProcessingOptionsMPARefine
+    public class ProcessingOptionsMPARefine : WarpBase
     {
+        private int _NIterations = 3;
         [WarpSerializable]
-        public int2 ImageWarpResolution { get; set; }
+        public int NIterations
+        {
+            get { return _NIterations; }
+            set { if (value != _NIterations) { _NIterations = value; OnPropertyChanged(); } }
+        }
 
+        private decimal _BFactorWeightingThreshold = 0.25M;
         [WarpSerializable]
-        public int4 VolumeWarpResolution { get; set; }
+        public decimal BFactorWeightingThreshold
+        {
+            get { return _BFactorWeightingThreshold; }
+            set { if (value != _BFactorWeightingThreshold) { _BFactorWeightingThreshold = value; OnPropertyChanged(); } }
+        }
 
+        private int _BatchSize = 16;
         [WarpSerializable]
-        public bool RefineMovies { get; set; }
+        public int BatchSize
+        {
+            get { return _BatchSize; }
+            set { if (value != _BatchSize) { _BatchSize = value; OnPropertyChanged(); } }
+        }
 
+        private int _InitialResolutionPercent = 80;
         [WarpSerializable]
-        public int NIterations { get; set; }
+        public int InitialResolutionPercent
+        {
+            get { return _InitialResolutionPercent; }
+            set { if (value != _InitialResolutionPercent) { _InitialResolutionPercent = value; OnPropertyChanged(); } }
+        }
 
-        [WarpSerializable]
-        public WarpOptimizationTypes RefinedComponentsWarp { get; set; }
+        #region Geometry
 
+        private bool _DoImageWarp = true;
         [WarpSerializable]
-        public CTFOptimizationTypes RefinedComponentsCTF { get; set; }
+        public bool DoImageWarp
+        {
+            get { return _DoImageWarp; }
+            set { if (value != _DoImageWarp) { _DoImageWarp = value; OnPropertyChanged(); } }
+        }
 
+        private int _ImageWarpWidth = 3;
         [WarpSerializable]
-        public float MinimumCTFRefinementResolution { get; set; }
+        public int ImageWarpWidth
+        {
+            get { return _ImageWarpWidth; }
+            set { if (value != _ImageWarpWidth) { _ImageWarpWidth = value; OnPropertyChanged(); } }
+        }
+
+        private int _ImageWarpHeight = 3;
+        [WarpSerializable]
+        public int ImageWarpHeight
+        {
+            get { return _ImageWarpHeight; }
+            set { if (value != _ImageWarpHeight) { _ImageWarpHeight = value; OnPropertyChanged(); } }
+        }
+
+        private bool _DoVolumeWarp = false;
+        [WarpSerializable]
+        public bool DoVolumeWarp
+        {
+            get { return _DoVolumeWarp; }
+            set { if (value != _DoVolumeWarp) { _DoVolumeWarp = value; OnPropertyChanged(); } }
+        }
+
+        private int _VolumeWarpWidth = 3;
+        [WarpSerializable]
+        public int VolumeWarpWidth
+        {
+            get { return _VolumeWarpWidth; }
+            set { if (value != _VolumeWarpWidth) { _VolumeWarpWidth = value; OnPropertyChanged(); } }
+        }
+
+        private int _VolumeWarpHeight = 3;
+        [WarpSerializable]
+        public int VolumeWarpHeight
+        {
+            get { return _VolumeWarpHeight; }
+            set { if (value != _VolumeWarpHeight) { _VolumeWarpHeight = value; OnPropertyChanged(); } }
+        }
+
+        private int _VolumeWarpDepth = 2;
+        [WarpSerializable]
+        public int VolumeWarpDepth
+        {
+            get { return _VolumeWarpDepth; }
+            set { if (value != _VolumeWarpDepth) { _VolumeWarpDepth = value; OnPropertyChanged(); } }
+        }
+
+        private int _VolumeWarpLength = 10;
+        [WarpSerializable]
+        public int VolumeWarpLength
+        {
+            get { return _VolumeWarpLength; }
+            set { if (value != _VolumeWarpLength) { _VolumeWarpLength = value; OnPropertyChanged(); } }
+        }
+
+        private bool _DoAxisAngles = false;
+        [WarpSerializable]
+        public bool DoAxisAngles
+        {
+            get { return _DoAxisAngles; }
+            set { if (value != _DoAxisAngles) { _DoAxisAngles = value; OnPropertyChanged(); } }
+        }
+
+        private bool _DoParticlePoses = true;
+        [WarpSerializable]
+        public bool DoParticlePoses
+        {
+            get { return _DoParticlePoses; }
+            set { if (value != _DoParticlePoses) { _DoParticlePoses = value; OnPropertyChanged(); } }
+        }
+
+        private bool _DoMagnification = false;
+        [WarpSerializable]
+        public bool DoMagnification
+        {
+            get { return _DoMagnification; }
+            set { if (value != _DoMagnification) { _DoMagnification = value; OnPropertyChanged(); } }
+        }
+
+        private bool _DoZernike13 = false;
+        [WarpSerializable]
+        public bool DoZernike13
+        {
+            get { return _DoZernike13; }
+            set { if (value != _DoZernike13) { _DoZernike13 = value; OnPropertyChanged(); } }
+        }
+
+        private bool _DoZernike5 = false;
+        [WarpSerializable]
+        public bool DoZernike5
+        {
+            get { return _DoZernike5; }
+            set { if (value != _DoZernike5) { _DoZernike5 = value; OnPropertyChanged(); } }
+        }
+
+        private decimal _GeometryHighPass = 20;
+        [WarpSerializable]
+        public decimal GeometryHighPass
+        {
+            get { return _GeometryHighPass; }
+            set { if (value != _GeometryHighPass) { _GeometryHighPass = value; OnPropertyChanged(); } }
+        }
+
+        private bool _DoTiltMovies = false;
+        [WarpSerializable]
+        public bool DoTiltMovies
+        {
+            get { return _DoTiltMovies; }
+            set { if (value != _DoTiltMovies) { _DoTiltMovies = value; OnPropertyChanged(); } }
+        }
+
+        #endregion
+
+        #region CTF
+
+        private bool _DoDefocus = false;
+        [WarpSerializable]
+        public bool DoDefocus
+        {
+            get { return _DoDefocus; }
+            set { if (value != _DoDefocus) { _DoDefocus = value; OnPropertyChanged(); } }
+        }
+
+        private bool _DoAstigmatismDelta = false;
+        [WarpSerializable]
+        public bool DoAstigmatismDelta
+        {
+            get { return _DoAstigmatismDelta; }
+            set { if (value != _DoAstigmatismDelta) { _DoAstigmatismDelta = value; OnPropertyChanged(); } }
+        }
+
+        private bool _DoAstigmatismAngle = false;
+        [WarpSerializable]
+        public bool DoAstigmatismAngle
+        {
+            get { return _DoAstigmatismAngle; }
+            set { if (value != _DoAstigmatismAngle) { _DoAstigmatismAngle = value; OnPropertyChanged(); } }
+        }
+
+        private bool _DoPhaseShift = false;
+        [WarpSerializable]
+        public bool DoPhaseShift
+        {
+            get { return _DoPhaseShift; }
+            set { if (value != _DoPhaseShift) { _DoPhaseShift = value; OnPropertyChanged(); } }
+        }
+
+        private bool _DoCs = false;
+        [WarpSerializable]
+        public bool DoCs
+        {
+            get { return _DoCs; }
+            set { if (value != _DoCs) { _DoCs = value; OnPropertyChanged(); } }
+        }
+
+        private bool _DoDoming = false;
+        [WarpSerializable]
+        public bool DoDoming
+        {
+            get { return _DoDoming; }
+            set { if (value != _DoDoming) { _DoDoming = value; OnPropertyChanged(); } }
+        }
+
+        private bool _DoZernike2 = false;
+        [WarpSerializable]
+        public bool DoZernike2
+        {
+            get { return _DoZernike2; }
+            set { if (value != _DoZernike2) { _DoZernike2 = value; OnPropertyChanged(); } }
+        }
+
+        private bool _DoZernike4 = false;
+        [WarpSerializable]
+        public bool DoZernike4
+        {
+            get { return _DoZernike4; }
+            set { if (value != _DoZernike4) { _DoZernike4 = value; OnPropertyChanged(); } }
+        }
+
+        private bool _DoDefocusGridSearch = false;
+        [WarpSerializable]
+        public bool DoDefocusGridSearch
+        {
+            get { return _DoDefocusGridSearch; }
+            set { if (value != _DoDefocusGridSearch) { _DoDefocusGridSearch = value; OnPropertyChanged(); } }
+        }
+
+        private decimal _MinimumCTFRefinementResolution = 7;
+        [WarpSerializable]
+        public decimal MinimumCTFRefinementResolution
+        {
+            get { return _MinimumCTFRefinementResolution; }
+            set { if (value != _MinimumCTFRefinementResolution) { _MinimumCTFRefinementResolution = value; OnPropertyChanged(); } }
+        }
+
+        private decimal _CTFHighPass = 20;
+        [WarpSerializable]
+        public decimal CTFHighPass
+        {
+            get { return _CTFHighPass; }
+            set { if (value != _CTFHighPass) { _CTFHighPass = value; OnPropertyChanged(); } }
+        }
+
+        #endregion
     }
 }

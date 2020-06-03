@@ -364,10 +364,17 @@ namespace M.Controls.Sociology.Dialogs
 
                     #region Load items with metadata
 
-                    List<Movie> Items = new List<Movie>();
-
                     string FileExtension = Options.Import.Extension;
-                    var AvailableFiles = Directory.EnumerateFiles(Info.DirectoryName, FileExtension);
+                    var AvailableFiles = Directory.EnumerateFiles(Info.DirectoryName, FileExtension).ToArray();
+
+                    Movie[] Items = new Movie[AvailableFiles.Length];
+
+                    string[] MatchingStarNames = null;
+                    if (FileExtension != "*.tomostar" && AvailableFiles.Length > 0)
+                    {
+                        Movie First = new Movie(AvailableFiles[0]);
+                        MatchingStarNames = Directory.EnumerateFiles(First.MatchingDir, "*.star").ToArray();
+                    }
 
                     {
                         var ProgressDialog = await ((MainWindow)Application.Current.MainWindow).ShowProgressAsync("Loading metadata...", "");
@@ -376,19 +383,21 @@ namespace M.Controls.Sociology.Dialogs
                         await Task.Run(() =>
                         {
                             int Done = 0;
-                            foreach (var file in AvailableFiles)
+                            Parallel.For(0, AvailableFiles.Length, i =>
                             {
+                                string file = AvailableFiles[i];
                                 string XmlPath = file.Substring(0, file.LastIndexOf(".")) + ".xml";
                                 if (File.Exists(XmlPath))
-                                    Items.Add(FileExtension == "*.tomostar" ? new TiltSeries(file) : new Movie(file));
+                                    Items[i] = (FileExtension == "*.tomostar" ? new TiltSeries(file) : new Movie(file, MatchingStarNames));
 
-                                ProgressDialog.SetProgress(++Done);
-                            }
+                                lock (Items)
+                                    ProgressDialog.SetProgress(++Done);
+                            });
                         });
                         await ProgressDialog.CloseAsync();
                     }
 
-                    if (Items.Count == 0)
+                    if (Items.Length == 0)
                     {
                         await ((MainWindow)Application.Current.MainWindow).ShowMessageAsync("Oopsie",
                                                                                             $"No micrographs or tilt series found to match these settings.",
@@ -426,6 +435,9 @@ namespace M.Controls.Sociology.Dialogs
 
                     #endregion
 
+                    int[] ParticleCounts = Items.Select(item => item.GetParticleCount(Options.Filter.ParticlesSuffix)).ToArray();
+                    bool HaveParticles = ParticleCounts.Any(v => v > 0);
+
                     foreach (var item in Items)
                     {
                         bool FilterStatus = true;
@@ -440,6 +452,8 @@ namespace M.Controls.Sociology.Dialogs
                             FilterStatus &= item.CTFResolutionEstimate <= Options.Filter.ResolutionMax;
 
                             FilterStatus &= item.CTF.PhaseShift >= Options.Filter.PhaseMin && item.CTF.PhaseShift <= Options.Filter.PhaseMax;
+
+                            FilterStatus &= item.GetParticleCount(Options.Filter.ParticlesSuffix) >= Options.Filter.ParticlesMin;
                         }
 
                         if (item.OptionsMovement != null)

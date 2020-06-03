@@ -6,6 +6,7 @@
 *.user
 *.sln.docstates
 
+# Build results
 [Dd]ebug/
 [Dd]ebugPublic/
 [Rr]elease/
@@ -15,10 +16,12 @@ bld/
 [Bb]in/
 [Oo]bj/
 testdata/
-boxnet2models/
-boxnet2training/
+
+boxnet*/
+noisenet*/
 
 .vs/
+.vs/*
 
 test*/
 
@@ -40,6 +43,10 @@ TestResult.xml
 [Rr]eleasePS/
 dlldata.c
 
+*.zip
+*.db
+*.dll
+d_*
 *.mrc
 *_i.c
 *_p.c

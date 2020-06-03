@@ -303,13 +303,17 @@ namespace Warp
                     Debug.WriteLine(exc);
 
                     if (ExceptionsLogged < 100)
-                        using (TextWriter Writer = File.AppendText("d_filediscoverer.txt"))
+                        try
                         {
-                            Writer.WriteLine(DateTime.Now + ":");
-                            Writer.WriteLine(exc.ToString());
-                            Writer.WriteLine("");
-                            ExceptionsLogged++;
+                            using (TextWriter Writer = File.AppendText("d_filediscoverer.txt"))
+                            {
+                                Writer.WriteLine(DateTime.Now + ":");
+                                Writer.WriteLine(exc.ToString());
+                                Writer.WriteLine("");
+                                ExceptionsLogged++;
+                            }
                         }
+                        catch { }
                 }
 
                 while (CreationTasks.Count > 0)

@@ -341,6 +341,10 @@ extern "C" __declspec(dllexport) void FreeArray(cudaArray_t a_input);
 
 extern "C" __declspec(dllexport) void ReadTIFF(const char* path, int layer, bool flipy, float* h_result);
 
+// EER.cpp:
+
+extern "C" __declspec(dllexport) void ReadEERCombinedFrame(const char* path, int firstFrameInclusive, int lastFrameExclusive, int eer_upsampling, float* h_result);
+
 // Post.cu:
 
 extern "C" __declspec(dllexport) void GetMotionFilter(float* d_output, 
@@ -552,11 +556,13 @@ extern "C" __declspec(dllexport) void MultiParticleDiff(float3* h_result,
 														float2* h_shifts,
 														float3* h_angles,
 														float3 magnification,
-														float2* h_beamtilt,
 														float* d_weights,
-														float2* d_beamtiltcoords,
+														float2* d_phasecorrection,
+                                                        float ewaldradius,
+                                                        int maxshell,
 														uint64_t* h_volumeRe,
 														uint64_t* h_volumeIm,
+                                                        float supersample,
 														int dimprojector,
 														int* d_subsets,
 														int nparticles,
@@ -578,21 +584,26 @@ extern "C" __declspec(dllexport) void MultiParticleSimulate(float* d_result,
 															int nparticles,
 															int ntilts);
 
-extern "C" __declspec(dllexport) void MultiParticleCorr2D(float* d_resultab,
-														float* d_resulta2,
-														float* d_resultb2,
-														float2** hp_experimental,
-														int dimdata,
-														int* h_relevantdims,
-														float2* h_shifts,
-														float3* h_angles,
-														float3 magnification,
-														uint64_t* h_volumeRe,
-														uint64_t* h_volumeIm,
-														int dimprojector,
-														int* d_subsets,
-														int nparticles,
-														int ntilts);
+extern "C" __declspec(dllexport) void MultiParticleCorr2D(float* d_result2d,
+                                                            float* d_result1dparticles,
+                                                            float* d_resultphaseresiduals,
+                                                            int dimresult,
+                                                            float2** hp_experimental,
+                                                            float* d_weights,
+                                                            int dimdata,
+                                                            float scalingfactor,
+                                                            int* h_relevantdims,
+                                                            float2* h_shifts,
+                                                            float3* h_angles,
+                                                            float3 magnification,
+                                                            float ewaldradius,
+                                                            uint64_t* h_volumeRe,
+                                                            uint64_t* h_volumeIm,
+                                                            float supersample,
+                                                            int dimprojector,
+                                                            int* d_subsets,
+                                                            int nparticles,
+                                                            int ntilts);
 
 extern "C" __declspec(dllexport) void MultiParticleResidual(float2* d_result,
 															float2** hp_experimental,
@@ -643,6 +654,15 @@ extern "C" __declspec(dllexport) void Extract(float* d_input,
 												int3* h_origins,
 												uint batch);
 
+
+extern "C" __declspec(dllexport) void ExtractMultisource(void** h_inputs, 
+                                                         float* d_output, 
+                                                         int3 dims, 
+                                                         int3 dimsregion, 
+                                                         int3* h_origins, 
+                                                         int nsources, 
+                                                         uint batch);
+
 extern "C" __declspec(dllexport) void ExtractHalf(float* d_input,
 													float* d_output,
 													int3 dims,
@@ -680,11 +700,21 @@ extern "C" __declspec(dllexport) void SphereMask(float* d_input,
 												 uint batch);
 
 extern "C" __declspec(dllexport) void CreateCTF(float* d_output,
-												float2* d_coords,
+												float2* d_coords, 
+                                                float* d_gammacorrection,
 												uint length,
 												gtom::CTFParams* h_params,
 												bool amplitudesquared,
 												uint batch);
+
+
+extern "C" __declspec(dllexport) void CreateCTFComplex(float* d_output, 
+                                                        float2* d_coords, 
+                                                        float* d_gammacorrection,
+                                                        uint length, 
+                                                        gtom::CTFParams* h_params, 
+                                                        bool reverse, 
+                                                        uint batch);
 
 extern "C" __declspec(dllexport) void Resize(float* d_input,
 											int3 dimsinput,
@@ -755,6 +785,8 @@ extern "C" __declspec(dllexport) void Amplitudes(float2* d_input, float* d_outpu
 
 extern "C" __declspec(dllexport) void Sign(float* d_input, float* d_output, size_t length);
 
+extern "C" __declspec(dllexport) void Sqrt(float* d_input, float* d_output, size_t length);
+
 extern "C" __declspec(dllexport) void Cos(float* d_input, float* d_output, size_t length);
 
 extern "C" __declspec(dllexport) void Sin(float* d_input, float* d_output, size_t length);
@@ -805,7 +837,7 @@ extern "C" __declspec(dllexport) void ProjectForward3DTex(uint64_t t_inputRe, ui
 
 extern "C" __declspec(dllexport) void ProjectForward3DShiftedTex(uint64_t t_inputRe, uint64_t t_inputIm, float2* d_outputft, int3 dimsinput, int3 dimsoutput, float3* h_angles, float3* h_shifts, float* h_globalweights, float supersample, uint batch);
 
-extern "C" __declspec(dllexport) void ProjectBackward(float2* d_volumeft, float* d_volumeweights, int3 dimsvolume, float2* d_projft, float* d_projweights, int2 dimsproj, int rmax, float3* h_angles, int* h_ivolume, float3 magnification, float supersample, bool outputdecentered, uint batch);
+extern "C" __declspec(dllexport) void ProjectBackward(float2* d_volumeft, float* d_volumeweights, int3 dimsvolume, float2* d_projft, float* d_projweights, int2 dimsproj, int rmax, float3* h_angles, int* h_ivolume, float3 magnification, float ewaldradius, float supersample, bool outputdecentered, uint batch);
 
 extern "C" __declspec(dllexport) void ProjectBackwardShifted(float2* d_volumeft, float* d_volumeweights, int3 dimsvolume, float2* d_projft, float* d_projweights, int2 dimsproj, int rmax, float3* h_angles, float3* h_shifts, float* h_globalweights, float supersample, uint batch);
 

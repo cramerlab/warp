@@ -174,7 +174,7 @@ namespace Warp
             return ProjIFT;
         }
 
-        public void BackProject(Image projft, Image projweights, float3[] angles, float3 magnification)
+        public void BackProject(Image projft, Image projweights, float3[] angles, float3 magnification, float ewaldradius = 0)
         {
             if (!projft.IsFT || !projft.IsComplex || !projweights.IsFT)
                 throw new Exception("Input data must be complex (except weights) and in FFTW layout.");
@@ -190,6 +190,7 @@ namespace Warp
                                 Angles,
                                 null,
                                 magnification,
+                                ewaldradius,
                                 Oversampling,
                                 false,
                                 (uint)angles.Length);
@@ -217,17 +218,23 @@ namespace Warp
                                        (uint)angles.Length);
         }
 
-        public Image Reconstruct(bool isctf, string symmetry = "C1", int planForw = -1, int planBack = -1, int planForwCTF = -1, int griddingiterations = 10)
+        public Image Reconstruct(bool isctf, string symmetry = "C1", int planForw = -1, int planBack = -1, int planForwCTF = -1, int griddingiterations = 10, bool useHostMemory = false)
         {
-            Image Reconstruction = new Image(IntPtr.Zero, Dims, isctf);
+            if (useHostMemory)
+            {
+                Data.FreeDevice();
+                Weights.FreeDevice();
+            }
+
+            Image Reconstruction = useHostMemory ? new Image(Dims, isctf) : new Image(IntPtr.Zero, Dims, isctf);
             GPU.BackprojectorReconstructGPU(Dims,
                                             DimsOversampled,
                                             Oversampling,
-                                            Data.GetDevice(Intent.Read),
-                                            Weights.GetDevice(Intent.Read),
+                                            useHostMemory ? Data.GetHostPinned(Intent.ReadWrite) : Data.GetDevice(Intent.ReadWrite),
+                                            useHostMemory ? Weights.GetHostPinned(Intent.ReadWrite) : Weights.GetDevice(Intent.ReadWrite),
                                             symmetry,
                                             isctf,
-                                            Reconstruction.GetDevice(Intent.Write),
+                                            useHostMemory ? Reconstruction.GetHostPinned(Intent.Write) : Reconstruction.GetDevice(Intent.Write),
                                             planForw,
                                             planBack,
                                             planForwCTF,

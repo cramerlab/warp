@@ -232,58 +232,61 @@ namespace Warp
 
             #region Perform version check online
 
-            if (GlobalOptions.PromptShown)
-                Dispatcher.InvokeAsync(async () =>
-                {
-                    try
-                    {
-                        Version CurrentVersion = Assembly.GetExecutingAssembly().GetName().Version;
-                        Version LatestVersion = GlobalOptions.GetLatestVersion();
-
-                        if (CurrentVersion < LatestVersion)
-                        {
-                            var MessageResult = await this.ShowMessageAsync("How the time flies!",
-                                                                            $"It's been a while since you updated Warp. You're running version {CurrentVersion}, but version {LatestVersion} is even better! Would you like to go to the download page?",
-                                                                            MessageDialogStyle.AffirmativeAndNegative,
-                                                                            new MetroDialogSettings
-                                                                            {
-                                                                                AffirmativeButtonText = "Yes",
-                                                                                NegativeButtonText = "No"
-                                                                            });
-
-                            if (MessageResult == MessageDialogResult.Affirmative)
-                            {
-                                Process.Start("http://www.warpem.com/warp/?page_id=65");
-                            }
-
-                            ButtonUpdateAvailable.Visibility = Visibility.Visible;
-                        }
-                    }
-                    catch
-                    {
-                    }
-                }, DispatcherPriority.ApplicationIdle);
-
-            TimerCheckUpdates = new DispatcherTimer();
-            TimerCheckUpdates.Interval = new TimeSpan(0, 10, 0);
-            TimerCheckUpdates.Tick += (sender, e) =>
+            if (GlobalOptions.CheckForUpdates)
             {
-                Dispatcher.InvokeAsync(() =>
-                {
-                    try
+                if (GlobalOptions.PromptShown)
+                    Dispatcher.InvokeAsync(async () =>
                     {
-                        Version CurrentVersion = Assembly.GetExecutingAssembly().GetName().Version;
-                        Version LatestVersion = GlobalOptions.GetLatestVersion();
+                        try
+                        {
+                            Version CurrentVersion = Assembly.GetExecutingAssembly().GetName().Version;
+                            Version LatestVersion = GlobalOptions.GetLatestVersion();
 
-                        if (CurrentVersion < LatestVersion)
-                            ButtonUpdateAvailable.Visibility = Visibility.Visible;
-                    }
-                    catch
+                            if (CurrentVersion < LatestVersion)
+                            {
+                                var MessageResult = await this.ShowMessageAsync("How the time flies!",
+                                                                                $"It's been a while since you updated Warp. You're running version {CurrentVersion}, but version {LatestVersion} is even better! Would you like to go to the download page?",
+                                                                                MessageDialogStyle.AffirmativeAndNegative,
+                                                                                new MetroDialogSettings
+                                                                                {
+                                                                                    AffirmativeButtonText = "Yes",
+                                                                                    NegativeButtonText = "No"
+                                                                                });
+
+                                if (MessageResult == MessageDialogResult.Affirmative)
+                                {
+                                    Process.Start("http://www.warpem.com/warp/?page_id=65");
+                                }
+
+                                ButtonUpdateAvailable.Visibility = Visibility.Visible;
+                            }
+                        }
+                        catch
+                        {
+                        }
+                    }, DispatcherPriority.ApplicationIdle);
+
+                TimerCheckUpdates = new DispatcherTimer();
+                TimerCheckUpdates.Interval = new TimeSpan(0, 10, 0);
+                TimerCheckUpdates.Tick += (sender, e) =>
+                {
+                    Dispatcher.InvokeAsync(() =>
                     {
-                    }
-                });
-            };
-            TimerCheckUpdates.Start();
+                        try
+                        {
+                            Version CurrentVersion = Assembly.GetExecutingAssembly().GetName().Version;
+                            Version LatestVersion = GlobalOptions.GetLatestVersion();
+
+                            if (CurrentVersion < LatestVersion)
+                                ButtonUpdateAvailable.Visibility = Visibility.Visible;
+                        }
+                        catch
+                        {
+                        }
+                    });
+                };
+                TimerCheckUpdates.Start();
+            }
 
             #endregion
 
@@ -992,6 +995,8 @@ namespace Warp
                 ButtonStartProcessing.Foreground = Brushes.Red;
                 IsPreprocessing = true;
 
+                bool IsTomo = Options.Import.ExtensionTomoSTAR;
+
                 PreprocessingTask = Task.Run(async () =>
                 {
                     int NDevices = GPU.GetDeviceCount();
@@ -1037,7 +1042,7 @@ namespace Warp
                     BoxNet2[] BoxNetworks = new BoxNet2[NDevices];
                     object[] BoxNetLocks = Helper.ArrayOfFunction(i => new object(), NDevices);
 
-                    if (Options.ProcessPicking)
+                    if (!IsTomo && Options.ProcessPicking)
                     {
                         ProgressDialogController ProgressDialog = null;
 
@@ -1094,7 +1099,7 @@ namespace Warp
 
                     Dictionary<Movie, List<List<string>>> AllMovieParticleRows = new Dictionary<Movie, List<List<string>>>();
 
-                    if (Options.ProcessPicking && Options.Picking.DoExport && !string.IsNullOrEmpty(Options.Picking.ModelPath))
+                    if (!IsTomo && Options.ProcessPicking && Options.Picking.DoExport && !string.IsNullOrEmpty(Options.Picking.ModelPath))
                     {
                         Movie[] TempMovies = FileDiscoverer.GetImmutableFiles();
 
@@ -1316,22 +1321,23 @@ namespace Warp
                                                                              Options.Import.HeaderlessOffset,
                                                                              ImageFormatsHelper.StringToType(Options.Import.HeaderlessType));
 
-                            if (Header.Dimensions.X != ImageGain.Dims.X || Header.Dimensions.Y != ImageGain.Dims.Y)
-                            {
-                                ImageGain.Dispose();
-
-                                foreach (var worker in Workers)
-                                    worker?.Dispose();
-
-                                await Dispatcher.InvokeAsync(async () =>
+                            if (Helper.PathToExtension(ItemPath).ToLower() != ".eer")
+                                if (Header.Dimensions.X != ImageGain.Dims.X || Header.Dimensions.Y != ImageGain.Dims.Y)
                                 {
-                                    await this.ShowMessageAsync("Oopsie", "Image dimensions do not match those of the gain reference. Maybe it needs to be rotated or transposed?");
+                                    ImageGain.Dispose();
 
-                                    ButtonStartProcessing_OnClick(sender, e);
-                                });
+                                    foreach (var worker in Workers)
+                                        worker?.Dispose();
 
-                                break;
-                            }
+                                    await Dispatcher.InvokeAsync(async () =>
+                                    {
+                                        await this.ShowMessageAsync("Oopsie", "Image dimensions do not match those of the gain reference. Maybe it needs to be rotated or transposed?");
+
+                                        ButtonStartProcessing_OnClick(sender, e);
+                                    });
+
+                                    break;
+                                }
 
                             CheckedGainDims = true;
                         }
@@ -1356,8 +1362,6 @@ namespace Warp
                             try
                             {
                                 var TimerOverall = BenchmarkAllProcessing.Start();
-
-                                bool IsTomo = item.GetType() == typeof(TiltSeries);
 
                                 ProcessingOptionsMovieCTF CurrentOptionsCTF = Options.GetProcessingMovieCTF();
                                 ProcessingOptionsMovieMovement CurrentOptionsMovement = Options.GetProcessingMovieMovement();
@@ -1860,7 +1864,7 @@ namespace Warp
                 GridMicrographDisplay.Children.Clear();
 
                 GridMergedCTFAndMovement.Children.Add(CTFDisplayControl);
-                GridMergedCTFAndMovement.Children.Add(ButtonProcessOneItemCTF);
+                GridMergedCTFAndMovement.Children.Add(PanelButtonsOneTimeCTF);
                 GridMergedCTFAndMovement.Children.Add(MicrographDisplayControl);
                 Grid.SetColumn(MicrographDisplayControl, 2);
 
@@ -1885,7 +1889,7 @@ namespace Warp
                 GridMergedCTFAndMovement.Children.Clear();
 
                 GridCTFDisplay.Children.Add(CTFDisplayControl);
-                GridCTFDisplay.Children.Add(ButtonProcessOneItemCTF);
+                GridCTFDisplay.Children.Add(PanelButtonsOneTimeCTF);
                 GridMicrographDisplay.Children.Add(MicrographDisplayControl);
                 Grid.SetColumn(MicrographDisplayControl, 0);
 
@@ -3025,15 +3029,38 @@ namespace Warp
                                                    Options.Import.HeaderlessOffset,
                                                    ImageFormatsHelper.StringToType(Options.Import.HeaderlessType));
 
-            if (imageGain != null)
-                if (header.Dimensions.X != imageGain.Dims.X || header.Dimensions.Y != imageGain.Dims.Y)
-                    throw new Exception("Gain reference dimensions do not match image.");
-
-            bool NeedIOLock = header.GetType() != typeof(HeaderTiff);   // No need to create additional IO competition without compression
+            string Extension = Helper.PathToExtension(path).ToLower();
             bool IsTiff = header.GetType() == typeof(HeaderTiff);
-            object IOLock = new object();
+            bool IsEER = header.GetType() == typeof(HeaderEER);
 
-            int NThreads = Math.Min(IsTiff ? 8 : 2, maxThreads);
+            if (imageGain != null)
+                if (!IsEER)
+                    if (header.Dimensions.X != imageGain.Dims.X || header.Dimensions.Y != imageGain.Dims.Y)
+                        throw new Exception("Gain reference dimensions do not match image.");
+
+            int EERSupersample = 1;
+            if (imageGain != null && IsEER)
+            {
+                if (header.Dimensions.X == imageGain.Dims.X)
+                    EERSupersample = 1;
+                else if (header.Dimensions.X * 2 == imageGain.Dims.X)
+                    EERSupersample = 2;
+                else if (header.Dimensions.X * 4 == imageGain.Dims.X)
+                    EERSupersample = 3;
+                else
+                    throw new Exception("Invalid supersampling factor requested for EER based on gain reference dimensions");
+            }
+
+            HeaderEER.SuperResolution = EERSupersample;
+
+            if (IsEER && imageGain != null)
+            {
+                header.Dimensions.X = imageGain.Dims.X;
+                header.Dimensions.Y = imageGain.Dims.Y;
+            }
+            MapHeader Header = header;
+
+            int NThreads = (IsTiff || IsEER) ? 6 : 2;
 
             int CurrentDevice = GPU.GetDevice();
 
@@ -3058,26 +3085,19 @@ namespace Warp
                         Image Layer = null;
                         MemoryStream TiffStream = TiffBytes != null ? new MemoryStream(TiffBytes) : null;
 
-                        if (NeedIOLock)
-                        {
-                            lock (IOLock)
-                                Layer = Image.FromFilePatient(50, 500,
-                                                              path,
-                                                              new int2(Options.Import.HeaderlessWidth, Options.Import.HeaderlessHeight),
-                                                              (int)Options.Import.HeaderlessOffset,
-                                                              ImageFormatsHelper.StringToType(Options.Import.HeaderlessType),
-                                                              z,
-                                                              TiffStream);
-                        }
+                        if (!IsEER)
+                            Layer = Image.FromFilePatient(50, 500,
+                                                        path,
+                                                        new int2(Options.Import.HeaderlessWidth, Options.Import.HeaderlessHeight),
+                                                        (int)Options.Import.HeaderlessOffset,
+                                                        ImageFormatsHelper.StringToType(Options.Import.HeaderlessType),
+                                                        z,
+                                                        TiffStream);
                         else
                         {
-                            Layer = Image.FromFilePatient(50, 500,
-                                                          path,
-                                                          new int2(Options.Import.HeaderlessWidth, Options.Import.HeaderlessHeight),
-                                                          (int)Options.Import.HeaderlessOffset,
-                                                          ImageFormatsHelper.StringToType(Options.Import.HeaderlessType),
-                                                          z,
-                                                          TiffStream);
+                            Layer = new Image(Header.Dimensions.Slice());
+                            EERNative.ReadEERPatient(50, 500,
+                                                     path, z * 10, (z + 1) * 10, EERSupersample, Layer.GetHost(Intent.Write)[0]);
                         }
 
                         lock (OriginalStackData)
@@ -3105,47 +3125,40 @@ namespace Warp
                     int PlanBack = GPU.CreateIFFTPlan(ScaledDims.Slice(), 1);
 
                     Helper.ForCPU(0, ScaledDims.Z, NThreads, threadID => GPU.SetDevice(CurrentDevice), (z, threadID) =>
-                                  {
-                                      Image Layer = null;
-                                      MemoryStream TiffStream = TiffBytes != null ? new MemoryStream(TiffBytes) : null;
+                    {
+                        Image Layer = null;
+                        MemoryStream TiffStream = TiffBytes != null ? new MemoryStream(TiffBytes) : null;
 
-                                      if (NeedIOLock)
-                                      {
-                                          lock (IOLock)
-                                              Layer = Image.FromFilePatient(50, 500,
-                                                                            path,
-                                                                            new int2(Options.Import.HeaderlessWidth, Options.Import.HeaderlessHeight),
-                                                                            (int)Options.Import.HeaderlessOffset,
-                                                                            ImageFormatsHelper.StringToType(Options.Import.HeaderlessType),
-                                                                            z,
-                                                                            TiffStream);
-                                      }
-                                      else
-                                      {
-                                          Layer = Image.FromFilePatient(50, 500,
-                                                                        path,
-                                                                        new int2(Options.Import.HeaderlessWidth, Options.Import.HeaderlessHeight),
-                                                                        (int)Options.Import.HeaderlessOffset,
-                                                                        ImageFormatsHelper.StringToType(Options.Import.HeaderlessType),
-                                                                        z,
-                                                                        TiffStream);
-                                      }
+                        if (!IsEER)
+                            Layer = Image.FromFilePatient(50, 500,
+                                                        path,
+                                                        new int2(Options.Import.HeaderlessWidth, Options.Import.HeaderlessHeight),
+                                                        (int)Options.Import.HeaderlessOffset,
+                                                        ImageFormatsHelper.StringToType(Options.Import.HeaderlessType),
+                                                        z,
+                                                        TiffStream);
+                        else
+                        {
+                            Layer = new Image(Header.Dimensions.Slice());
+                            EERNative.ReadEERPatient(50, 500,
+                                path, z * 10, (z + 1) * 10, EERSupersample, Layer.GetHost(Intent.Write)[0]);
+                        }
 
-                                      Image ScaledLayer = null;
-                                      lock (OriginalStackData)
-                                      {
-                                          if (imageGain != null)
-                                              Layer.MultiplySlices(imageGain);
-                                          Layer.Xray(20f);
+                        Image ScaledLayer = null;
+                        lock (OriginalStackData)
+                        {
+                            if (imageGain != null)
+                                Layer.MultiplySlices(imageGain);
+                            Layer.Xray(20f);
 
-                                          ScaledLayer = Layer.AsScaled(new int2(ScaledDims), PlanForw, PlanBack);
-                                          Layer.Dispose();
-                                      }
+                            ScaledLayer = Layer.AsScaled(new int2(ScaledDims), PlanForw, PlanBack);
+                            Layer.Dispose();
+                        }
 
-                                      OriginalStackData[z] = ScaledLayer.GetHost(Intent.Read)[0];
-                                      ScaledLayer.Dispose();
+                        OriginalStackData[z] = ScaledLayer.GetHost(Intent.Read)[0];
+                        ScaledLayer.Dispose();
 
-                                  }, null);
+                    }, null);
 
                     GPU.DestroyFFTPlan(PlanForw);
                     GPU.DestroyFFTPlan(PlanBack);

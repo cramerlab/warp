@@ -15,7 +15,7 @@ __declspec(dllexport) void CompareParticles(float* d_particles,
 {
 	float* d_ctf;
 	cudaMalloc((void**)&d_ctf, ElementsFFT2(dims) * nparticles * sizeof(float));
-	d_CTFSimulate(h_ctfparams, d_ctfcoords, d_ctf, ElementsFFT2(dims), false, nparticles);
+	d_CTFSimulate(h_ctfparams, d_ctfcoords, NULL, d_ctf, ElementsFFT2(dims), false, nparticles);
 	//d_WriteMRC(d_ctf, toInt3(dims.x / 2 + 1, dims.y, nparticles), "d_ctf.mrc");
 
 	d_Bandpass(d_particles, d_particles, toInt3(dims), highpass, lowpass, 1.0f, NULL, NULL, NULL, nparticles);

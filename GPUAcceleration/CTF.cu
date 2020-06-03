@@ -224,9 +224,9 @@ __global__ void ScaleNormCorrSumKernel(float2* d_simcoords, float* d_sim, float*
 		simcoords.x /= pixelsize;
 
 		params.defocus = proteindefocus;
-		float ctfprotein = d_GetCTF<true, false>(simcoords.x, simcoords.y, params);
+		float ctfprotein = d_GetCTF<true, false>(simcoords.x, simcoords.y, 0, params);
 		params.defocus += iceoffset;
-		float ctfice = d_GetCTF<true, false>(simcoords.x, simcoords.y, params);
+		float ctfice = d_GetCTF<true, false>(simcoords.x, simcoords.y, 0, params);
 
 		float icemask = d_icemask[i];
 		float val = abs(ctfprotein * (1 - icemask) + ctfice * icemask) * (abs(d_scale[i]));

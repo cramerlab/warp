@@ -94,6 +94,9 @@ namespace Warp
 
         public float Interp(float x)
         {
+            if (Data.Length == 1)
+                return Data[0].Y;
+
             float[] b = Breaks;
             float4[] c = Coefficients;
 

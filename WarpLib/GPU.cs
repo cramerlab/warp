@@ -206,47 +206,47 @@ namespace Warp
         // CTF.cu:
 
         [DllImport("GPUAcceleration.dll", CharSet = CharSet.Ansi, SetLastError = true, CallingConvention = CallingConvention.StdCall, EntryPoint = "CreateSpectra")]
-        public static extern void CreateSpectra(IntPtr d_frame, 
-                                                int2 dimsframe, 
-                                                int nframes, 
-                                                int3[] h_origins, 
-                                                int norigins, 
-                                                int2 dimsregion, 
+        public static extern void CreateSpectra(IntPtr d_frame,
+                                                int2 dimsframe,
+                                                int nframes,
+                                                int3[] h_origins,
+                                                int norigins,
+                                                int2 dimsregion,
                                                 int3 ctfgrid,
                                                 int2 dimsregionscaled,
-                                                IntPtr d_outputall, 
+                                                IntPtr d_outputall,
                                                 IntPtr d_outputmean,
                                                 int planforw,
                                                 int planback);
 
         [DllImport("GPUAcceleration.dll", CharSet = CharSet.Ansi, SetLastError = true, CallingConvention = CallingConvention.StdCall, EntryPoint = "CTFFitMean")]
-        public static extern CTFStruct CTFFitMean(IntPtr d_ps, 
-                                                  IntPtr d_pscoords, 
-                                                  int2 dims, 
-                                                  CTFStruct startparams, 
-                                                  CTFFitStruct fp, 
+        public static extern CTFStruct CTFFitMean(IntPtr d_ps,
+                                                  IntPtr d_pscoords,
+                                                  int2 dims,
+                                                  CTFStruct startparams,
+                                                  CTFFitStruct fp,
                                                   bool doastigmatism);
 
         [DllImport("GPUAcceleration.dll", CharSet = CharSet.Ansi, SetLastError = true, CallingConvention = CallingConvention.StdCall, EntryPoint = "CTFMakeAverage")]
-        public static extern void CTFMakeAverage(IntPtr d_ps, 
-                                                 IntPtr d_pscoords, 
-                                                 uint length, 
-                                                 uint sidelength, 
-                                                 CTFStruct[] h_sourceparams, 
-                                                 CTFStruct targetparams, 
-                                                 uint minbin, 
-                                                 uint maxbin, 
-                                                 uint batch, 
+        public static extern void CTFMakeAverage(IntPtr d_ps,
+                                                 IntPtr d_pscoords,
+                                                 uint length,
+                                                 uint sidelength,
+                                                 CTFStruct[] h_sourceparams,
+                                                 CTFStruct targetparams,
+                                                 uint minbin,
+                                                 uint maxbin,
+                                                 uint batch,
                                                  IntPtr d_output);
 
         [DllImport("GPUAcceleration.dll", CharSet = CharSet.Ansi, SetLastError = true, CallingConvention = CallingConvention.StdCall, EntryPoint = "CTFCompareToSim")]
-        public static extern void CTFCompareToSim(IntPtr d_ps, 
-                                                  IntPtr d_pscoords, 
-                                                  IntPtr d_scale, 
+        public static extern void CTFCompareToSim(IntPtr d_ps,
+                                                  IntPtr d_pscoords,
+                                                  IntPtr d_scale,
                                                   IntPtr d_icemask,
                                                   float iceoffset,
-                                                  uint length, 
-                                                  CTFStruct[] h_sourceparams, 
+                                                  uint length,
+                                                  CTFStruct[] h_sourceparams,
                                                   float[] h_scores,
                                                   uint batch);
 
@@ -563,11 +563,13 @@ namespace Warp
                                                     float[] h_shifts,
                                                     float[] h_angles,
                                                     float3 magnification,
-                                                    float[] h_beamtilt,
                                                     IntPtr d_weights,
-                                                    IntPtr d_beamtiltcoords,
+                                                    IntPtr d_phasecorrection,
+                                                    float ewaldradius,
+                                                    int maxshell,
                                                     ulong[] h_volumeRe,
                                                     ulong[] h_volumeIm,
+                                                    float supersample,
                                                     int dimprojector,
                                                     IntPtr d_subsets,
                                                     int nparticles,
@@ -591,17 +593,22 @@ namespace Warp
                                                         int ntilts);
 
         [DllImport("GPUAcceleration.dll", CharSet = CharSet.Ansi, SetLastError = true, CallingConvention = CallingConvention.StdCall, EntryPoint = "MultiParticleCorr2D")]
-        public static extern void MultiParticleCorr2D(IntPtr d_resultab,
-                                                      IntPtr d_resulta2,
-                                                      IntPtr d_resultb2,
+        public static extern void MultiParticleCorr2D(IntPtr d_result2d,
+                                                      IntPtr d_result1dparticles,
+                                                      IntPtr d_resultphaseresiduals,
+                                                      int dimresult,
                                                       IntPtr[] hp_experimental,
+                                                      IntPtr d_weights,
                                                       int dimdata,
+                                                      float scalingfactor,
                                                       int[] relevantdims,
                                                       float[] h_shifts,
                                                       float[] h_angles,
                                                       float3 magnification,
+                                                      float ewaldradius,
                                                       ulong[] h_volumeRe,
                                                       ulong[] h_volumeIm,
+                                                      float supersample,
                                                       int dimprojector,
                                                       IntPtr d_subsets,
                                                       int nparticles,
@@ -706,6 +713,15 @@ namespace Warp
                                           int[] h_origins,
                                           uint batch);
 
+        [DllImport("GPUAcceleration.dll", CharSet = CharSet.Ansi, SetLastError = true, CallingConvention = CallingConvention.StdCall, EntryPoint = "ExtractMultisource")]
+        public static extern void ExtractMultisource(IntPtr[] h_inputs,
+                                          IntPtr d_output,
+                                          int3 dims,
+                                          int3 dimsregion,
+                                          int[] h_origins,
+                                          int nsources,
+                                          uint batch);
+
         [DllImport("GPUAcceleration.dll", CharSet = CharSet.Ansi, SetLastError = true, CallingConvention = CallingConvention.StdCall, EntryPoint = "ExtractHalf")]
         public static extern void ExtractHalf(IntPtr d_input,
                                               IntPtr d_output,
@@ -742,10 +758,20 @@ namespace Warp
         [DllImport("GPUAcceleration.dll", CharSet = CharSet.Ansi, SetLastError = true, CallingConvention = CallingConvention.StdCall, EntryPoint = "CreateCTF")]
         public static extern void CreateCTF(IntPtr d_output,
                                             IntPtr d_coords,
+                                            IntPtr d_gammacorrection,
                                             uint length,
                                             CTFStruct[] h_params,
                                             bool amplitudesquared,
                                             uint batch);
+
+        [DllImport("GPUAcceleration.dll", CharSet = CharSet.Ansi, SetLastError = true, CallingConvention = CallingConvention.StdCall, EntryPoint = "CreateCTFComplex")]
+        public static extern void CreateCTFComplex(IntPtr d_output,
+                                                    IntPtr d_coords,
+                                                    IntPtr d_gammacorrection,
+                                                    uint length,
+                                                    CTFStruct[] h_params,
+                                                    bool reverse,
+                                                    uint batch);
 
         [DllImport("GPUAcceleration.dll", CharSet = CharSet.Ansi, SetLastError = true, CallingConvention = CallingConvention.StdCall, EntryPoint = "Resize")]
         public static extern void Resize(IntPtr d_input,
@@ -795,6 +821,9 @@ namespace Warp
 
         [DllImport("GPUAcceleration.dll", CharSet = CharSet.Ansi, SetLastError = true, CallingConvention = CallingConvention.StdCall, EntryPoint = "Sign")]
         public static extern void Sign(IntPtr d_input, IntPtr d_output, long length);
+
+        [DllImport("GPUAcceleration.dll", CharSet = CharSet.Ansi, SetLastError = true, CallingConvention = CallingConvention.StdCall, EntryPoint = "Sqrt")]
+        public static extern void Sqrt(IntPtr d_input, IntPtr d_output, long length);
 
         [DllImport("GPUAcceleration.dll", CharSet = CharSet.Ansi, SetLastError = true, CallingConvention = CallingConvention.StdCall, EntryPoint = "Cos")]
         public static extern void Cos(IntPtr d_input, IntPtr d_output, long length);
@@ -872,7 +901,7 @@ namespace Warp
         public static extern void ProjectForward3DShiftedTex(ulong t_inputRe, ulong t_inputIm, IntPtr d_outputft, int3 dimsinput, int3 dimsoutput, float[] h_angles, float[] h_shifts, float[] h_globalweights, float supersample, uint batch);
 
         [DllImport("GPUAcceleration.dll", CharSet = CharSet.Ansi, SetLastError = true, CallingConvention = CallingConvention.StdCall, EntryPoint = "ProjectBackward")]
-        public static extern void ProjectBackward(IntPtr d_volumeft, IntPtr d_volumeweights, int3 dimsvolume, IntPtr d_projft, IntPtr d_projweights, int2 dimsproj, int rmax, float[] h_angles, int[] ivolume, float3 magnification, float supersample, bool outputdecentered, uint batch);
+        public static extern void ProjectBackward(IntPtr d_volumeft, IntPtr d_volumeweights, int3 dimsvolume, IntPtr d_projft, IntPtr d_projweights, int2 dimsproj, int rmax, float[] h_angles, int[] ivolume, float3 magnification, float ewaldradius, float supersample, bool outputdecentered, uint batch);
 
         [DllImport("GPUAcceleration.dll", CharSet = CharSet.Ansi, SetLastError = true, CallingConvention = CallingConvention.StdCall, EntryPoint = "ProjectBackwardShifted")]
         public static extern void ProjectBackwardShifted(IntPtr d_volumeft, IntPtr d_volumeweights, int3 dimsvolume, IntPtr d_projft, IntPtr d_projweights, int2 dimsproj, int rmax, float[] h_angles, float[] h_shifts, float[] h_globalweights, float supersample, uint batch);

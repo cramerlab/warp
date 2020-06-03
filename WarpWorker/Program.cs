@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.IO.Pipes;
 using System.Linq;
@@ -40,16 +41,22 @@ namespace WarpWorker
 
         static Population MPAPopulation = null;
 
+        static List<int[]> Dummies = new List<int[]>();
+
         static void Main(string[] args)
         {
+            CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
+            CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.InvariantCulture;
+
             //if (!Debugger.IsAttached)
             //    Debugger.Launch();
 
-            if (args.Length < 2)
+            if (args.Length < 3)
                 return;
 
             DeviceID = int.Parse(args[0]) % GPU.GetDeviceCount();
             PipeName = args[1];
+            bool DebugMode = bool.Parse(args[2]);
 
             GPU.SetDevice(DeviceID);
 
@@ -59,19 +66,20 @@ namespace WarpWorker
 
             Heartbeat = new Thread(new ThreadStart(() =>
             {
-                while (true)
-                    try
-                    {
-                        NamedPipeClientStream PipeHeartbeat = new NamedPipeClientStream(".", PipeName + "_heartbeat", PipeDirection.In);
-                        PipeHeartbeat.Connect(5000);
+                if (!DebugMode)
+                    while (true)
+                        try
+                        {
+                            NamedPipeClientStream PipeHeartbeat = new NamedPipeClientStream(".", PipeName + "_heartbeat", PipeDirection.In);
+                            PipeHeartbeat.Connect(5000);
 
-                        PipeHeartbeat.Dispose();
-                    }
-                    catch
-                    {
-                        if (!Terminating)
-                            Process.GetCurrentProcess().Kill();
-                    }
+                            PipeHeartbeat.Dispose();
+                        }
+                        catch
+                        {
+                            if (!Terminating)
+                                Process.GetCurrentProcess().Kill();
+                        }
             }));
             Heartbeat.Start();
 
@@ -93,6 +101,8 @@ namespace WarpWorker
 
                     if (Command.Name == "Exit")
                     {
+                        Movie.WriteAverageAsync?.Wait();
+
                         SendSuccessStatus(true);
                         Process.GetCurrentProcess().Kill();
 
@@ -283,6 +293,24 @@ namespace WarpWorker
 
                         MPAPopulation.SaveRefinementProgress(Path);
                     }
+                    else if (Command.Name == "TryAllocatePinnedMemory")
+                    {
+                        long[] ChunkSizes = (long[])Command.Content[0];
+                        IntPtr[] Chunks = new IntPtr[ChunkSizes.Length];
+
+                        for (int i = 0; i < ChunkSizes.Length; i++)
+                        {
+                            Chunks[i] = GPU.MallocHostPinned(ChunkSizes[i] / sizeof(float));
+                            //Dummies.Add(Helper.ArrayOfSequence(0, (int)(ChunkSizes[i] / sizeof(float) / 2), 1));
+                        }
+
+                        GPU.CheckGPUExceptions();
+
+                        //for (int i = 0; i < ChunkSizes.Length; i++)
+                        //    GPU.FreeHostPinned(Chunks[i]);
+
+                        Console.WriteLine($"Successfully allocated {ChunkSizes.Sum()} bytes of pinned memory");
+                    }
 
                     Watch.Stop();
                     Console.WriteLine((Watch.ElapsedMilliseconds / 1000f).ToString("F3"));
@@ -353,13 +381,37 @@ namespace WarpWorker
                                                              (int)HeaderlessOffset,
                                                              ImageFormatsHelper.StringToType(HeaderlessType));
 
-            if (imageGain != null)
-                if (header.Dimensions.X != imageGain.Dims.X || header.Dimensions.Y != imageGain.Dims.Y)
-                    throw new Exception("Gain reference dimensions do not match image.");
-
+            string Extension = Helper.PathToExtension(path).ToLower();
             bool IsTiff = header.GetType() == typeof(HeaderTiff);
+            bool IsEER = header.GetType() == typeof(HeaderEER);
 
-            int NThreads = IsTiff ? 6 : 2;
+            if (imageGain != null)
+                if (!IsEER)
+                    if (header.Dimensions.X != imageGain.Dims.X || header.Dimensions.Y != imageGain.Dims.Y)
+                        throw new Exception("Gain reference dimensions do not match image.");
+
+            int EERSupersample = 1;
+            if (imageGain != null && IsEER)
+            {
+                if (header.Dimensions.X == imageGain.Dims.X)
+                    EERSupersample = 1;
+                else if (header.Dimensions.X * 2 == imageGain.Dims.X)
+                    EERSupersample = 2;
+                else if (header.Dimensions.X * 4 == imageGain.Dims.X)
+                    EERSupersample = 3;
+                else
+                    throw new Exception("Invalid supersampling factor requested for EER based on gain reference dimensions");
+            }
+
+            HeaderEER.SuperResolution = EERSupersample;
+
+            if (IsEER && imageGain != null)
+            {
+                header.Dimensions.X = imageGain.Dims.X;
+                header.Dimensions.Y = imageGain.Dims.Y;
+            }
+
+            int NThreads = (IsTiff || IsEER) ? 6 : 2;
             int GPUThreads = 2;
 
             int CurrentDevice = GPU.GetDevice();
@@ -381,13 +433,15 @@ namespace WarpWorker
                 {
                     if (IsTiff)
                         TiffNative.ReadTIFFPatient(50, 500, path, z, true, RawLayers[threadID]);
+                    else if (IsEER)
+                        EERNative.ReadEERPatient(50, 500, path, z * 10, (z + 1) * 10, EERSupersample, RawLayers[threadID]);
                     else
                         IOHelper.ReadMapFloatPatient(50, 500,
                                                      path,
                                                      HeaderlessDims,
                                                      (int)HeaderlessOffset,
                                                      ImageFormatsHelper.StringToType(HeaderlessType),
-                                                     z,
+                                                     new[] { z },
                                                      null,
                                                      new[] { RawLayers[threadID] });
 
@@ -436,13 +490,15 @@ namespace WarpWorker
                 {
                     if (IsTiff)
                         TiffNative.ReadTIFFPatient(50, 500, path, z, true, RawLayers[threadID]);
+                    else if (IsEER)
+                        EERNative.ReadEERPatient(50, 500, path, z * 10, (z + 1) * 10, EERSupersample, RawLayers[threadID]);
                     else
                         IOHelper.ReadMapFloatPatient(50, 500,
                                                      path,
                                                      HeaderlessDims,
                                                      (int)HeaderlessOffset,
                                                      ImageFormatsHelper.StringToType(HeaderlessType),
-                                                     z,
+                                                     new[] { z },
                                                      null,
                                                      new[] { RawLayers[threadID] });
 

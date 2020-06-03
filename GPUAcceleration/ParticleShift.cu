@@ -103,7 +103,7 @@ __declspec(dllexport) void CreateParticleShift(float* d_frame,
 	//d_WriteMRC(d_sums, toInt3(dimsregion.x, dimsregion.y, npositions), "d_extracts.mrc");
 	//d_WriteMRC(d_sumamps, toInt3(indiceslength, npositions, 1), "d_extractsamps.mrc");
 
-	d_CTFSimulate(h_ctfparams, d_ctfcoords, d_temp, ElementsFFT2(dimsregion), false, npositions);
+	d_CTFSimulate(h_ctfparams, d_ctfcoords, NULL, d_temp, ElementsFFT2(dimsregion), false, npositions);
 	//d_WriteMRC(d_temp, toInt3(dimsregion.x / 2 + 1, dimsregion.y, npositions), "d_ctf.mrc");
 	d_ComplexMultiplyByVector(d_projections, d_temp, d_projections, ElementsFFT2(dimsregion) * npositions);
 

@@ -275,6 +275,16 @@ namespace Warp.Tools
             return !(o1 == o2);
         }
 
+        public static bool operator >(float3 o1, float3 o2)
+        {
+            return o1.X > o2.X && o1.Y > o2.Y && o1.Z > o2.Z;
+        }
+
+        public static bool operator <(float3 o1, float3 o2)
+        {
+            return o1.X < o2.X && o1.Y < o2.Y && o1.Z < o2.Z;
+        }
+
         public override string ToString()
         {
             return X + ", " + Y + ", " + Z;
@@ -610,6 +620,16 @@ namespace Warp.Tools
         public static bool operator !=(float2 o1, float2 o2)
         {
             return !(o1 == o2);
+        }
+
+        public static bool operator >(float2 o1, float2 o2)
+        {
+            return o1.X > o2.X && o1.Y > o2.Y;
+        }
+
+        public static bool operator <(float2 o1, float2 o2)
+        {
+            return o1.X < o2.X && o1.Y < o2.Y;
         }
 
         public override string ToString()

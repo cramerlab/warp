@@ -288,7 +288,7 @@ namespace Warp
         public static Image FromFile(string path, int2 headerlessSliceDims, int headerlessOffset, Type headerlessType, int layer = -1, Stream stream = null)
         {
             MapHeader Header = MapHeader.ReadFromFile(path, headerlessSliceDims, headerlessOffset, headerlessType);
-            float[][] Data = IOHelper.ReadMapFloat(path, headerlessSliceDims, headerlessOffset, headerlessType, layer, stream);
+            float[][] Data = IOHelper.ReadMapFloat(path, headerlessSliceDims, headerlessOffset, headerlessType, layer < 0 ? null : new[] { layer }, stream);
             if (layer >= 0)
                 Header.Dimensions.Z = 1;
 
@@ -1525,15 +1525,15 @@ namespace Warp
         {
             double VX = 0, VY = 0, VZ = 0;
             double Samples = 0;
-            float[] ContData = GetHostContinuousCopy();
+            float[][] Values = GetHost(Intent.Read);
 
-            for (int z = 0, i = 0; z < Dims.Z; z++)
+            for (int z = 0; z < Dims.Z; z++)
             {
-                for (int y = 0; y < Dims.Y; y++)
+                for (int y = 0, i = 0; y < Dims.Y; y++)
                 {
                     for (int x = 0; x < Dims.X; x++, i++)
                     {
-                        float Val = ContData[i];
+                        float Val = Values[z][i];
                         VX += x * Val;
                         VY += y * Val;
                         VZ += z * Val;
@@ -2269,6 +2269,16 @@ namespace Warp
             GPU.Sign(GetDevice(Intent.Read), GetDevice(Intent.Write), ElementsReal);
         }
 
+        public void Sqrt()
+        {
+            if (IsHalf)
+                throw new Exception("Does not work for fp16.");
+            if (IsComplex)
+                throw new Exception("Does not work for complex data.");
+
+            GPU.Sqrt(GetDevice(Intent.Read), GetDevice(Intent.Write), ElementsReal);
+        }
+
         public void Cos()
         {
             if (IsHalf || IsComplex)
@@ -2738,6 +2748,137 @@ namespace Warp
                           GetDevice(Intent.Write),
                           (uint)ElementsSliceReal,
                           (uint)Dims.Z);
+        }
+
+        public void Symmetrize(string sym)
+        {
+            Symmetry Sym = new Symmetry(sym);
+            Matrix3[] Rotations = Sym.GetRotationMatrices();
+
+            RemapToFT(true);
+
+            Image FT = AsFFT(true);
+            FT.FreeDevice();
+            float[][] FTData = FT.GetHost(Intent.Read);
+            Image FTSym = new Image(Dims, true, true);
+            float[][] FTSymData = FTSym.GetHost(Intent.Write);
+
+            int DimX = Dims.X / 2 + 1;
+            float R2 = Dims.X * Dims.X / 4f;
+
+            for (int z = 0; z < Dims.Z; z++)
+            {
+                int zz = z <= Dims.Z / 2 ? z : z - Dims.Z;
+
+                for (int y = 0; y < Dims.Y; y++)
+                {
+                    int yy = y <= Dims.Y / 2 ? y : y - Dims.Y;
+
+                    for (int x = 0; x < DimX; x++)
+                    {
+                        int xx = x;
+                        float3 PosCentered = new float3(xx, yy, zz);
+                        if (PosCentered.LengthSq() >= R2)
+                            continue;
+
+                        float2 VSum = new float2(0, 0);
+
+                        foreach (var rotation in Rotations)
+                        {
+                            float3 PosRotated = rotation * PosCentered;
+                            bool IsFlipped = false;
+                            if (PosRotated.X < 0)
+                            {
+                                PosRotated *= -1;
+                                IsFlipped = true;
+                            }
+
+                            int X0 = (int)Math.Floor(PosRotated.X);
+                            int X1 = X0 + 1;
+                            float XInterp = PosRotated.X - X0;
+                            int Y0 = (int)Math.Floor(PosRotated.Y);
+                            int Y1 = Y0 + 1;
+                            float YInterp = PosRotated.Y - Y0;
+                            int Z0 = (int)Math.Floor(PosRotated.Z);
+                            int Z1 = Z0 + 1;
+                            float ZInterp = PosRotated.Z - Z0;
+
+                            X0 = Math.Max(0, Math.Min(DimX - 1, X0));
+                            X1 = Math.Max(0, Math.Min(DimX - 1, X1));
+                            Y0 = Math.Max(0, Math.Min(Dims.Y - 1, Y0 >= 0 ? Y0 : Y0 + Dims.Y));
+                            Y1 = Math.Max(0, Math.Min(Dims.Y - 1, Y1 >= 0 ? Y1 : Y1 + Dims.Y));
+                            Z0 = Math.Max(0, Math.Min(Dims.Z - 1, Z0 >= 0 ? Z0 : Z0 + Dims.Z));
+                            Z1 = Math.Max(0, Math.Min(Dims.Z - 1, Z1 >= 0 ? Z1 : Z1 + Dims.Z));
+
+                            {
+                                float v000 = FTData[Z0][(Y0 * DimX + X0) * 2 + 0];
+                                float v001 = FTData[Z0][(Y0 * DimX + X1) * 2 + 0];
+                                float v010 = FTData[Z0][(Y1 * DimX + X0) * 2 + 0];
+                                float v011 = FTData[Z0][(Y1 * DimX + X1) * 2 + 0];
+
+                                float v100 = FTData[Z1][(Y0 * DimX + X0) * 2 + 0];
+                                float v101 = FTData[Z1][(Y0 * DimX + X1) * 2 + 0];
+                                float v110 = FTData[Z1][(Y1 * DimX + X0) * 2 + 0];
+                                float v111 = FTData[Z1][(Y1 * DimX + X1) * 2 + 0];
+
+                                float v00 = MathHelper.Lerp(v000, v001, XInterp);
+                                float v01 = MathHelper.Lerp(v010, v011, XInterp);
+                                float v10 = MathHelper.Lerp(v100, v101, XInterp);
+                                float v11 = MathHelper.Lerp(v110, v111, XInterp);
+
+                                float v0 = MathHelper.Lerp(v00, v01, YInterp);
+                                float v1 = MathHelper.Lerp(v10, v11, YInterp);
+
+                                float v = MathHelper.Lerp(v0, v1, ZInterp);
+
+                                VSum.X += v;
+                            }
+
+                            {
+                                float v000 = FTData[Z0][(Y0 * DimX + X0) * 2 + 1];
+                                float v001 = FTData[Z0][(Y0 * DimX + X1) * 2 + 1];
+                                float v010 = FTData[Z0][(Y1 * DimX + X0) * 2 + 1];
+                                float v011 = FTData[Z0][(Y1 * DimX + X1) * 2 + 1];
+
+                                float v100 = FTData[Z1][(Y0 * DimX + X0) * 2 + 1];
+                                float v101 = FTData[Z1][(Y0 * DimX + X1) * 2 + 1];
+                                float v110 = FTData[Z1][(Y1 * DimX + X0) * 2 + 1];
+                                float v111 = FTData[Z1][(Y1 * DimX + X1) * 2 + 1];
+
+                                float v00 = MathHelper.Lerp(v000, v001, XInterp);
+                                float v01 = MathHelper.Lerp(v010, v011, XInterp);
+                                float v10 = MathHelper.Lerp(v100, v101, XInterp);
+                                float v11 = MathHelper.Lerp(v110, v111, XInterp);
+
+                                float v0 = MathHelper.Lerp(v00, v01, YInterp);
+                                float v1 = MathHelper.Lerp(v10, v11, YInterp);
+
+                                float v = MathHelper.Lerp(v0, v1, ZInterp);
+
+                                VSum.Y += IsFlipped ? -v : v;
+                            }
+                        }
+
+                        FTSymData[z][(y * DimX + x) * 2 + 0] = VSum.X / Rotations.Length;
+                        FTSymData[z][(y * DimX + x) * 2 + 1] = VSum.Y / Rotations.Length;
+                    }
+                }
+            }
+
+            //FT.IsSameAs(FTSym, 1e-5f);
+
+            FT.Dispose();
+
+            GPU.IFFT(FTSym.GetDevice(Intent.Read),
+                     this.GetDevice(Intent.Write),
+                     Dims,
+                     1,
+                     -1,
+                     true);
+            FTSym.Dispose();
+
+            RemapFromFT(true);
+            FreeDevice();
         }
 
         #endregion

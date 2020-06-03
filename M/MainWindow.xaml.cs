@@ -96,20 +96,20 @@ namespace M
             #region GPU statistics
 
             CheckboxesGPUStats = Helper.ArrayOfFunction(i =>
-                                                        {
-                                                            CheckBox NewCheckBox = new CheckBox
-                                                            {
-                                                                Foreground = Brushes.White,
-                                                                Margin = new Thickness(10, 0, 10, 0),
-                                                                IsChecked = true,
-                                                                Opacity = 0.5,
-                                                                Focusable = false
-                                                            };
-                                                            NewCheckBox.MouseEnter += (a, b) => NewCheckBox.Opacity = 1;
-                                                            NewCheckBox.MouseLeave += (a, b) => NewCheckBox.Opacity = 0.5;
+            {
+                CheckBox NewCheckBox = new CheckBox
+                {
+                    Foreground = Brushes.White,
+                    Margin = new Thickness(10, 0, 10, 0),
+                    IsChecked = true,
+                    Opacity = 0.5,
+                    Focusable = false
+                };
+                NewCheckBox.MouseEnter += (a, b) => NewCheckBox.Opacity = 1;
+                NewCheckBox.MouseLeave += (a, b) => NewCheckBox.Opacity = 0.5;
 
-                                                            return NewCheckBox;
-                                                        },
+                return NewCheckBox;
+            },
                                                         GPU.GetDeviceCount());
             foreach (var checkBox in CheckboxesGPUStats)
                 PanelGPUStats.Children.Add(checkBox);
@@ -150,7 +150,7 @@ namespace M
             OptionsAutoSave = true;
 
             Options.MainWindow = this;
-            
+
             #region TEMP
 
             PanelPopulationLanding.Visibility = Visibility.Visible;
@@ -170,7 +170,7 @@ namespace M
                 // ignored
             }
         }
-        
+
         private void ButtonUpdateAvailable_OnClick(object sender, RoutedEventArgs e)
         {
             Process.Start("http://www.warpem.com/warp/?page_id=65");
@@ -221,7 +221,7 @@ namespace M
 
         private async void Options_PropertyChanged(object sender, PropertyChangedEventArgs e)
         {
-            
+
         }
 
         private void OptionsRuntime_PropertyChanged(object sender, PropertyChangedEventArgs e)
@@ -236,7 +236,8 @@ namespace M
                 try
                 {
                     Options.Save(DefaultOptionsName);
-                } catch { }
+                }
+                catch { }
             }
         }
 
@@ -413,7 +414,7 @@ namespace M
             DialogDataSources DialogContent = new DialogDataSources(ActivePopulation);
             DialogContent.MaxHeight = this.ActualHeight - 200;
             DialogContent.Close += () => this.HideMetroDialogAsync(Dialog);
-            
+
             Dialog.Content = DialogContent;
             this.ShowMetroDialogAsync(Dialog);
         }
@@ -422,12 +423,6 @@ namespace M
         {
             if (ActivePopulation == null)
                 return;
-
-            //if (ActivePopulation.Species.Count >= 1)
-            //{
-            //    await this.ShowMessageAsync("Oopsie", "Multiple species aren't supported yet. Oh, the irony!");
-            //    return;
-            //}
 
             CustomDialog AddDialog = new CustomDialog();
             AddDialog.HorizontalContentAlignment = HorizontalAlignment.Center;
@@ -528,6 +523,7 @@ namespace M
 
             CustomDialog SettingsDialog = new CustomDialog();
             SettingsDialog.HorizontalContentAlignment = HorizontalAlignment.Center;
+            SettingsDialog.DataContext = ActivePopulation.LastRefinementOptions;
 
             DialogRefinementSettings SettingsDialogContent = new DialogRefinementSettings();
             SettingsDialogContent.Close += async () => await this.HideMetroDialogAsync(SettingsDialog);
@@ -537,49 +533,12 @@ namespace M
 
                 ClearSpeciesDisplay();  // To avoid UI updates from refinement thread
 
-                ProcessingOptionsMPARefine Options = new ProcessingOptionsMPARefine();
+                ProcessingOptionsMPARefine Options = ActivePopulation.LastRefinementOptions;
 
-                Options.NIterations = (int)SettingsDialogContent.SliderNIterations.Value;
+                Options.BFactorWeightingThreshold = 0.25M;
 
-                Options.MinimumCTFRefinementResolution = (float)SettingsDialogContent.SliderCTFResolution.Value;
-
-                Options.ImageWarpResolution = new int2((int)SettingsDialogContent.SliderImageWarpWidth.Value,
-                                                       (int)SettingsDialogContent.SliderImageWarpHeight.Value);
-                Options.VolumeWarpResolution = new int4((int)SettingsDialogContent.SliderVolumeWarpWidth.Value,
-                                                        (int)SettingsDialogContent.SliderVolumeWarpHeight.Value,
-                                                        (int)SettingsDialogContent.SliderVolumeWarpDepth.Value,
-                                                        (int)SettingsDialogContent.SliderVolumeWarpDuration.Value);
-                Options.RefineMovies = (bool)SettingsDialogContent.CheckRefineTiltMovies.IsChecked;
-
-                Options.RefinedComponentsWarp = 0;
-                if ((bool)SettingsDialogContent.CheckImageWarp.IsChecked)
-                    Options.RefinedComponentsWarp |= WarpOptimizationTypes.ImageWarp;
-                if ((bool)SettingsDialogContent.CheckVolumeWarp.IsChecked)
-                    Options.RefinedComponentsWarp |= WarpOptimizationTypes.VolumeWarp;
-                if ((bool)SettingsDialogContent.CheckStageAngles.IsChecked)
-                    Options.RefinedComponentsWarp |= WarpOptimizationTypes.AxisAngle;
-                if ((bool)SettingsDialogContent.CheckParticlePositions.IsChecked)
-                    Options.RefinedComponentsWarp |= WarpOptimizationTypes.ParticlePosition;
-                if ((bool)SettingsDialogContent.CheckParticleAngles.IsChecked)
-                    Options.RefinedComponentsWarp |= WarpOptimizationTypes.ParticleAngle;
-                if ((bool)SettingsDialogContent.CheckBeamTilt.IsChecked)
-                    Options.RefinedComponentsWarp |= WarpOptimizationTypes.BeamTilt;
-                if ((bool)SettingsDialogContent.CheckMagnification.IsChecked)
-                    Options.RefinedComponentsWarp |= WarpOptimizationTypes.Magnification;
-
-                Options.RefinedComponentsCTF = 0;
-                if ((bool)SettingsDialogContent.CheckDefocus.IsChecked)
-                {
-                    Options.RefinedComponentsCTF |= CTFOptimizationTypes.Defocus;
-                    Options.RefinedComponentsCTF |= CTFOptimizationTypes.AstigmatismDelta;
-                    Options.RefinedComponentsCTF |= CTFOptimizationTypes.AstigmatismAngle;
-                }
-                if ((bool)SettingsDialogContent.CheckPhaseShift.IsChecked)
-                    Options.RefinedComponentsCTF |= CTFOptimizationTypes.PhaseShift;
-                if ((bool)SettingsDialogContent.CheckBeamTilt.IsChecked)
-                    Options.RefinedComponentsCTF |= CTFOptimizationTypes.BeamTilt;
-                if ((bool)SettingsDialogContent.CheckMagnification.IsChecked)
-                    Options.RefinedComponentsCTF |= CTFOptimizationTypes.PixelSize;
+                Options.DoAstigmatismDelta = Options.DoDefocus;
+                Options.DoAstigmatismAngle = Options.DoDefocus;
 
                 PerformRefinementIteration(Options);
 
@@ -593,7 +552,7 @@ namespace M
         private async void PerformRefinementIteration(ProcessingOptionsMPARefine options)
         {
             bool DoMultiProcess = true;
-                       
+
             #region Create worker processes
 
             int NDevices = GPU.GetDeviceCount();
@@ -628,6 +587,8 @@ namespace M
             int ItemsCompleted = 0;
             int ItemsToDo = ActivePopulation.Sources.Select(s => s.Files.Count).Sum();
 
+            long PinnedMemoryLimit = 1 << 30;
+
             string[] CurrentlyRefinedItems = new string[GPU.GetDeviceCount()];
 
             System.Timers.Timer StatusUpdater = null;
@@ -649,7 +610,8 @@ namespace M
                             {
                                 string ItemMessage = File.ReadLines(WorkerLogs[gpuID]).Last();
                                 StatusMessage.Append(CurrentlyRefinedItems[gpuID] + ": " + ItemMessage + "\n");
-                            } catch { }
+                            }
+                            catch { }
                         }
 
                         Dispatcher.Invoke(() => Progress.SetMessage(StatusMessage.ToString()));
@@ -661,15 +623,39 @@ namespace M
             {
                 await Task.Run(() =>
                 {
+                    Dispatcher.InvokeAsync(() => Progress.SetMessage($"Figuring out memory capacity..."));
+                    WorkerWrapper[] MemoryTesters = Helper.ArrayOfFunction(i => new WorkerWrapper(0), 4);
+                    try
+                    {
+                        int Tested = 0;
+                        while (true)
+                        {
+                            long ChunkSize = (long)1 << 30; // 1 GB
+                            long IncreaseBy = (long)1 << 31; // 2 GB
+                            MemoryTesters[Tested % MemoryTesters.Length].TryAllocatePinnedMemory(Helper.ArrayOfConstant(ChunkSize, (int)(IncreaseBy / ChunkSize)));
+
+                            PinnedMemoryLimit += IncreaseBy;
+                            Tested++;
+                        }
+                    }
+                    catch
+                    {
+                        PinnedMemoryLimit = PinnedMemoryLimit * 15 / 100; // Take 15% of that limit because Windows is weird
+                    }
+                    foreach (var item in MemoryTesters)
+                        item.Dispose();
+
                     if (DoMultiProcess)
                     {
+                        Dispatcher.InvokeAsync(() => Progress.SetMessage($"Preparing refinement requisites..."));
+
                         Helper.ForEachGPUOnce(gpuID =>
                         {
                             Workers[gpuID].MPAPreparePopulation(ActivePopulation.Path);
                         }, UsedDevices);
 
                         foreach (var species in ActivePopulation.Species)
-                            species.PrepareRefinementRequisites(false, 0);
+                            species.PrepareRefinementRequisites(true, 0);
                     }
                     else
                     {
@@ -682,104 +668,185 @@ namespace M
                     }
 
                     GPU.CheckGPUExceptions();
-                    
+
                     Dispatcher.InvokeAsync(() => Progress.SetTitle("Performing refinement"));
 
                     Image.PrintObjectIDs();
-                    //if (false)
-                    foreach (var source in ActivePopulation.Sources)
-                    {
-                        //break;
-                        Dispatcher.InvokeAsync(() => Progress.SetMessage($"Loading gain reference for {source.Name}..."));
-
-                        Image[] GainRefs = new Image[GPU.GetDeviceCount()];
-                                                
-                        try
+                    if (true)
+                        foreach (var source in ActivePopulation.Sources)
                         {
-                            if (DoMultiProcess)
+                            //break;
+                            Dispatcher.InvokeAsync(() => Progress.SetMessage($"Loading gain reference for {source.Name}..."));
+
+                            Image[] GainRefs = new Image[GPU.GetDeviceCount()];
+
+                            try
                             {
-                                Helper.ForEachGPUOnce(gpuID =>
+                                if (DoMultiProcess)
                                 {
-                                    if (!string.IsNullOrEmpty(source.GainPath))
-                                        Workers[gpuID].LoadGainRef(source.GainPath,
-                                                                    source.GainFlipX,
-                                                                    source.GainFlipY,
-                                                                    source.GainTranspose);
-                                    else
-                                        Workers[gpuID].LoadGainRef("", false, false, false);
-                                }, UsedDevices);
-                            }
-                            else
-                            {
-                                Image GainRef = source.LoadAndPrepareGainReference();
-                                if (GainRef != null)
-                                    GainRefs = Helper.ArrayOfFunction(i => GainRef.GetCopy(), GPU.GetDeviceCount());
-                            }
-                        }
-                        catch
-                        {
-                            throw new Exception($"Could not load gain reference for {source.Name}.");
-                        }
-
-                        if (DoMultiProcess)
-                            StatusUpdater.Start();
-
-                        Helper.ForEachGPU(source.Files, (pair, GPUID) =>
-                        {
-                            if (DoMultiProcess)
-                            {
-                                lock (CurrentlyRefinedItems)
-                                    CurrentlyRefinedItems[GPUID] = pair.Value;
-
-                                Workers[GPUID].MPARefine(source.FolderPath + pair.Value,
-                                                        WorkerFolders[GPUID],
-                                                        WorkerLogs[GPUID],
-                                                        options,
-                                                        source);
-
-                                lock (CurrentlyRefinedItems)
-                                    CurrentlyRefinedItems[GPUID] = null;
-                            }
-                            else
-                            {
-                                Movie Item = null;
-
-                                if (source.IsTiltSeries)
-                                    Item = new TiltSeries(source.FolderPath + pair.Value);
-                                else
-                                    Item = new Movie(source.FolderPath + pair.Value);
-
-                                Dispatcher.InvokeAsync(() => Progress.SetTitle($"Refining {Item.Name}..."));
-
-                                Item.PerformMultiParticleRefinement(WorkerFolders[GPUID], options, ActivePopulation.Species.ToArray(), source, GainRefs[GPUID], (s) =>
-                                {
-                                    Dispatcher.InvokeAsync(() =>
+                                    Helper.ForEachGPUOnce(gpuID =>
                                     {
-                                        Progress.SetMessage(s);
-                                    });
-                                });
-
-                                Item.SaveMeta();
-
-                                GPU.CheckGPUExceptions();
+                                        if (!string.IsNullOrEmpty(source.GainPath))
+                                            Workers[gpuID].LoadGainRef(source.GainPath,
+                                                                        source.GainFlipX,
+                                                                        source.GainFlipY,
+                                                                        source.GainTranspose);
+                                        else
+                                            Workers[gpuID].LoadGainRef("", false, false, false);
+                                    }, UsedDevices);
+                                }
+                                else
+                                {
+                                    Image GainRef = source.LoadAndPrepareGainReference();
+                                    if (GainRef != null)
+                                        GainRefs = Helper.ArrayOfFunction(i => GainRef.GetCopy(), GPU.GetDeviceCount());
+                                }
+                            }
+                            catch
+                            {
+                                throw new Exception($"Could not load gain reference for {source.Name}.");
                             }
 
-                            Dispatcher.Invoke(() =>
+                            if (DoMultiProcess)
+                                StatusUpdater.Start();
+
+                            #region Load all items and determine pinned memory footprint for each of them
+
+                            List<Movie> AllItems = source.Files.Select(pair => source.IsTiltSeries ? new TiltSeries(source.FolderPath + pair.Value) :
+                                                                                                     new Movie(source.FolderPath + pair.Value)).ToList();
+
+                            Dictionary<Movie, long> ItemFootprints = new Dictionary<Movie, long>();
+                            foreach (var item in AllItems)
+                                ItemFootprints.Add(item, item.MultiParticleRefinementCalculateHostMemory(options, ActivePopulation.Species.ToArray(), source));
+
+                            AllItems.Sort((a, b) => ItemFootprints[a].CompareTo(ItemFootprints[b]));
+
+                            #endregion
+
+                            long OverallFootprint = 0;
+
+                            Queue<DeviceToken> Devices = new Queue<DeviceToken>();
+                            for (int d = UsedDevices.Count - 1; d >= 0; d--)
+                                Devices.Enqueue(new DeviceToken(UsedDevices[d]));
+
+                            int NTokens = Devices.Count;
+                            bool IsCanceled = false;
+
+                            // A modified version of Helper.ForEachGPU()
+                            int NDone = 0;
+                            while (AllItems.Count > 0)
                             {
-                                ItemsCompleted++;
+                                if (IsCanceled)
+                                    break;
 
-                                Progress.Maximum = ItemsToDo;
-                                Progress.SetProgress(ItemsCompleted);
-                            });
+                                //if (NDone++ < 200)
+                                //{
+                                //    AllItems.RemoveAt(AllItems.Count - 1);
+                                //    continue;
+                                //}
 
-                            return false;
-                        }, 1, UsedDevices);
+                                //if (NDone++ > 20)
+                                //    break;
 
-                        if (DoMultiProcess)
-                            StatusUpdater.Stop();
+                                while (Devices.Count <= 0)
+                                    Thread.Sleep(5);
 
-                        source.Commit();
-                    }
+                                DeviceToken CurrentDevice = null;
+                                Movie CurrentItem = null;
+
+                                while (CurrentItem == null)
+                                {
+                                    int ItemID = AllItems.Count - 1;
+                                    lock (Devices)  // Don't want OverallFootprint to change while checking
+                                        while (ItemID >= 0 && OverallFootprint + ItemFootprints[AllItems[ItemID]] > PinnedMemoryLimit)
+                                            ItemID--;
+
+                                    // No suitable item found and there is hope more memory will become available later
+                                    if (ItemID < 0 && OverallFootprint > 0)
+                                    {
+                                        Thread.Sleep(5);
+                                        continue;
+                                    }
+
+                                    // Either item can fit, or there is no hope for more memory later, so try anyway
+                                    if (ItemID < 0 && OverallFootprint == 0)
+                                        ItemID = AllItems.Count - 1;
+                                    ItemID = Math.Max(0, ItemID);
+                                    CurrentItem = AllItems[ItemID];
+                                    AllItems.Remove(CurrentItem);
+
+                                    lock (Devices)
+                                    {
+                                        CurrentDevice = Devices.Dequeue();
+                                        OverallFootprint += ItemFootprints[CurrentItem];
+                                    }
+
+                                    break;
+                                }
+
+                                Thread DeviceThread = new Thread(() =>
+                                {
+                                    int GPUID = CurrentDevice.ID;
+                                    GPU.SetDevice(GPUID);
+
+                                    if (DoMultiProcess)
+                                    {
+                                        lock (CurrentlyRefinedItems)
+                                            CurrentlyRefinedItems[GPUID] = CurrentItem.Name;
+
+                                        Workers[GPUID].MPARefine(CurrentItem.Path,
+                                                                 WorkerFolders[GPUID],
+                                                                 WorkerLogs[GPUID],
+                                                                 options,
+                                                                 source);
+
+                                        lock (CurrentlyRefinedItems)
+                                            CurrentlyRefinedItems[GPUID] = null;
+                                    }
+                                    else
+                                    {
+                                        Dispatcher.InvokeAsync(() => Progress.SetTitle($"Refining {CurrentItem.Name}..."));
+
+                                        CurrentItem.PerformMultiParticleRefinement(WorkerFolders[GPUID], options, ActivePopulation.Species.ToArray(), source, GainRefs[GPUID], (s) =>
+                                        {
+                                            Dispatcher.InvokeAsync(() =>
+                                            {
+                                                Progress.SetMessage(s);
+                                            });
+                                        });
+
+                                        CurrentItem.SaveMeta();
+
+                                        GPU.CheckGPUExceptions();
+                                    }
+
+                                    Dispatcher.Invoke(() =>
+                                    {
+                                        ItemsCompleted++;
+
+                                        Progress.Maximum = ItemsToDo;
+                                        Progress.SetProgress(ItemsCompleted);
+                                    });
+
+                                    lock (Devices)
+                                    {
+                                        Devices.Enqueue(CurrentDevice);
+                                        OverallFootprint -= ItemFootprints[CurrentItem];
+                                    }
+                                })
+                                { Name = $"ForEachGPU Device {CurrentDevice.ID}" };
+
+                                DeviceThread.Start();
+                            }
+
+                            while (Devices.Count != NTokens)
+                                Thread.Sleep(5);
+
+                            if (DoMultiProcess)
+                                StatusUpdater.Stop();
+
+                            source.Commit();
+                        }
 
                     Image.PrintObjectIDs();
 
@@ -814,6 +881,8 @@ namespace M
                         species.FinishRefinement();
                         species.Commit();
                     }
+
+                    ActivePopulation.Save();
                 });
             }
             catch (Exception exc)

@@ -311,6 +311,9 @@ namespace Warp
 
         public static void Denoise(Image noisy, NoiseNet3D[] networks)
         {
+            int GPUID = GPU.GetDevice();
+            int NThreads = networks[0].MaxThreads;
+
             int3 Dims = noisy.Dims;
             int Dim = networks[0].BoxDimensions.X;
             int BatchSize = networks[0].BatchSize;
@@ -337,28 +340,33 @@ namespace Warp
 
             float[][] PredictionTiles = new float[Positions.Length][];
 
-            Image Extracted = new Image(new int3(Dim, Dim, Dim * BatchSize));
+            Image[] Extracted = Helper.ArrayOfFunction(i => new Image(new int3(Dim, Dim, Dim * BatchSize)), NThreads);
 
-            for (int b = 0; b < Positions.Length; b += BatchSize)
-            {
-                int CurBatch = Math.Min(BatchSize, Positions.Length - b);
+            Helper.ForCPU(0, (Positions.Length + BatchSize - 1) / BatchSize, NThreads, 
+                (threadID) => GPU.SetDevice(GPUID),
+                (ib, threadID) =>
+                //for (int b = 0; b < Positions.Length; b += BatchSize)
+                {
+                    int b = ib * BatchSize;
+                    int CurBatch = Math.Min(BatchSize, Positions.Length - b);
 
-                int3[] CurPositions = Positions.Skip(b).Take(CurBatch).ToArray();
-                GPU.Extract(noisy.GetDevice(Intent.Read),
-                            Extracted.GetDevice(Intent.Write),
-                            noisy.Dims,
-                            new int3(Dim),
-                            Helper.ToInterleaved(CurPositions.Select(p => p - new int3(Dim / 2)).ToArray()),
-                            (uint)CurBatch);
+                    int3[] CurPositions = Positions.Skip(b).Take(CurBatch).ToArray();
+                    GPU.Extract(noisy.GetDevice(Intent.Read),
+                                Extracted[threadID].GetDevice(Intent.Write),
+                                noisy.Dims,
+                                new int3(Dim),
+                                Helper.ToInterleaved(CurPositions.Select(p => p - new int3(Dim / 2)).ToArray()),
+                                (uint)CurBatch);
 
-                float[] PredictionData = null;
-                networks[0].Predict(Extracted.GetDevice(Intent.Read), 0, out PredictionData);
+                    float[] PredictionData = null;
+                    networks[0].Predict(Extracted[threadID].GetDevice(Intent.Read), threadID, out PredictionData);
 
-                for (int i = 0; i < CurBatch; i++)
-                    PredictionTiles[b + i] = PredictionData.Skip(i * Dim * Dim * Dim).Take(Dim * Dim * Dim).ToArray();
-            }
+                    for (int i = 0; i < CurBatch; i++)
+                        PredictionTiles[b + i] = PredictionData.Skip(i * Dim * Dim * Dim).Take(Dim * Dim * Dim).ToArray();
+                }, null);
 
-            Extracted.Dispose();
+            foreach (var item in Extracted)
+                item.Dispose();
 
             noisy.FreeDevice();
 
@@ -400,12 +408,6 @@ namespace Warp
                                                                                         int gpuprocess,
                                                                                         Action<string> progressCallback)
         {
-            if (batchsize != 4)
-            {
-                niterations = niterations * 4 / batchsize;
-                Debug.WriteLine($"Adjusting the number of iterations to {niterations} to match different batch size.\n");
-            }
-
             GPU.SetDevice(gpuprocess);
 
             #region Mask
@@ -559,6 +561,15 @@ namespace Warp
                     mask.FreeDevice();
 
             #endregion
+                       
+            if (batchsize != 4 || Maps1.Count > 1)
+            {
+                if (batchsize < 1)
+                    throw new Exception("Batch size must be at least 1.");
+
+                niterations = niterations * 4 / batchsize / Maps1.Count;
+                Console.WriteLine($"Adjusting the number of iterations to {niterations} to match batch size and number of maps.\n");
+            }
 
             int Dim = network.BoxDimensions.X;
 
@@ -578,6 +589,11 @@ namespace Warp
 
                 Image[] ExtractedSource = Helper.ArrayOfFunction(i => new Image(new int3(Dim, Dim, Dim * MapSamples)), NMapsPerBatch);
                 Image[] ExtractedTarget = Helper.ArrayOfFunction(i => new Image(new int3(Dim, Dim, Dim * MapSamples)), NMapsPerBatch);
+
+                Stopwatch Watch = new Stopwatch();
+                Watch.Start();
+
+                Queue<float> Losses = new Queue<float>();
 
                 for (int iter = (int)(startFrom * niterations); iter < niterations; iter++)
                 {
@@ -667,11 +683,24 @@ namespace Warp
                                               0,
                                               out PredictedData,
                                               out Loss);
+
+                            Losses.Enqueue(Loss[0]);
+                            if (Losses.Count > 100)
+                                Losses.Dequeue();
                         }
                     }
 
-                    Debug.WriteLine($"{iter + 1}/{niterations}");
-                    progressCallback?.Invoke($"{iter + 1}/{niterations}");
+
+                    double TicksPerIteration = Watch.ElapsedTicks / (double)(iter + 1);
+                    TimeSpan TimeRemaining = new TimeSpan((long)(TicksPerIteration * (niterations - 1 - iter)));
+
+                    string ProgressText = $"{iter + 1}/{niterations}, {TimeRemaining.Hours}:{TimeRemaining.Minutes:D2}:{TimeRemaining.Seconds:D2} remaining, log(loss) = {Math.Log(MathHelper.Mean(Losses)).ToString("F4")}";
+
+                    if (float.IsNaN(Loss[0]) || float.IsInfinity(Loss[0]))
+                        throw new Exception("The loss function has reached an invalid value because something went wrong during training.");
+
+                    Debug.WriteLine(ProgressText);
+                    progressCallback?.Invoke(ProgressText);
                 }
 
                 Debug.WriteLine("\nDone training!\n");

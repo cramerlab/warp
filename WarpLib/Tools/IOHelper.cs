@@ -47,13 +47,13 @@ namespace Warp.Tools
             return Dims;
         }
 
-        public static float[][] ReadMapFloatPatient(int attempts, int mswait, string path, int2 headerlessSliceDims, long headerlessOffset, Type headerlessType, int layer = -1, Stream stream = null, float[][] reuseBuffer = null)
+        public static float[][] ReadMapFloatPatient(int attempts, int mswait, string path, int2 headerlessSliceDims, long headerlessOffset, Type headerlessType, int[] layers = null, Stream stream = null, float[][] reuseBuffer = null)
         {
             for (int a = 0; a < attempts; a++)
             {
                 try
                 {
-                    return ReadMapFloat(path, headerlessSliceDims, headerlessOffset, headerlessType, layer, stream, reuseBuffer);
+                    return ReadMapFloat(path, headerlessSliceDims, headerlessOffset, headerlessType, layers, stream, reuseBuffer);
                 }
                 catch
                 {
@@ -64,19 +64,19 @@ namespace Warp.Tools
             throw new Exception("Could not successfully read file within the specified number of attempts.");
         }
 
-        public static float[][] ReadMapFloat(string path, int2 headerlessSliceDims, long headerlessOffset, Type headerlessType, int layer = -1, Stream stream = null, float[][] reuseBuffer = null)
+        public static float[][] ReadMapFloat(string path, int2 headerlessSliceDims, long headerlessOffset, Type headerlessType, int[] layers = null, Stream stream = null, float[][] reuseBuffer = null)
         {
             try
             {
-                return ReadMapFloat(path, headerlessSliceDims, headerlessOffset, headerlessType, false, layer, stream, reuseBuffer);
+                return ReadMapFloat(path, headerlessSliceDims, headerlessOffset, headerlessType, false, layers, stream, reuseBuffer);
             }
             catch
             {
-                return ReadMapFloat(path, headerlessSliceDims, headerlessOffset, headerlessType, true, layer, stream, reuseBuffer);
+                return ReadMapFloat(path, headerlessSliceDims, headerlessOffset, headerlessType, true, layers, stream, reuseBuffer);
             }
         }
 
-        public static float[][] ReadMapFloat(string path, int2 headerlessSliceDims, long headerlessOffset, Type headerlessType, bool isBigEndian, int layer = -1, Stream stream = null, float[][] reuseBuffer = null)
+        public static float[][] ReadMapFloat(string path, int2 headerlessSliceDims, long headerlessOffset, Type headerlessType, bool isBigEndian, int[] layers = null, Stream stream = null, float[][] reuseBuffer = null)
         {
             MapHeader Header = null;
             Type ValueType = null;
@@ -87,16 +87,18 @@ namespace Warp.Tools
                 {
                     Header = MapHeader.ReadFromFile(Reader, path, headerlessSliceDims, headerlessOffset, headerlessType);
                     ValueType = Header.GetValueType();
-                    Data = reuseBuffer == null ? new float[layer < 0 ? Header.Dimensions.Z : 1][] : reuseBuffer;
+                    Data = reuseBuffer == null ? new float[layers == null ? Header.Dimensions.Z : layers.Length][] : reuseBuffer;
 
                     int ReadBatchSize = Math.Min((int)Header.Dimensions.ElementsSlice(), 1 << 20);
                     int ValueSize = (int)ImageFormatsHelper.SizeOf(ValueType);
                     byte[] Bytes = new byte[ReadBatchSize * ValueSize];
 
+                    long ReaderDataStart = Reader.BaseStream.Position;
+
                     for (int z = 0; z < Data.Length; z++)
                     {
-                        if (layer >= 0)
-                            Reader.BaseStream.Seek(Header.Dimensions.ElementsSlice() * ImageFormatsHelper.SizeOf(ValueType) * layer, SeekOrigin.Current);
+                        if (layers != null)
+                            Reader.BaseStream.Seek(Header.Dimensions.ElementsSlice() * ImageFormatsHelper.SizeOf(ValueType) * layers[z] + ReaderDataStart, SeekOrigin.Begin);
 
                         if (reuseBuffer == null)
                             Data[z] = new float[(int)Header.Dimensions.ElementsSlice()];
@@ -178,7 +180,19 @@ namespace Warp.Tools
             else
             {
                 Header = MapHeader.ReadFromFile(null, path, headerlessSliceDims, headerlessOffset, headerlessType, stream);
-                Data = ((HeaderTiff)Header).ReadData(stream, layer);
+                if (Helper.PathToExtension(path).ToLower() == ".eer")
+                {
+                    Data = Helper.ArrayOfFunction(i => new float[Header.Dimensions.ElementsSlice()], layers == null ? Header.Dimensions.Z : layers.Length);
+                    for (int i = 0; i < Data.Length; i++)
+                    {
+                        int z = layers == null ? i : layers[i];
+                        EERNative.ReadEER(path, z * HeaderEER.GroupNFrames, (z + 1) * HeaderEER.GroupNFrames, HeaderEER.SuperResolution, Data[i]);
+                    }
+                }
+                else
+                {
+                    Data = ((HeaderTiff)Header).ReadData(stream, layers);
+                }
             }
 
             return Data;

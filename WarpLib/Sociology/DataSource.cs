@@ -216,6 +216,9 @@ namespace Warp.Sociology
             set { if (value != _DosePerAngstromFrame) { _DosePerAngstromFrame = value; OnPropertyChanged(); } }
         }
 
+        /// <summary>
+        /// Keys are hashes, values are file names
+        /// </summary>
         public Dictionary<string, string> Files = new Dictionary<string, string>();
 
         public Dictionary<Guid, string> UsedSpecies = new Dictionary<Guid, string>();

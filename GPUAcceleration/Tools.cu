@@ -99,6 +99,17 @@ __declspec(dllexport) void Extract(float* d_input, float* d_output, int3 dims, i
 	cudaFree(d_origins);
 }
 
+__declspec(dllexport) void ExtractMultisource(void** h_inputs, float* d_output, int3 dims, int3 dimsregion, int3* h_origins, int nsources, uint batch)
+{
+	int3* d_origins = (int3*)CudaMallocFromHostArray(h_origins, batch * sizeof(int3));
+	float** d_inputs = (float**)CudaMallocFromHostArray(h_inputs, nsources * sizeof(float*));
+
+	d_ExtractManyMultisource(d_inputs, d_output, dims, dimsregion, d_origins, nsources, batch);
+
+	cudaFree(d_inputs);
+	cudaFree(d_origins);
+}
+
 __declspec(dllexport) void ExtractHalf(half* d_input, half* d_output, int3 dims, int3 dimsregion, int3* h_origins, uint batch)
 {
 	int3* d_origins = (int3*)CudaMallocFromHostArray(h_origins, batch * sizeof(int3));
@@ -138,9 +149,14 @@ __declspec(dllexport) void SphereMask(float* d_input, float* d_output, int3 dims
 	d_SphereMask(d_input, d_output, dims, &radius, sigma, NULL, decentered, batch);
 }
 
-__declspec(dllexport) void CreateCTF(float* d_output, float2* d_coords, uint length, CTFParams* h_params, bool amplitudesquared, uint batch)
+__declspec(dllexport) void CreateCTF(float* d_output, float2* d_coords, float* d_gammacorrection, uint length, CTFParams* h_params, bool amplitudesquared, uint batch)
 {
-	d_CTFSimulate(h_params, d_coords, d_output, length, amplitudesquared, false, batch);
+	d_CTFSimulate(h_params, d_coords, d_gammacorrection, d_output, length, amplitudesquared, false, batch);
+}
+
+__declspec(dllexport) void CreateCTFComplex(float* d_output, float2* d_coords, float* d_gammacorrection, uint length, CTFParams* h_params, bool reverse, uint batch)
+{
+	d_CTFSimulateComplex(h_params, d_coords, d_gammacorrection, (float2*)d_output, length, reverse, batch);
 }
 
 __declspec(dllexport) void Resize(float* d_input, int3 dimsinput, float* d_output, int3 dimsoutput, uint batch)
@@ -208,6 +224,11 @@ __declspec(dllexport) void Amplitudes(float2* d_input, float* d_output, size_t l
 __declspec(dllexport) void Sign(float* d_input, float* d_output, size_t length)
 {
     d_Sign(d_input, d_output, length);
+}
+
+__declspec(dllexport) void Sqrt(float* d_input, float* d_output, size_t length)
+{
+	d_Sqrt(d_input, d_output, length);
 }
 
 __declspec(dllexport) void Cos(float* d_input, float* d_output, size_t length)
@@ -335,9 +356,9 @@ __declspec(dllexport) void ProjectForward3DShiftedTex(uint64_t t_inputRe, uint64
     d_rlnProjectShifted(t_inputRe, t_inputIm, dimsinput, d_outputft, dimsoutput, (tfloat3*)h_angles, (tfloat3*)h_shifts, h_globalweights, supersample, batch);
 }
 
-__declspec(dllexport) void ProjectBackward(float2* d_volumeft, float* d_volumeweights, int3 dimsvolume, float2* d_projft, float* d_projweights, int2 dimsproj, int rmax, float3* h_angles, int* h_ivolume, float3 magnification, float supersample, bool outputdecentered, uint batch)
+__declspec(dllexport) void ProjectBackward(float2* d_volumeft, float* d_volumeweights, int3 dimsvolume, float2* d_projft, float* d_projweights, int2 dimsproj, int rmax, float3* h_angles, int* h_ivolume, float3 magnification, float ewaldradius, float supersample, bool outputdecentered, uint batch)
 {
-    d_rlnBackproject(d_volumeft, d_volumeweights, dimsvolume, d_projft, d_projweights, toInt3(dimsproj), rmax, (tfloat3*)h_angles, h_ivolume, magnification, supersample, outputdecentered, batch);
+    d_rlnBackproject(d_volumeft, d_volumeweights, dimsvolume, d_projft, d_projweights, toInt3(dimsproj), rmax, (tfloat3*)h_angles, h_ivolume, magnification, ewaldradius, supersample, outputdecentered, batch);
 }
 
 __declspec(dllexport) void ProjectBackwardShifted(float2* d_volumeft, float* d_volumeweights, int3 dimsvolume, float2* d_projft, float* d_projweights, int2 dimsproj, int rmax, float3* h_angles, float3* h_shifts, float* h_globalweights, float supersample, uint batch)

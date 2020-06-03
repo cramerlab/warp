@@ -38,7 +38,7 @@
                     <TextBox Name="TextSuffixes" Text="{Binding Suffixes,Mode=TwoWay,UpdateSourceTrigger=PropertyChanged}" FontSize="18" Width="300" HorizontalAlignment="Left" />
 
                     <StackPanel Height="10"/>
-                    <CheckBox Name="CheckInvertTilts" IsChecked="{Binding InvertTilts,Mode=TwoWay}" FontSize="18" Height="30" Content="Invert tilt angles" />
+                    <CheckBox Name="CheckDontInvertTilts" IsChecked="{Binding DontInvertTilts,Mode=TwoWay}" FontSize="18" Height="30" Content="Don't invert tilt angles" />
 
                     <StackPanel Height="10"/>
                     <s:ValueSlider Name="SliderPixelSize" Value="{Binding PixelSize, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="Pixel size used in IMOD: {0} Å" MinValue="0.01" MaxValue="1000" StepSize="0.0001" FontSize="18" Height="30" />

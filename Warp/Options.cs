@@ -772,6 +772,7 @@ namespace Warp
                     OnPropertyChanged("ExtensionEM");
                     OnPropertyChanged("ExtensionTIFF");
                     OnPropertyChanged("ExtensionTIFFF");
+                    OnPropertyChanged("ExtensionEER");
                     OnPropertyChanged("ExtensionDAT");
                     OnPropertyChanged("ExtensionTomoSTAR");
                 }
@@ -834,7 +835,6 @@ namespace Warp
             }
         }
 
-        private bool _ExtensionTIFFF = false;
         public bool ExtensionTIFFF
         {
             get { return Extension == "*.tiff"; }
@@ -844,6 +844,20 @@ namespace Warp
                 {
                     if (value)
                         Extension = "*.tiff";
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        public bool ExtensionEER
+        {
+            get { return Extension == "*.eer"; }
+            set
+            {
+                if (value != (Extension == "*.eer"))
+                {
+                    if (value)
+                        Extension = "*.eer";
                     OnPropertyChanged();
                 }
             }

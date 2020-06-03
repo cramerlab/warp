@@ -8,9 +8,17 @@ using System.Threading.Tasks;
 
 namespace Warp.Tools
 {
-    public static class ImodHelper
+    public class Mdoc
     {
-        public static List<MdocEntry> ReadMdoc(string[] paths, float defaultDose = 0)
+        public string Path;
+        public List<MdocEntry> Entries = new List<MdocEntry>();
+
+        public Mdoc(string path, IEnumerable<MdocEntry> entries)
+        {
+            Entries.AddRange(entries);
+        }
+
+        public static Mdoc FromFile(string[] paths, float defaultDose = 0)
         {
             float AxisAngle = 0;
             List<MdocEntry> Entries = new List<MdocEntry>();
@@ -99,15 +107,15 @@ namespace Warp.Tools
             int OrderCorrection = DoseMinus < DosePlus ? 1 : -1;
             SortedAngle.Sort((a, b) => a.TiltAngle.CompareTo(b.TiltAngle) != 0 ? a.TiltAngle.CompareTo(b.TiltAngle) : (a.Dose.CompareTo(b.Dose) * OrderCorrection));
 
-            return SortedAngle;
+            return new Mdoc(paths[0], SortedAngle);
         }
 
-        public static void UpdateWithXf(string path, List<MdocEntry> entriesSortedAngle)
+        public static void UpdateWithXf(string path, Mdoc entriesSortedAngle)
         {
             using (TextReader Reader = new StreamReader(File.OpenRead(path)))
             {
                 string Line;
-                for (int i = 0; i < entriesSortedAngle.Count; i++)
+                for (int i = 0; i < entriesSortedAngle.Entries.Count; i++)
                 {
                     Line = Reader.ReadLine();
                     string[] Parts = Line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
@@ -120,13 +128,13 @@ namespace Warp.Tools
                     Matrix3 Rotation = new Matrix3(VecX.X, VecX.Y, 0, VecY.X, VecY.Y, 0, 0, 0, 1);
                     float3 Euler = Matrix3.EulerFromMatrix(Rotation);
 
-                    entriesSortedAngle[i].AxisAngle = Euler.Z * Helper.ToDeg;
+                    entriesSortedAngle.Entries[i].AxisAngle = Euler.Z * Helper.ToDeg;
 
                     //SortedAngle[i].Shift += VecX * float.Parse(Parts[4], CultureInfo.InvariantCulture) + VecY * float.Parse(Parts[5], CultureInfo.InvariantCulture);
                     float3 Shift = new float3(-float.Parse(Parts[4], CultureInfo.InvariantCulture), -float.Parse(Parts[5], CultureInfo.InvariantCulture), 0);
                     Shift = Rotation.Transposed() * Shift;
 
-                    entriesSortedAngle[i].Shift += new float2(Shift);
+                    entriesSortedAngle.Entries[i].Shift += new float2(Shift);
                 }
             }
         }

@@ -19,6 +19,7 @@ namespace Warp.Tools
         public static IFormatProvider NativeFormat = CultureInfo.InvariantCulture.NumberFormat;
         public static IFormatProvider NativeDateTimeFormat = CultureInfo.InvariantCulture.DateTimeFormat;
 
+        public static float PI = (float)Math.PI;
         public static float ToRad = (float)Math.PI / 180.0f;
         public static float ToDeg = 180.0f / (float)Math.PI;
 

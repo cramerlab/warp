@@ -19,6 +19,7 @@
     <CudaCompile Include="CubeNet.cu" />
     <CudaCompile Include="MPARefine.cu" />
     <CudaCompile Include="PCA.cu" />
+    <CudaCompile Include="RealspaceProjection.cu" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Angles.cpp" />
@@ -39,6 +40,7 @@
     <ClCompile Include="FFT.cpp" />
     <ClCompile Include="FSC.cpp" />
     <ClCompile Include="TiffNative.cpp" />
+    <ClCompile Include="EER.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Functions.h" />

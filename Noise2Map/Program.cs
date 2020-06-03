@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -16,6 +17,9 @@ namespace Noise2Map
     {
         static void Main(string[] args)
         {
+            CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
+            CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.InvariantCulture;
+
             #region Command line options
 
             Options Options = new Options();
@@ -33,9 +37,11 @@ namespace Noise2Map
             {
                 Options.Observation1Path = @"E:\sara_debug\TS_for_M\reconstruction\odd";
                 Options.Observation2Path = @"E:\sara_debug\TS_for_M\reconstruction\even";
+                Options.ObservationCombinedPath = @"E:\sara_debug\TS_for_M\reconstruction\even";
                 Options.DenoiseSeparately = false;
                 Options.MaskPath = @"";
                 Options.OldModelName = "";
+                Options.DontAugment = false;
                 Options.DontFlatten = true;
                 Options.Overflatten = 1.0f;
                 Options.PixelSize = 15f;
@@ -52,15 +58,6 @@ namespace Noise2Map
 
             if (!Options.DontFlatten && Options.PixelSize < 0)
                 throw new Exception("Flattening requested, but pixel size not specified.");
-
-            if (Options.BatchSize != 4)
-            {
-                if (Options.BatchSize < 1)
-                    throw new Exception("Batch size must be at least 1.");
-
-                Options.NIterations = Options.NIterations * 4 / Options.BatchSize;
-                Console.WriteLine($"Adjusting the number of iterations to {Options.NIterations} to match different batch size.\n");
-            }
 
             #endregion
 
@@ -122,11 +119,20 @@ namespace Noise2Map
                 string[] Map2Paths = Directory.EnumerateFiles(Options.Observation2Path, MapName + ".mrc").ToArray();
                 if (Map2Paths == null || Map2Paths.Length == 0)
                     continue;
+                string MapCombinedPath = null;
+                if (!string.IsNullOrEmpty(Options.ObservationCombinedPath))
+                {
+                    string[] MapCombinedPaths = Directory.EnumerateFiles(Options.ObservationCombinedPath, MapName + ".mrc").ToArray();
+                    if (MapCombinedPaths == null || MapCombinedPaths.Length == 0)
+                        continue;
+                    MapCombinedPath = MapCombinedPaths.First();
+                }
 
                 Console.Write($"Preparing {MapName}... ");
 
                 Image Map1 = Image.FromFile(file);
                 Image Map2 = Image.FromFile(Map2Paths.First());
+                Image MapCombined = MapCombinedPath == null ? null : Image.FromFile(MapCombinedPath);
 
                 float MapPixelSize = Map1.PixelSize / (Options.KeepDimensions ? 1 : Options.Upsample);
 
@@ -156,12 +162,21 @@ namespace Noise2Map
                     Map2.Dispose();
                     Map2 = Map2Flat;
                     Map2.FreeDevice();
+
+                    if (MapCombined != null)
+                    {
+                        Image MapCombinedFlat = MapCombined.AsSpectrumMultiplied(true, Spectrum);
+                        MapCombined.Dispose();
+                        MapCombined = MapCombinedFlat;
+                        MapCombined.FreeDevice();
+                    }
                 }
 
                 if (Options.Lowpass > 0)
                 {
                     Map1.Bandpass(0, Options.PixelSize * 2 / Options.Lowpass, true, 0.01f);
                     Map2.Bandpass(0, Options.PixelSize * 2 / Options.Lowpass, true, 0.01f);
+                    MapCombined?.Bandpass(0, Options.PixelSize * 2 / Options.Lowpass, true, 0.01f);
                 }
 
                 //{
@@ -193,6 +208,14 @@ namespace Noise2Map
                     Map2.Dispose();
                     Map2 = Map2Cropped;
                     Map2.FreeDevice();
+
+                    if (MapCombined != null)
+                    {
+                        Image MapCombinedCropped = MapCombined.AsPadded(BoundingBox);
+                        MapCombined.Dispose();
+                        MapCombined = MapCombinedCropped;
+                        MapCombined.FreeDevice();
+                    }
                 }
 
                 DimensionsForDenoising.Add(Map1.Dims);
@@ -208,6 +231,14 @@ namespace Noise2Map
                     Map2.Dispose();
                     Map2 = Map2Scaled;
                     Map2.FreeDevice();
+
+                    if (MapCombined != null)
+                    {
+                        Image MapCombinedScaled = MapCombined.AsScaled(Map2.Dims * Options.Upsample / 2 * 2);
+                        MapCombined.Dispose();
+                        MapCombined = MapCombinedScaled;
+                        MapCombined.FreeDevice();
+                    }
                 }
 
                 float2 MeanStd = MathHelper.MeanAndStd(Helper.Combine(Map1.GetHostContinuousCopy(), Map2.GetHostContinuousCopy()));
@@ -215,8 +246,9 @@ namespace Noise2Map
 
                 Map1.TransformValues(v => (v - MeanStd.X) / MeanStd.Y);
                 Map2.TransformValues(v => (v - MeanStd.X) / MeanStd.Y);
+                MapCombined?.TransformValues(v => (v - MeanStd.X) / MeanStd.Y);
 
-                Image ForDenoising = Map1.GetCopy();
+                Image ForDenoising = (MapCombined == null || Options.DenoiseSeparately) ? Map1.GetCopy() : MapCombined;
                 Image ForDenoising2 = Options.DenoiseSeparately ? Map2.GetCopy() : null;
 
                 GPU.PrefilterForCubic(Map1.GetDevice(Intent.ReadWrite), Map1.Dims);
@@ -261,12 +293,27 @@ namespace Noise2Map
             string NameTrainedModel = Options.OldModelName;
             int Dim = 64;
 
+            if (Options.BatchSize != 4 || Maps1.Count > 1)
+            {
+                if (Options.BatchSize < 1)
+                    throw new Exception("Batch size must be at least 1.");
+
+                Options.NIterations = Options.NIterations * 4 / Options.BatchSize / Maps1.Count;
+                Console.WriteLine($"Adjusting the number of iterations to {Options.NIterations} to match batch size and number of maps.\n");
+            }
+
             if (string.IsNullOrEmpty(Options.OldModelName))
             {
                 #region Load model
 
+                string ModelPath = Options.StartModelName;
+                if (!Directory.Exists(ModelPath))
+                    ModelPath = Path.Combine(ProgramFolder, Options.StartModelName);
+                if (!Directory.Exists(ModelPath))
+                    throw new Exception($"Could not find initial model '{Options.StartModelName}'. Please make sure it can be found either here, or in the installation directory.");
+
                 Console.WriteLine("Loading model, " + GPU.GetFreeMemory(Options.GPUNetwork) + " MB free.");
-                TrainModel = new NoiseNet3D(ProgramFolder + "noisenet3dmodel", new int3(Dim), 1, Options.BatchSize, true, Options.GPUNetwork);
+                TrainModel = new NoiseNet3D(ModelPath, new int3(Dim), 1, Options.BatchSize, true, Options.GPUNetwork);
                 Console.WriteLine("Loaded model, " + GPU.GetFreeMemory(Options.GPUNetwork) + " MB remaining.\n");
 
                 #endregion
@@ -283,6 +330,11 @@ namespace Noise2Map
 
                 Image[] ExtractedSource = Helper.ArrayOfFunction(i => new Image(new int3(Dim, Dim, Dim * MapSamples)), NMapsPerBatch);
                 Image[] ExtractedTarget = Helper.ArrayOfFunction(i => new Image(new int3(Dim, Dim, Dim * MapSamples)), NMapsPerBatch);
+
+                Stopwatch Watch = new Stopwatch();
+                Watch.Start();
+
+                Queue<float> Losses = new Queue<float>();
 
                 for (int iter = 0; iter < Options.NIterations; iter++)
                 {
@@ -303,9 +355,15 @@ namespace Noise2Map
                                                                                    (float)Rand.NextDouble() * (DimsMap.Y - Margin.Y * 2) + Margin.Y,
                                                                                    (float)Rand.NextDouble() * (DimsMap.Z - Margin.Z * 2) + Margin.Z), MapSamples);
 
-                        float3[] Angle = Helper.ArrayOfFunction(i => new float3((float)Rand.NextDouble() * 360,
-                                                                                (float)Rand.NextDouble() * 360,
-                                                                                (float)Rand.NextDouble() * 360) * Helper.ToRad, MapSamples);
+                        float3[] Angle;
+                        if (Options.DontAugment)
+                            Angle = Helper.ArrayOfFunction(i => new float3((float)Math.Round(Rand.NextDouble()) * 180,
+                                                                           (float)Math.Round(Rand.NextDouble()) * 180,
+                                                                           (float)Math.Round(Rand.NextDouble()) * 180) * Helper.ToRad, MapSamples);
+                        else
+                            Angle = Helper.ArrayOfFunction(i => new float3((float)Rand.NextDouble() * 360,
+                                                                           (float)Rand.NextDouble() * 360,
+                                                                           (float)Rand.NextDouble() * 360) * Helper.ToRad, MapSamples);
 
                         {
                             ulong[] Texture = new ulong[1], TextureArray = new ulong[1];
@@ -350,7 +408,9 @@ namespace Noise2Map
                     float[] PredictedData = null, Loss = null;
 
                     {
-                        float CurrentLearningRate = 0.0001f * (float)Math.Pow(10, -iter / (float)Options.NIterations * 2);
+                        double CurrentLearningRate = Math.Exp(MathHelper.Lerp((float)Math.Log(Options.LearningRateStart),
+                                                                              (float)Math.Log(Options.LearningRateFinish),
+                                                                              iter / (float)Options.NIterations));
 
                         for (int m = 0; m < ShuffledMapIDs.Length; m++)
                         {
@@ -361,25 +421,37 @@ namespace Noise2Map
                             if (Twist)
                                 TrainModel.Train(ExtractedSource[MapID].GetDevice(Intent.Read),
                                                  ExtractedTarget[MapID].GetDevice(Intent.Read),
-                                                 CurrentLearningRate,
+                                                 (float)CurrentLearningRate,
                                                  0,
                                                  out PredictedData,
                                                  out Loss);
                             else
                                 TrainModel.Train(ExtractedTarget[MapID].GetDevice(Intent.Read),
                                                  ExtractedSource[MapID].GetDevice(Intent.Read),
-                                                 CurrentLearningRate,
+                                                 (float)CurrentLearningRate,
                                                  0,
                                                  out PredictedData,
                                                  out Loss);
+
+                            Losses.Enqueue(Loss[0]);
+                            if (Losses.Count > 100)
+                                Losses.Dequeue();
                         }
                     }
 
+                    double TicksPerIteration = Watch.ElapsedTicks / (double)(iter + 1);
+                    TimeSpan TimeRemaining = new TimeSpan((long)(TicksPerIteration * (Options.NIterations - 1 - iter)));
+
                     ClearCurrentConsoleLine();
-                    Console.Write($"{iter + 1}/{Options.NIterations}");
+                    Console.Write($"{iter + 1}/{Options.NIterations}, {TimeRemaining.Hours}:{TimeRemaining.Minutes:D2}:{TimeRemaining.Seconds:D2} remaining, log(loss) = {Math.Log(MathHelper.Mean(Losses)).ToString("F4")}");
+
+                    if (float.IsNaN(Loss[0]) || float.IsInfinity(Loss[0]))
+                        throw new Exception("The loss function has reached an invalid value because something went wrong during training.");
                 }
 
-                NameTrainedModel = "noisenet3d_64_" + DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                Watch.Stop();
+
+                NameTrainedModel = Options.StartModelName + "_" + DateTime.Now.ToString("yyyyMMdd_HHmmss");
                 TrainModel.Export(NameTrainedModel);
                 TrainModel.Dispose();
 

@@ -74,6 +74,8 @@ namespace Warp.Headers
                 {
                     Dimensions.Z = Image.NumberOfDirectories();
                 }
+
+                if (Helper.PathToExtension(path).ToLower() != ".eer")
                 {
                     FieldValue[] value = Image.GetField(TiffTag.SAMPLEFORMAT);
                     SampleFormat Format = SampleFormat.UINT;
@@ -129,12 +131,12 @@ namespace Warp.Headers
             throw new NotImplementedException();
         }
 
-        public float[][] ReadData(int layer = -1)
+        public float[][] ReadData(int[] layers = null)
         {
             string FlipYEnvVar = Environment.GetEnvironmentVariable("WARP_DONT_FLIPY");
             bool DoFlipY = string.IsNullOrEmpty(FlipYEnvVar);
 
-            float[][] Slices = new float[layer < 0 ? Dimensions.Z : 1][];
+            float[][] Slices = new float[layers == null ? Dimensions.Z : layers.Length][];
 
             for (int slice = 0; slice < Slices.Length; slice++)
             {
@@ -150,7 +152,7 @@ namespace Warp.Headers
                     float[] ConvertedData = new float[Dimensions.ElementsSlice()];
                     float[] ConvertedDataFlipY = DoFlipY ? new float[Dimensions.ElementsSlice()] : null;
 
-                    Image.SetDirectory(layer < 0 ? (short)slice : (short)layer);
+                    Image.SetDirectory(layers == null ? (short)slice : (short)layers[slice]);
 
                     int Offset = 0;
                     byte[] StripsData = new byte[NumberOfStrips * Image.StripSize()];
@@ -271,9 +273,9 @@ namespace Warp.Headers
             return Slices;
         }
 
-        public float[][] ReadData(Stream stream, int layer = -1)
+        public float[][] ReadData(Stream stream, int[] layers = null)
         {
-            float[][] Slices = new float[layer < 0 ? Dimensions.Z : 1][];
+            float[][] Slices = new float[layers == null ? Dimensions.Z : layers.Length][];
 
             if (stream == null)
                 stream = File.OpenRead(Path);
@@ -297,7 +299,7 @@ namespace Warp.Headers
                     float[] ConvertedData = new float[Dimensions.ElementsSlice()];
                     float[] ConvertedDataFlipY = DoFlipY ? new float[Dimensions.ElementsSlice()] : null;
 
-                    Image.SetDirectory(layer < 0 ? (short)slice : (short)layer);
+                    Image.SetDirectory(layers == null ? (short)slice : (short)layers[slice]);
 
                     int Offset = 0;
                     byte[] StripsData = new byte[NumberOfStrips * Image.StripSize()];

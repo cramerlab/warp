@@ -32,6 +32,13 @@ namespace Warp.Tools
             writer.WriteEndAttribute();
         }
 
+        public static void WriteAttribute(XmlTextWriter writer, string name, float[] value)
+        {
+            writer.WriteStartAttribute(name);
+            writer.WriteValue(string.Join(";", value.Select(v => v.ToString(CultureInfo.InvariantCulture))));
+            writer.WriteEndAttribute();
+        }
+
         public static void WriteAttribute(XmlTextWriter writer, string name, double value)
         {
             writer.WriteStartAttribute(name);
@@ -83,6 +90,14 @@ namespace Warp.Tools
             writer.WriteStartElement("Param");
             XMLHelper.WriteAttribute(writer, "Name", name);
             XMLHelper.WriteAttribute(writer, "Value", value.ToString(CultureInfo.InvariantCulture));
+            writer.WriteEndElement();
+        }
+
+        public static void WriteParamNode(XmlTextWriter writer, string name, float[] value)
+        {
+            writer.WriteStartElement("Param");
+            XMLHelper.WriteAttribute(writer, "Name", name);
+            XMLHelper.WriteAttribute(writer, "Value", string.Join(";", value.Select(v => v.ToString(CultureInfo.InvariantCulture))));
             writer.WriteEndElement();
         }
 
@@ -244,6 +259,26 @@ namespace Warp.Tools
                 try
                 {
                     return float.Parse(Value, CultureInfo.InvariantCulture);
+                }
+                catch (Exception)
+                { }
+
+            return defaultValue;
+        }
+
+        public static float[] LoadParamNode(XPathNavigator nav, string name, float[] defaultValue)
+        {
+            XPathNodeIterator Iterator = nav.Select($"Param[@Name = \"{name}\"]");
+            if (Iterator.Count == 0)
+                return defaultValue;
+
+            Iterator.MoveNext();
+            string Value = Iterator.Current.GetAttribute("Value", "");
+            if (Value.Length > 0)
+                try
+                {
+                    string[] Parts = Value.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
+                    return Parts.Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray();
                 }
                 catch (Exception)
                 { }

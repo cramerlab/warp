@@ -56,7 +56,7 @@ namespace Warp
                     FileName = Path.Combine(Helper.PathToFolder(System.Reflection.Assembly.GetEntryAssembly().Location), "WarpWorker.exe"),
                     CreateNoWindow = false,
                     WindowStyle = ProcessWindowStyle.Minimized,
-                    Arguments = $"{DeviceID} WarpWorker{UID}"
+                    Arguments = $"{DeviceID} WarpWorker{UID} {Debugger.IsAttached}"
                 }
             };
             Worker.Start();
@@ -218,6 +218,13 @@ namespace Warp
             if (!SendCommand(new NamedSerializableObject("MPASaveProgress",
                                                          path)))
                 throw new Exception("Couldn't save MPA refinement progress!");
+        }
+
+        public void TryAllocatePinnedMemory(long[] chunks)
+        {
+            if (!SendCommand(new NamedSerializableObject("TryAllocatePinnedMemory",
+                                                         chunks)))
+                throw new Exception("Couldn't allocate requested chunks!");
         }
     }
 }

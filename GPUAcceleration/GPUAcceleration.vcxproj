@@ -25,6 +25,7 @@
     <ClCompile Include="Correlation.cpp" />
     <ClCompile Include="Cubic.cpp" />
     <ClCompile Include="Device.cpp" />
+    <ClCompile Include="EER.cpp" />
     <ClCompile Include="Einspline.cpp" />
     <ClCompile Include="einspline\bspline_create.cpp" />
     <ClCompile Include="FFT.cpp" />
@@ -59,7 +60,7 @@
   <PropertyGroup Label="Globals">
     <ProjectGuid>{7976E078-C29C-487D-B354-F9ED8A497178}</ProjectGuid>
     <RootNamespace>GPUAcceleration</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0.17763.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0.18362.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
@@ -128,7 +129,8 @@ copy "$(CudaToolkitBinDir)\cublas64_100.dll" "$(OutDir)"
 copy "$(CudaToolkitBinDir)\cudnn64_7.dll" "$(OutDir)"
 copy "$(CudaToolkitBinDir)\curand64_100.dll" "$(OutDir)"
 copy "$(CudaToolkitBinDir)\cusolver64_100.dll" "$(OutDir)"
-copy "..\..\libtiff\buildx64\libtiff\Release\tiff.dll" "$(OutDir)"</Command>
+copy "..\..\libtiff\buildx64\libtiff\Release\tiff.dll" "$(OutDir)"
+copy "..\..\zlib-1.2.11\bin\zlib.dll" "$(OutDir)"</Command>
     </PostBuildEvent>
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>
@@ -169,7 +171,8 @@ copy "$(CudaToolkitBinDir)\cublas64_100.dll" "$(OutDir)"
 copy "$(CudaToolkitBinDir)\cudnn64_7.dll" "$(OutDir)"
 copy "$(CudaToolkitBinDir)\curand64_100.dll" "$(OutDir)"
 copy "$(CudaToolkitBinDir)\cusolver64_100.dll" "$(OutDir)"
-copy "..\..\libtiff\buildx64\libtiff\Release\tiff.dll" "$(OutDir)"</Command>
+copy "..\..\libtiff\buildx64\libtiff\Release\tiff.dll" "$(OutDir)"
+copy "..\..\zlib-1.2.11\bin\zlib.dll" "$(OutDir)"</Command>
     </PostBuildEvent>
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>

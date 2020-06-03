@@ -178,6 +178,22 @@ namespace Warp.Sociology
             set { if (value != _Symmetry) { _Symmetry = value; OnPropertyChanged(); } }
         }
 
+        private bool _DoEwald = false;
+        [WarpSerializable]
+        public bool DoEwald
+        {
+            get { return _DoEwald; }
+            set { if (value != _DoEwald) { _DoEwald = value; OnPropertyChanged(); } }
+        }
+
+        private bool _EwaldReverse = false;
+        [WarpSerializable]
+        public bool EwaldReverse
+        {
+            get { return _EwaldReverse; }
+            set { if (value != _EwaldReverse) { _EwaldReverse = value; OnPropertyChanged(); } }
+        }
+
         private bool _UseForAlignment = true;
         [WarpSerializable]
         public bool UseForAlignment
@@ -793,6 +809,13 @@ namespace Warp.Sociology
             set { if (value != _ResolutionRefinement) { _ResolutionRefinement = value; OnPropertyChanged(); } }
         }
 
+        private int _CurrentMaxShellRefinement = 1;
+        public int CurrentMaxShellRefinement
+        {
+            get { return _CurrentMaxShellRefinement; }
+            set { if (value != _CurrentMaxShellRefinement) { _CurrentMaxShellRefinement = value; OnPropertyChanged(); } }
+        }
+
         private Projector[] _HalfMap1Projector = null;
         public Projector[] HalfMap1Projector
         {
@@ -856,7 +879,7 @@ namespace Warp.Sociology
         {
             HalfMap1 = halfMap1.GetCopy();
             HalfMap2 = halfMap2.GetCopy();
-            
+
             Mask = mask.GetCopy();
         }
 
@@ -930,7 +953,7 @@ namespace Warp.Sociology
             string[] NamesAngleRot = Helper.ArrayOfFunction(i => $"wrpAngleRot{i + 1}", TemporalResolutionRotation);
             string[] NamesAngleTilt = Helper.ArrayOfFunction(i => $"wrpAngleTilt{i + 1}", TemporalResolutionRotation);
             string[] NamesAnglePsi = Helper.ArrayOfFunction(i => $"wrpAnglePsi{i + 1}", TemporalResolutionRotation);
-            
+
             float[][] ColumnsCoordX = NamesCoordX.Select(n => tableIn.GetColumn(n).Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray()).ToArray();
             float[][] ColumnsCoordY = NamesCoordY.Select(n => tableIn.GetColumn(n).Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray()).ToArray();
             float[][] ColumnsCoordZ = NamesCoordZ.Select(n => tableIn.GetColumn(n).Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray()).ToArray();
@@ -966,7 +989,7 @@ namespace Warp.Sociology
             if (Particles.Length == 0)
                 return null;
 
-            Star TableOut = new Star(new []
+            Star TableOut = new Star(new[]
             {
                 "rlnCoordinateX",
                 "rlnCoordinateY",
@@ -1047,7 +1070,7 @@ namespace Warp.Sociology
             string[] MicrographNames = tableIn.GetColumn("rlnMicrographName").Select(v => v.Substring(v.LastIndexOf("/") + 1)).Select(v => v.Substring(0, v.LastIndexOf("."))).ToArray();
             string[] MicrographHashes = micrographHashes != null ? MicrographNames.Select(v => micrographHashes[v]).ToArray() : Helper.ArrayOfConstant("", NParticles);
 
-            Particle[] Result = Helper.ArrayOfFunction(p => new Particle(new [] {Coordinates[p]}, new [] {Angles[p]}, Subsets[p], MicrographNames[p], MicrographHashes[p]), NParticles);
+            Particle[] Result = Helper.ArrayOfFunction(p => new Particle(new[] { Coordinates[p] }, new[] { Angles[p] }, Subsets[p], MicrographNames[p], MicrographHashes[p]), NParticles);
             return Result;
         }
 
@@ -1183,6 +1206,7 @@ namespace Warp.Sociology
 
             float Softness = Math.Max(1, (float)GlobalResolution / (float)(PixelSize * 2));
             Image MaskSoft = FSC.MakeSoftMask(Mask, (int)(3 * Softness + 0.5f), (int)(3 * Softness + 0.5f));
+            Mask.FreeDevice();
 
             if (MaskSoft.Dims != HalfMap1.Dims)
             {
@@ -1315,7 +1339,7 @@ namespace Warp.Sociology
             if (fixedResolution <= 0)
             {
                 int LocalResolutionWindow = Math.Max(30, (int)(GlobalResolution * 5 / PixelSize / 2 + 0.5M) * 2);
-                
+
                 _LocalResolution.Fill(LocalResolutionWindow * (float)PixelSize / 2);
                 _LocalBFactor.Fill(BFacGlobal);
 
@@ -1351,7 +1375,7 @@ namespace Warp.Sociology
                              AverageSamples.GetDevice(Intent.ReadWrite),
                              SpectrumOversampling,
                              GlobalLocalFSC);
-                
+
                 Half1Masked.Dispose();
                 Half2Masked.Dispose();
                 AverageFSC.FreeDevice();
@@ -1558,17 +1582,18 @@ namespace Warp.Sociology
             MaskSoft.FreeDevice();
 
             bool TrainingFromScratch = DenoisedAtResolution <= 0;
-            string DenoiserPath = TrainingFromScratch ? "noisenet3dmodel" : PathNoiseNet;
-            Denoiser = new NoiseNet3D(DenoiserPath, new int3(64), 1, 3, true, GPU.GetDeviceWithMostMemory());
+            string DenoiserPath = TrainingFromScratch ? "noisenet3dmodel_96" : PathNoiseNet;
+            Denoiser = new NoiseNet3D(DenoiserPath, new int3(64), 1, 4, true, GPU.GetDeviceWithMostMemory());
 
             List<float> LocalResSorted = LocalResolution.GetHostContinuousCopy().ToList();
             LocalResSorted.Sort();
             DenoisedAtResolution = Math.Max(PixelSize * 2, (decimal)LocalResSorted[(int)(0.005 * LocalResSorted.Count)]);
+            DenoisedAtResolution = Math.Min(DenoisedAtResolution, GlobalResolution);
 
             HalfMap1.PixelSize = (float)PixelSize;
             HalfMap2.PixelSize = (float)PixelSize;
 
-            (var ForDenoising1, var ForDenoising2, var ForDenoisingStats) = NoiseNet3D.TrainOnVolumes(Denoiser, 
+            (var ForDenoising1, var ForDenoising2, var ForDenoisingStats) = NoiseNet3D.TrainOnVolumes(Denoiser,
                                                                                                       new[] { HalfMap1 },
                                                                                                       new[] { HalfMap2 },
                                                                                                       new[] { MaskSoft },
@@ -1591,7 +1616,7 @@ namespace Warp.Sociology
 
             progressCallback?.Invoke("5/5: Applying denoising");
 
-            Denoiser = new NoiseNet3D(PathNoiseNet, new int3(64), 1, 3, false, GPU.GetDeviceWithMostMemory());
+            Denoiser = new NoiseNet3D(PathNoiseNet, new int3(64), 1, 2, false, GPU.GetDeviceWithMostMemory());
 
             MapDenoised = ForDenoising1[0];
             MapDenoised.Add(ForDenoising2[0]);
@@ -1610,6 +1635,8 @@ namespace Warp.Sociology
 
             MapSum.Dispose();
             MaskSoft.Dispose();
+
+            FreeDevice();
         }
 
         public void CalculateParticleStats()
@@ -1691,7 +1718,7 @@ namespace Warp.Sociology
                     float Tilt = (float)Math.Sqrt(xx * xx + yy * yy) * 90;
                     if (Tilt > 90)
                         continue;
-                    
+
                     PlotData[y * DimsPlot.X + x] = AngularBins[ClosestBin[(int)Math.Round(Rot * fAngleOversample)][(int)Math.Round(Tilt * fAngleOversample)]];
                 }
             }
@@ -1742,49 +1769,56 @@ namespace Warp.Sociology
                 HalfMap2Padded.FreeDevice();
                 MaskPadded.FreeDevice();
 
-                Denoiser = new NoiseNet3D(PathNoiseNet, new int3(64), 1, 3, false, singleGPU < 0 ? GPU.GetDeviceWithMostMemory() : singleGPU);
+                if (true)
+                {
+                    Denoiser = new NoiseNet3D(PathNoiseNet, new int3(64), 4, 4, false, singleGPU < 0 ? GPU.GetDeviceWithMostMemory() : singleGPU);
 
-                HalfMap1Padded.PixelSize = (float)PixelSize;
-                HalfMap2Padded.PixelSize = (float)PixelSize;
+                    HalfMap1Padded.PixelSize = (float)PixelSize;
+                    HalfMap2Padded.PixelSize = (float)PixelSize;
 
-                (var ForDenoising1, var ForDenoising2, var ForDenoisingStats) = NoiseNet3D.TrainOnVolumes(Denoiser,
-                                                                                                          new[] { HalfMap1Padded },
-                                                                                                          new[] { HalfMap2Padded },
-                                                                                                          new[] { MaskPadded },
-                                                                                                          (float)PixelSize,
-                                                                                                          (float)DenoisedAtResolution,
-                                                                                                          1.0f,
-                                                                                                          false,
-                                                                                                          false,
-                                                                                                          0,
-                                                                                                          0,
-                                                                                                          Denoiser.BatchSize,
-                                                                                                          singleGPU < 0 ? ((GPU.GetDeviceWithMostMemory() + 1) % GPU.GetDeviceCount()) : singleGPU,
-                                                                                                          null);
+                    (var ForDenoising1, var ForDenoising2, var ForDenoisingStats) = NoiseNet3D.TrainOnVolumes(Denoiser,
+                                                                                                              new[] { HalfMap1Padded },
+                                                                                                              new[] { HalfMap2Padded },
+                                                                                                              new[] { MaskPadded },
+                                                                                                              (float)PixelSize,
+                                                                                                              (float)DenoisedAtResolution,
+                                                                                                              1.0f,
+                                                                                                              false,
+                                                                                                              false,
+                                                                                                              0,
+                                                                                                              0,
+                                                                                                              Denoiser.BatchSize,
+                                                                                                              singleGPU < 0 ? ((GPU.GetDeviceWithMostMemory() + 1) % GPU.GetDeviceCount()) : singleGPU,
+                                                                                                              null);
 
-                GPU.SetDevice(Math.Max(0, singleGPU));
+                    GPU.SetDevice(Math.Max(0, singleGPU));
 
-                //HalfMap1Padded = Image.FromFile($"d_denoised_half1_{Name}_{GPU.GetDevice()}.mrc");
-                //HalfMap2Padded = Image.FromFile($"d_denoised_half2_{Name}_{GPU.GetDevice()}.mrc");
+                    NoiseNet3D.Denoise(ForDenoising1[0], new[] { Denoiser });
+                    NoiseNet3D.Denoise(ForDenoising2[0], new[] { Denoiser });
 
-                NoiseNet3D.Denoise(ForDenoising1[0], new[] { Denoiser });
-                NoiseNet3D.Denoise(ForDenoising2[0], new[] { Denoiser });
+                    Denoiser.Dispose();
+                    Denoiser = null;
+                    TFHelper.TF_FreeAllMemory();
 
-                Denoiser.Dispose();
-                Denoiser = null;
-                TFHelper.TF_FreeAllMemory();
+                    GPU.CheckGPUExceptions();
 
-                GPU.CheckGPUExceptions();
+                    GPU.SetDevice(Math.Max(0, singleGPU));
 
-                ForDenoising1[0].TransformValues(v => v * ForDenoisingStats[0].Y + ForDenoisingStats[0].X);
-                HalfMap1Padded.FreeDevice();
-                HalfMap1Padded = ForDenoising1[0];
-                HalfMap1Padded.WriteMRC($"d_denoised_half1_{Name}_{GPU.GetDevice()}.mrc", true);
+                    ForDenoising1[0].TransformValues(v => v * ForDenoisingStats[0].Y + ForDenoisingStats[0].X);
+                    HalfMap1Padded.FreeDevice();
+                    HalfMap1Padded = ForDenoising1[0];
+                    HalfMap1Padded.WriteMRC($"d_denoised_half1_{Name}_{GPU.GetDevice()}.mrc", true);
 
-                ForDenoising2[0].TransformValues(v => v * ForDenoisingStats[0].Y + ForDenoisingStats[0].X);
-                HalfMap2Padded.FreeDevice();
-                HalfMap2Padded = ForDenoising2[0];
-                HalfMap2Padded.WriteMRC($"d_denoised_half2_{Name}_{GPU.GetDevice()}.mrc", true);
+                    ForDenoising2[0].TransformValues(v => v * ForDenoisingStats[0].Y + ForDenoisingStats[0].X);
+                    HalfMap2Padded.FreeDevice();
+                    HalfMap2Padded = ForDenoising2[0];
+                    HalfMap2Padded.WriteMRC($"d_denoised_half2_{Name}_{GPU.GetDevice()}.mrc", true);
+                }
+                else
+                {
+                    HalfMap1Padded = Image.FromFile($"d_denoised_half1_{Name}_{GPU.GetDevice()}.mrc");
+                    HalfMap2Padded = Image.FromFile($"d_denoised_half2_{Name}_{GPU.GetDevice()}.mrc");
+                }
 
                 #endregion
 
@@ -1808,10 +1842,12 @@ namespace Warp.Sociology
                 //HalfMap2SSNRFiltered.WriteMRC("d_filt2.mrc", true);
                 //HalfMap2Scaled.FreeDevice();
 
-                // Average halves up to 40 A
+                // Average halves up to 40 A or where FSC falls below 0.998, whatever is higher
                 Image HalfMap1Averaged, HalfMap2Averaged;
                 int Shell40A = (int)Math.Round((float)PixelSize / 40 * Size);
-                FSC.AverageLowFrequencies(HalfMap1Scaled, HalfMap2Scaled, Shell40A, out HalfMap1Averaged, out HalfMap2Averaged);
+                int ShellHighFSC = 0;
+                while (GlobalFSC[ShellHighFSC].W > 0.998f && ShellHighFSC < Size / 2 - 2) ShellHighFSC++;
+                FSC.AverageLowFrequencies(HalfMap1Scaled, HalfMap2Scaled, Math.Max(Shell40A, ShellHighFSC), out HalfMap1Averaged, out HalfMap2Averaged);
                 HalfMap1Scaled.Dispose();
                 HalfMap2Scaled.Dispose();
 
@@ -1821,8 +1857,10 @@ namespace Warp.Sociology
                 Image MaskScaled = MaskPadded.AsScaled(new int3(SizeRefinement));
                 MaskPadded.FreeDevice();
                 MaskScaled.Binarize(0.25f);
-                Image MaskSoft = FSC.MakeSoftMask(MaskScaled, 4, 4);
+                Image MaskSoft = FSC.MakeSoftMask(MaskScaled, 3, 3);
                 MaskScaled.Dispose();
+
+                MaskSoft.MaskSpherically(MaskSoft.Dims.X / 2, Math.Max(2, Math.Min(16, MaskSoft.Dims.X / 8f)), true);
 
                 GPU.CheckGPUExceptions();
 
@@ -1905,18 +1943,24 @@ namespace Warp.Sociology
 
             SaveParticles();
 
-            HalfMap1 = HalfMap1Reconstruction[0].Reconstruct(false, Symmetry);
+            HalfMap1 = HalfMap1Reconstruction[0].Reconstruct(false, Symmetry, -1, -1, -1, 0, true);
+            //HalfMap1Reconstruction[0].Data.AsReal().WriteMRC($"d_half1_re_{Name}.mrc");
+            //HalfMap1Reconstruction[0].Weights.WriteMRC($"d_half1_weights_{Name}.mrc");
             HalfMap1Reconstruction[0].Dispose();
             HalfMap1Reconstruction[0] = null;
+            HalfMap1.Bandpass(0, (float)(HalfMap1.Dims.X / 2 - 3) / (HalfMap1.Dims.X / 2), true);
             HalfMap1.MaskSpherically(HalfMap1.Dims.X - 32, 15, true);
             HalfMap1.WriteMRC($"d_half1_{Name}.mrc", true);
 
-            HalfMap2 = HalfMap2Reconstruction[0].Reconstruct(false, Symmetry);
+            HalfMap2 = HalfMap2Reconstruction[0].Reconstruct(false, Symmetry, -1, -1, -1, 0, true);
+            //HalfMap2Reconstruction[0].Data.AsReal().WriteMRC($"d_half2_re_{Name}.mrc");
+            //HalfMap2Reconstruction[0].Weights.WriteMRC($"d_half2_weights_{Name}.mrc");
             HalfMap2Reconstruction[0].Dispose();
             HalfMap2Reconstruction[0] = null;
+            HalfMap2.Bandpass(0, (float)(HalfMap2.Dims.X / 2 - 3) / (HalfMap2.Dims.X / 2), true);
             HalfMap2.MaskSpherically(HalfMap2.Dims.X - 32, 15, true);
             HalfMap2.WriteMRC($"d_half2_{Name}.mrc", true);
-            
+
             CalculateResolutionAndFilter();
         }
 
@@ -1958,6 +2002,25 @@ namespace Warp.Sociology
 
             _AngularDistribution?.Dispose();
             _AngularDistribution = null;
+
+            _MapDenoised?.Dispose();
+            _MapDenoised = null;
+        }
+
+        public void FreeDevice()
+        {
+            _AnisoResolution?.FreeDevice();
+            _LocalResolution?.FreeDevice();
+            _LocalBFactor?.FreeDevice();
+            _Mask?.FreeDevice();
+            _HalfMap1?.FreeDevice();
+            _HalfMap2?.FreeDevice();
+            _MapFiltered?.FreeDevice();
+            _MapFilteredSharpened?.FreeDevice();
+            _MapFilteredAnisotropic?.FreeDevice();
+            _MapLocallyFiltered?.FreeDevice();
+            _AngularDistribution?.FreeDevice();
+            _MapDenoised?.FreeDevice();
         }
 
         #endregion
@@ -2030,15 +2093,15 @@ namespace Warp.Sociology
         {
             _HalfMap1?.WriteMRC(PathHalfMap1, (float)PixelSize, true);
             _HalfMap2?.WriteMRC(PathHalfMap2, (float)PixelSize, true);
-            
+
             _Mask?.WriteMRC(PathMask, (float)PixelSize, true);
-            
+
             _MapFiltered?.WriteMRC(PathMapFiltered, (float)PixelSize, true);
             _MapFilteredSharpened?.WriteMRC(PathMapFilteredSharpened, (float)PixelSize, true);
             _MapFilteredAnisotropic?.WriteMRC(PathMapFilteredAnisotropic, (float)PixelSize, true);
             _MapLocallyFiltered?.WriteMRC(PathMapLocallyFiltered, (float)PixelSize, true);
             _MapDenoised?.WriteMRC(PathMapDenoised, (float)PixelSize, true);
-            
+
             _AnisoResolution?.WriteMRC(PathAnisoResolution, true);
             _LocalResolution?.WriteMRC(PathLocalResolution, (float)PixelSize, true);
             _LocalBFactor?.WriteMRC(PathLocalBFactor, (float)PixelSize, true);

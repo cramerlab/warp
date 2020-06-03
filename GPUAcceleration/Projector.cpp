@@ -19,6 +19,29 @@ __declspec(dllexport) void __stdcall InitProjector(int3 dims, int oversampling, 
         ((float2*)h_initialized)[i] = make_float2(projector.data.data[i].real, projector.data.data[i].imag);
 }
 
+__declspec(dllexport) void __stdcall SymmetrizeCPU(int3 dimsori, int3 dimspadded, int oversampling, float2* d_dataft, float* d_weights, char* c_symmetry)
+{
+    /*relion::FileName fn_symmetry(c_symmetry);
+
+    relion::BackProjector backprojector(dimsori.x, 3, fn_symmetry, TRILINEAR, oversampling, 10, 0, 1.9, 15, 2);
+    
+    backprojector.initZeros(dimsori.x);
+    int3 projectordims = toInt3(XSIZE(backprojector.data), YSIZE(backprojector.data), ZSIZE(backprojector.data));
+
+    auto proj_data = backprojector.data;
+    auto proj_weights = backprojector.weight;
+
+    cudaMemcpy(proj_data.data, d_dataft, Elements(projectordims) * sizeof(float2), cudaMemcpyDeviceToHost);
+    cudaMemcpy(proj_weights.data, d_weights, Elements(projectordims) * sizeof(float), cudaMemcpyDeviceToHost);
+
+    backprojector.symmetrise(proj_data,
+                            proj_weights,
+                            backprojector.r_max * backprojector.r_max * oversampling * oversampling);
+
+    cudaMemcpy(d_dataft, proj_data.data, Elements(projectordims) * sizeof(float2), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_weights, proj_weights.data, Elements(projectordims) * sizeof(float), cudaMemcpyHostToDevice);*/
+}
+
 __declspec(dllexport) void __stdcall BackprojectorReconstruct(int3 dimsori, int oversampling, float2* d_data, float* d_weights, char* c_symmetry, bool do_reconstruct_ctf, float* h_reconstruction)
 {
     relion::FileName fn_symmetry(c_symmetry);

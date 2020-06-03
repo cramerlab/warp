@@ -22,7 +22,7 @@ namespace Warp.Tools
             Image TargetScaled = target.AsScaled(DimsScaled);
             target.FreeDevice();
             TargetScaled.RemapToFT(true);
-            TargetScaled.WriteMRC("d_targetscaled.mrc");
+            TargetScaled.WriteMRC("d_targetscaled.mrc", true);
             Image TargetScaledFT = TargetScaled.AsFFT(true);
             TargetScaled.Dispose();
 
@@ -30,7 +30,7 @@ namespace Warp.Tools
             Image TestFT = ProjMapScaled.Project(DimsScaled, new float3[1]);
             Image Test = TestFT.AsIFFT(true);
             Test.RemapFromFT(true);
-            Test.WriteMRC("d_projected.mrc");
+            Test.WriteMRC("d_projected.mrc", true);
 
             #endregion
 
@@ -39,19 +39,18 @@ namespace Warp.Tools
             Func<double[], double> GetDiff = input =>
             {
                 CurShift = new float3((float)input[0], (float)input[1], (float)input[2]);
-                CurRotation = new float3((float)input[3], (float)input[4], (float)input[5]) * (180f / map.Dims.X) * Helper.ToRad;
+                CurRotation = new float3((float)input[3], (float)input[4], (float)input[5]) * Helper.ToRad;
                 CurRotation = Matrix3.EulerFromMatrix(Matrix3.RotateX(CurRotation.X) * Matrix3.RotateY(CurRotation.Y) * Matrix3.RotateZ(CurRotation.Z)) * Helper.ToDeg;
 
                 Image TargetFTShifted = TargetScaledFT.AsShiftedVolume(-CurShift * ScaleFactor);
                 Image MapRotatedFT = ProjMapScaled.Project(DimsScaled, new[] { CurRotation * Helper.ToRad });
 
-                TargetFTShifted.Subtract(MapRotatedFT);
-                MapRotatedFT.Dispose();
                 GPU.MultiplySlices(TargetFTShifted.GetDevice(Intent.Read),
-                                   TargetFTShifted.GetDevice(Intent.Read),
-                                   TargetFTShifted.GetDevice(Intent.Write),
-                                   (uint)TargetFTShifted.ElementsReal,
-                                   1);
+                                    MapRotatedFT.GetDevice(Intent.Read),
+                                    TargetFTShifted.GetDevice(Intent.Write),
+                                    TargetFTShifted.ElementsReal,
+                                    1);
+                MapRotatedFT.Dispose();
 
                 IntPtr d_Sum = GPU.MallocDevice(1);
                 GPU.Sum(TargetFTShifted.GetDevice(Intent.Read), d_Sum, (uint)TargetFTShifted.ElementsReal, 1);
@@ -67,8 +66,10 @@ namespace Warp.Tools
 
             Func<double[], double[]> GetGradient = input =>
             {
-                float Delta = 0.1f;
+                float Delta = 0.05f;
                 double[] Result = new double[input.Length];
+
+                Console.WriteLine(GetDiff(input));
 
                 for (int i = 0; i < input.Length; i++)
                 {
@@ -89,7 +90,7 @@ namespace Warp.Tools
             double[] StartParams = new double[6];
             BroydenFletcherGoldfarbShanno Optimizer = new BroydenFletcherGoldfarbShanno(StartParams.Length, GetDiff, GetGradient);
             Optimizer.MaxIterations = 20;
-            Optimizer.Minimize(StartParams);
+            Optimizer.Maximize(StartParams);
 
             GetDiff(StartParams);
             shift = CurShift;
@@ -101,7 +102,7 @@ namespace Warp.Tools
             Image MapResult = map.AsShiftedVolume(shift);
             map.FreeDevice();
 
-            Projector ProjMapResult = new Projector(MapResult, 2);
+            Projector ProjMapResult = new Projector(MapResult, oversampling);
             MapResult.Dispose();
 
             Image MapResultFT = ProjMapResult.Project(map.Dims, new[] { rotation * Helper.ToRad });

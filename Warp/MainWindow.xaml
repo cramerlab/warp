@@ -9,7 +9,7 @@
                xmlns:lvc="clr-namespace:LiveCharts.Wpf;assembly=LiveCharts.Wpf"
                xmlns:PresentationOptions="http://schemas.microsoft.com/winfx/2006/xaml/presentation/options"
                xmlns:Dialogs="clr-namespace:MahApps.Metro.Controls.Dialogs;assembly=MahApps.Metro"
-               Title="Durchlichtelektronenmikroskopiebilddatenentzerrungswerkzeug 1.0.7 beta"
+               Title="Durchlichtelektronenmikroskopiebilddatenentzerrungswerkzeug 1.0.7W"
                UseLayoutRounding="True" 
                ShowTitleBar="True" 
                SnapsToDevicePixels="False" 
@@ -91,6 +91,7 @@
                                                 <RadioButton GroupName="InFormatOptions" VerticalAlignment="Center" Margin="0,3,0,0" Content="EM" IsChecked="{Binding Path=Import.ExtensionEM, Mode=TwoWay}" FontSize="13" />
                                                 <RadioButton GroupName="InFormatOptions" VerticalAlignment="Center" Margin="0,3,0,0" Content="TIF" IsChecked="{Binding Path=Import.ExtensionTIFF, Mode=TwoWay}" FontSize="13" />
                                                 <RadioButton GroupName="InFormatOptions" VerticalAlignment="Center" Margin="0,3,0,0" Content="TIFF" IsChecked="{Binding Path=Import.ExtensionTIFFF, Mode=TwoWay}" FontSize="13" />
+                                                <RadioButton GroupName="InFormatOptions" VerticalAlignment="Center" Margin="0,3,0,0" Content="EER" IsChecked="{Binding Path=Import.ExtensionEER, Mode=TwoWay}" FontSize="13" />
                                                 <RadioButton GroupName="InFormatOptions" VerticalAlignment="Center" Margin="0,3,0,0" Content="TomoSTAR" IsChecked="{Binding Path=Import.ExtensionTomoSTAR, Mode=TwoWay}" FontSize="13" />
                                                 <RadioButton GroupName="InFormatOptions" VerticalAlignment="Center" Margin="0,3,0,0" Content="DAT" IsChecked="{Binding Path=Import.ExtensionDAT, Mode=TwoWay}" FontSize="13" />
                                                 <StackPanel Orientation="Horizontal" Margin="26,3,0,0">
@@ -632,7 +633,7 @@
                                                 MinHeight="768"
                                                 HorizontalAlignment="Center"
                                                 VerticalAlignment="Center" />
-                                <StackPanel Orientation="Horizontal">
+                                <StackPanel Name="PanelButtonsOneTimeCTF" Orientation="Horizontal">
                                     <Button Name="ButtonProcessOneItemCTF" Content="PROCESS ONLY THIS ITEM'S CTF" FontWeight="Medium" Foreground="CornflowerBlue" Margin="0,8" HorizontalAlignment="Left" VerticalAlignment="Top" Style="{StaticResource ChromelessButtonStyle}" Click="ButtonProcessOneItemCTF_OnClick" />
                                     <Button Name="ButtonProcessOneItemTiltHandedness" Content="CHECK TILT HANDEDNESS" FontWeight="Medium" Foreground="CornflowerBlue" Margin="20,8,0,8" HorizontalAlignment="Left" VerticalAlignment="Top" Style="{StaticResource ChromelessButtonStyle}" Click="ButtonProcessOneItemTiltHandedness_Click" />
                                 </StackPanel>

@@ -47,12 +47,12 @@ namespace Warp.Controls.TaskDialogs.Tomo
         }
         public static readonly DependencyProperty SuffixesProperty = DependencyProperty.Register("Suffixes", typeof(string), typeof(DialogTomoImportImod), new PropertyMetadata("", (sender, args) => ((DialogTomoImportImod)sender).Reevaluate()));
                
-        public bool InvertTilts
+        public bool DontInvertTilts
         {
-            get { return (bool)GetValue(InvertTiltsProperty); }
-            set { SetValue(InvertTiltsProperty, value); }
+            get { return (bool)GetValue(DontInvertTiltsProperty); }
+            set { SetValue(DontInvertTiltsProperty, value); }
         }
-        public static readonly DependencyProperty InvertTiltsProperty = DependencyProperty.Register("InvertTilts", typeof(bool), typeof(DialogTomoImportImod), new PropertyMetadata(false, (sender, args) => ((DialogTomoImportImod)sender).Reevaluate()));
+        public static readonly DependencyProperty DontInvertTiltsProperty = DependencyProperty.Register("DontInvertTilts", typeof(bool), typeof(DialogTomoImportImod), new PropertyMetadata(false, (sender, args) => ((DialogTomoImportImod)sender).Reevaluate()));
 
         public decimal PixelSize
         {
@@ -103,7 +103,7 @@ namespace Warp.Controls.TaskDialogs.Tomo
             string _PathImod = PathImod;
             string _PathMovie = PathMovie;
             string _Suffixes = Suffixes;
-            bool _InvertTilts = InvertTilts;
+            bool _DontInvertTilts = DontInvertTilts;
             decimal _PixelSize = PixelSize;
             decimal _Dose = Dose;
             var _ParsedEntries = ParsedEntries;
@@ -397,7 +397,7 @@ namespace Warp.Controls.TaskDialogs.Tomo
                             Table.AddRow(new List<string>()
                             {
                                 MovieRelativePath,
-                                (SortedAngle[i].TiltAngle * (_InvertTilts ? -1 : 1)).ToString(CultureInfo.InvariantCulture),
+                                (SortedAngle[i].TiltAngle * (_DontInvertTilts ? 1 : -1)).ToString(CultureInfo.InvariantCulture),
                                 SortedAngle[i].AxisAngle.ToString(CultureInfo.InvariantCulture),
                                 (SortedAngle[i].Shift.X * (float)_PixelSize).ToString(CultureInfo.InvariantCulture),
                                 (SortedAngle[i].Shift.Y * (float)_PixelSize).ToString(CultureInfo.InvariantCulture),
@@ -579,7 +579,7 @@ namespace Warp.Controls.TaskDialogs.Tomo
                                                      new int2(1),
                                                      0,
                                                      typeof(float),
-                                                     0,
+                                                     new[] { 0 },
                                                      null,
                                                      new[] { StackData[i] });
 

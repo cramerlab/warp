@@ -69,6 +69,25 @@ namespace Warp.Tools
             return Sum / data.Count();
         }
 
+        public static float Median(float[] data)
+        {
+            Array.Sort(data);
+            return data[data.Length / 2];
+        }
+
+        public static float[] MovingWindowMedian(float[] data, int windowSize)
+        {
+            float[] Filtered = new float[data.Length];
+
+            for (int i = 0; i < data.Length; i++)
+            {
+                float[] Window = Helper.Subset(data, Math.Max(0, i - windowSize / 2), Math.Min(data.Length, i + windowSize / 2 + 1));
+                Filtered[i] = Median(Window);
+            }
+
+            return Filtered;
+        }
+
         public static float StdDev(IEnumerable<float> data)
         {
             double Sum = 0f, Sum2 = 0f;
@@ -78,7 +97,7 @@ namespace Warp.Tools
                 Sum2 += (double)i * i;
             }
 
-            return (float)Math.Sqrt(data.Count() * Sum2 - Sum * Sum) / data.Count();
+            return (float)Math.Sqrt(Math.Max(0, data.Count() * Sum2 - Sum * Sum)) / data.Count();
         }
 
         public static float2 MeanAndStd(IEnumerable<float> data)
@@ -90,7 +109,7 @@ namespace Warp.Tools
                 Sum2 += i * i;
             }
 
-            return new float2((float)Sum / data.Count(), (float)Math.Sqrt(data.Count() * Sum2 - Sum * Sum) / data.Count());
+            return new float2((float)Sum / data.Count(), (float)Math.Sqrt(Math.Max(0, data.Count() * Sum2 - Sum * Sum)) / data.Count());
         }
 
         public static float2 MeanAndStdNonZero(IEnumerable<float> data)
@@ -108,7 +127,7 @@ namespace Warp.Tools
                 Samples++;
             }
 
-            return new float2((float)Sum / Samples, (float)Math.Sqrt(Samples * Sum2 - Sum * Sum) / Samples);
+            return new float2((float)Sum / Samples, (float)Math.Sqrt(Math.Max(0, Samples * Sum2 - Sum * Sum)) / Samples);
         }
 
         public static float[] Normalize(float[] data)
@@ -120,7 +139,7 @@ namespace Warp.Tools
                 Sum2 += i * i;
             }
 
-            float Std = (float)Math.Sqrt(data.Length * Sum2 - Sum * Sum) / data.Count();
+            float Std = (float)Math.Sqrt(Math.Max(0, data.Length * Sum2 - Sum * Sum)) / data.Count();
             float Avg = (float) Sum / data.Length;
 
             float[] Result = new float[data.Length];
@@ -145,7 +164,7 @@ namespace Warp.Tools
                         Sum2 += Val * Val;
                     }
 
-                    float Std = (float)Math.Sqrt(data.Length * Sum2 - Sum * Sum) / data.Length;
+                    float Std = (float)Math.Sqrt(Math.Max(0, data.Length * Sum2 - Sum * Sum)) / data.Length;
                     float Avg = (float)Sum / data.Length;
 
                     DataP = DataPtr;

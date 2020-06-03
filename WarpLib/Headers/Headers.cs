@@ -31,6 +31,8 @@ namespace Warp.Headers
                 Header = new HeaderDM4(reader);
             else if (Extension == ".tif" || Extension == ".tiff")
                 Header = new HeaderTiff(path, stream);
+            else if (Extension == ".eer")
+                Header = new HeaderEER(path, stream);
             else if (Extension == ".dat")
             {
                 FileInfo info = new FileInfo(path);
@@ -56,6 +58,8 @@ namespace Warp.Headers
                 return typeof(HeaderEM);
             else if (Extension == ".tif" || Extension == ".tiff")
                 return typeof(HeaderTiff);
+            else if (Extension == ".eer")
+                return typeof(HeaderEER);
             else if (Extension == ".dat")
                 return typeof(HeaderRaw);
             else if (Extension == ".dm4" || Extension == ".dm3")
@@ -135,7 +139,8 @@ namespace Warp.Headers
         FEIRaw = 4,
         TIFF = 5,
         TIFFF = 6,
-        DM4 = 7
+        EER = 7,
+        DM4 = 8
     }
 
     public static class ImageFormatsHelper
@@ -158,6 +163,8 @@ namespace Warp.Headers
                     return ImageFormats.TIFF;
                 case "TIFFF":
                     return ImageFormats.TIFFF;
+                case "EER":
+                    return ImageFormats.EER;
                 case "DM4":
                     return ImageFormats.DM4;
                 default:
@@ -183,6 +190,8 @@ namespace Warp.Headers
                     return "TIFF";
                 case ImageFormats.TIFFF:
                     return "TIFFF";
+                case ImageFormats.EER:
+                    return "EER";
                 case ImageFormats.DM4:
                     return "DM4";
                 default:
@@ -208,6 +217,8 @@ namespace Warp.Headers
                     return ".tif";
                 case ImageFormats.TIFFF:
                     return ".tiff";
+                case ImageFormats.EER:
+                    return ".eer";
                 case ImageFormats.DM4:
                     return ".dm4";
                 default:
@@ -233,6 +244,8 @@ namespace Warp.Headers
                     return new HeaderTiff();
                 case ImageFormats.TIFFF:
                     return new HeaderTiff();
+                case ImageFormats.EER:
+                    return new HeaderEER();
                 case ImageFormats.DM4:
                     return new HeaderDM4();
                 default:
