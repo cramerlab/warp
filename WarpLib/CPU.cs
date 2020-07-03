@@ -24,19 +24,19 @@ namespace Warp
         public static extern void InitProjector(int3 dims, int oversampling, float[] data, float[] initialized, int projdim);
 
         [DllImport("GPUAcceleration.dll", CharSet = CharSet.Ansi, SetLastError = true, CallingConvention = CallingConvention.StdCall, EntryPoint = "BackprojectorReconstruct")]
-        public static extern void BackprojectorReconstruct(int3 dimsori, int oversampling, IntPtr d_data, IntPtr d_weights, [MarshalAs(UnmanagedType.AnsiBStr)] string c_symmetry, bool do_reconstruct_ctf, float[] h_reconstruction);
+        public static extern void BackprojectorReconstruct(int3 dimsori, int oversampling, IntPtr d_data, IntPtr d_weights, string c_symmetry, bool do_reconstruct_ctf, float[] h_reconstruction);
 
         [DllImport("GPUAcceleration.dll", CharSet = CharSet.Ansi, SetLastError = true, CallingConvention = CallingConvention.StdCall, EntryPoint = "GetAnglesCount")]
-        public static extern int GetAnglesCount(int healpixorder, [MarshalAs(UnmanagedType.AnsiBStr)] string c_symmetry = "C1", float limittilt = -91);
+        public static extern int GetAnglesCount(int healpixorder, string c_symmetry = "C1", float limittilt = -91);
 
         [DllImport("GPUAcceleration.dll", CharSet = CharSet.Ansi, SetLastError = true, CallingConvention = CallingConvention.StdCall, EntryPoint = "GetAngles")]
-        public static extern void GetAngles(float[] h_angles, int healpixorder, [MarshalAs(UnmanagedType.AnsiBStr)] string c_symmetry = "C1", float limittilt = -91);
+        public static extern void GetAngles(float[] h_angles, int healpixorder, string c_symmetry = "C1", float limittilt = -91);
 
         [DllImport("GPUAcceleration.dll", CharSet = CharSet.Ansi, SetLastError = true, CallingConvention = CallingConvention.StdCall, EntryPoint = "SymmetryGetNumberOfMatrices")]
-        public static extern int SymmetryGetNumberOfMatrices([MarshalAs(UnmanagedType.AnsiBStr)] string c_symmetry);
+        public static extern int SymmetryGetNumberOfMatrices(string c_symmetry);
 
         [DllImport("GPUAcceleration.dll", CharSet = CharSet.Ansi, SetLastError = true, CallingConvention = CallingConvention.StdCall, EntryPoint = "SymmetryGetMatrices")]
-        public static extern void SymmetryGetMatrices([MarshalAs(UnmanagedType.AnsiBStr)] string c_symmetry, float[] h_matrices);
+        public static extern void SymmetryGetMatrices(string c_symmetry, float[] h_matrices);
 
         [DllImport("GPUAcceleration.dll", CharSet = CharSet.Ansi, SetLastError = true, CallingConvention = CallingConvention.StdCall, EntryPoint = "OptimizeWeights")]
         public static extern void OptimizeWeights(int nrecs,

@@ -175,7 +175,6 @@ namespace Warp.Sociology
         #region Gain
 
         private string _GainPath = "";
-        [WarpSerializable]
         public string GainPath
         {
             get { return _GainPath; }
@@ -206,6 +205,13 @@ namespace Warp.Sociology
             set { if (value != _GainTranspose) { _GainTranspose = value; OnPropertyChanged(); } }
         }
 
+        private string _DefectsPath = "";
+        public string DefectsPath
+        {
+            get { return _DefectsPath; }
+            set { if (value != _DefectsPath) { _DefectsPath = value; OnPropertyChanged(); } }
+        }
+
         #endregion
 
         private decimal _DosePerAngstromFrame = 0;
@@ -214,6 +220,14 @@ namespace Warp.Sociology
         {
             get { return _DosePerAngstromFrame; }
             set { if (value != _DosePerAngstromFrame) { _DosePerAngstromFrame = value; OnPropertyChanged(); } }
+        }
+
+        private int _EERGroupFrames = 10;
+        [WarpSerializable]
+        public int EERGroupFrames
+        {
+            get { return _EERGroupFrames; }
+            set { if (value != _EERGroupFrames) { _EERGroupFrames = value; OnPropertyChanged(); } }
         }
 
         /// <summary>
@@ -240,6 +254,9 @@ namespace Warp.Sociology
             Writer.WriteStartElement("DataSource");
 
             WriteToXML(Writer);
+
+            XMLHelper.WriteParamNode(Writer, "GainPath", Helper.MakePathRelativeTo(GainPath, FolderPath));
+            XMLHelper.WriteParamNode(Writer, "DefectsPath", Helper.MakePathRelativeTo(DefectsPath, FolderPath));
 
             Writer.WriteStartElement("UsedSpecies");
             foreach (var source in UsedSpecies)
@@ -283,6 +300,14 @@ namespace Warp.Sociology
                     Reader.MoveToChild("DataSource", "");
 
                     ReadFromXML(Reader);
+
+                    GainPath = XMLHelper.LoadParamNode(Reader, "GainPath", GainPath);
+                    if (!string.IsNullOrEmpty(GainPath))
+                        GainPath = System.IO.Path.Combine(FolderPath, GainPath);
+
+                    DefectsPath = XMLHelper.LoadParamNode(Reader, "DefectsPath", DefectsPath);
+                    if (!string.IsNullOrEmpty(DefectsPath))
+                        DefectsPath = System.IO.Path.Combine(FolderPath, DefectsPath);
 
                     UsedSpecies = new Dictionary<Guid, string>();
                     foreach (XPathNavigator nav in Reader.Select("UsedSpecies/Species"))
@@ -368,6 +393,9 @@ namespace Warp.Sociology
                 return null;
 
             Image Gain = Image.FromFile(GainPath, new int2(1), 0, typeof(float));
+
+            float Mean = MathHelper.Mean(Gain.GetHost(Intent.Read)[0]);
+            Gain.TransformValues(v => v == 0 ? 1 : v / Mean);
 
             if (GainFlipX)
                 Gain = Gain.AsFlippedX();

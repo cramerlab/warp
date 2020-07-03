@@ -9,7 +9,7 @@
                xmlns:lvc="clr-namespace:LiveCharts.Wpf;assembly=LiveCharts.Wpf"
                xmlns:PresentationOptions="http://schemas.microsoft.com/winfx/2006/xaml/presentation/options"
                xmlns:Dialogs="clr-namespace:MahApps.Metro.Controls.Dialogs;assembly=MahApps.Metro"
-               Title="Durchlichtelektronenmikroskopiebilddatenentzerrungswerkzeug 1.0.7W"
+               Title="Durchlichtelektronenmikroskopiebilddatenentzerrungswerkzeug 1.0.9"
                UseLayoutRounding="True" 
                ShowTitleBar="True" 
                SnapsToDevicePixels="False" 
@@ -133,8 +133,12 @@
                                 </StackPanel>
                             </Grid>
                             <StackPanel Name="GridOptionsIO2D"  Orientation="Horizontal" Margin="6,0" Height="24">
-                                <TextBlock Text="Dose: " Width="60" />
-                                <s:ValueSlider Value="{Binding Import.DosePerAngstromFrame, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="{}{0} e/Å²/frame" MinValue="0" MaxValue="10000" StepSize="0.01" />
+                                <TextBlock Text="Exposure: " Width="60" />
+                                <s:ValueSlider Value="{Binding Import.DosePerAngstromFrame, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="{}{0} e/Å²/frame (group)" MinValue="0" MaxValue="10000" StepSize="0.01" />
+                            </StackPanel>
+                            <StackPanel Name="GridOptionsFrameGrouping"  Orientation="Horizontal" Margin="6,0" Height="24">
+                                <TextBlock Text="EER frame group: " Width="104" />
+                                <s:ValueSlider Value="{Binding Import.EERGroupFrames, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="{}{0} frames" MinValue="1" MaxValue="10000" StepSize="1" />
                             </StackPanel>
                             <StackPanel Name="GridOptionsIOTomo"  Orientation="Horizontal" Margin="6,0" Height="24">
                                 <TextBlock Text="Unbinned tomogram dimensions: " />
@@ -145,6 +149,7 @@
                             <Label Content="Preprocessing" FontSize="18" Margin="0,12,0,0" />
                             <Grid Name="GridOptionsPreprocessing" Margin="6,0">
                                 <Grid.RowDefinitions>
+                                    <RowDefinition Height="24" />
                                     <RowDefinition Height="24" />
                                     <RowDefinition Height="28" />
                                 </Grid.RowDefinitions>
@@ -158,7 +163,17 @@
                                             </StackPanel>
                                     </CheckBox.Content>
                                 </CheckBox>
-                                <StackPanel Grid.Row="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="26,0,0,0">
+                                <CheckBox Grid.Row="1" IsChecked="{Binding Import.CorrectDefects}" FontSize="13">
+                                    <CheckBox.Content>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="Correct defects using: " />
+                                            <Button Name="ButtonDefectsPath" Style="{StaticResource HyperlinkLikeButton}" Click="ButtonDefectPath_OnClick">
+                                                <TextBlock Name="ButtonDefectsPathText" TextTrimming="CharacterEllipsis" TextAlignment="Right" MaxWidth="280">Select defect map...</TextBlock>
+                                            </Button>
+                                        </StackPanel>
+                                    </CheckBox.Content>
+                                </CheckBox>
+                                <StackPanel Grid.Row="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="26,0,0,0">
                                     <CheckBox IsChecked="{Binding Import.GainFlipX}" Content="Flip X axis" FontSize="13" />
                                     <CheckBox IsChecked="{Binding Import.GainFlipY}" Content="Flip Y axis" FontSize="13" Margin="16,0,0,0" />
                                     <CheckBox IsChecked="{Binding Import.GainTranspose}" Content="Transpose" FontSize="13" Margin="16,0,0,0" />

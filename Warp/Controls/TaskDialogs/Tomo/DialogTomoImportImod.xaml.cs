@@ -108,6 +108,7 @@ namespace Warp.Controls.TaskDialogs.Tomo
             decimal _Dose = Dose;
             var _ParsedEntries = ParsedEntries;
 
+            StringBuilder AllExceptions = new StringBuilder();
 
             await Task.Run(() =>
             {
@@ -147,305 +148,248 @@ namespace Warp.Controls.TaskDialogs.Tomo
 
                     foreach (var mdocNames in MdocTuples)
                     {
-                        float AxisAngle = 0;
-                        List<MdocEntry> Entries = new List<MdocEntry>();
-                        bool FoundTime = false;
-
-                        foreach (var mdocName in mdocNames.Value)
-                        {
-                            using (TextReader Reader = new StreamReader(File.OpenRead(Path.Combine(_PathMdoc, mdocName))))
-                            {
-                                string Line;
-                                while ((Line = Reader.ReadLine()) != null)
-                                {
-                                    if (Line.Contains("Tilt axis angle = "))
-                                    {
-                                        string Suffix = Line.Substring(Line.IndexOf("Tilt axis angle = ") + "Tilt axis angle = ".Length);
-                                        Suffix = Suffix.Substring(0, Suffix.IndexOf(","));
-
-                                        AxisAngle = float.Parse(Suffix, CultureInfo.InvariantCulture);
-                                        continue;
-                                    }
-
-                                    if (Line.Length < 7 || Line.Substring(0, 7) != "[ZValue")
-                                        continue;
-
-                                    MdocEntry NewEntry = new MdocEntry();
-
-                                    {
-                                        string[] Parts = Line.Split(new[] { " = " }, StringSplitOptions.RemoveEmptyEntries);
-                                        if (Parts[0] == "[ZValue")
-                                            NewEntry.ZValue = int.Parse(Parts[1].Replace("]", ""));
-                                    }
-
-                                    while ((Line = Reader.ReadLine()) != null)
-                                    {
-                                        string[] Parts = Line.Split(new[] { " = " }, StringSplitOptions.RemoveEmptyEntries);
-                                        if (Parts.Length < 2)
-                                            break;
-
-                                        if (Parts[0] == "TiltAngle")
-                                            NewEntry.TiltAngle = (float)Math.Round(float.Parse(Parts[1], CultureInfo.InvariantCulture), 1);
-                                        else if (Parts[0] == "ExposureDose")
-                                            NewEntry.Dose = float.Parse(Parts[1], CultureInfo.InvariantCulture);
-                                        else if (Parts[0] == "SubFramePath")
-                                            NewEntry.Name = Parts[1].Substring(Parts[1].LastIndexOf("\\") + 1);
-                                        else if (Parts[0] == "DateTime")
-                                        {
-                                            NewEntry.Time = DateTime.ParseExact(Parts[1], "dd-MMM-yy  HH:mm:ss", CultureInfo.InvariantCulture);
-                                            FoundTime = true;
-                                        }
-                                    }
-
-                                    if (mdocNames.Value.Count == 1)
-                                        Entries.RemoveAll(v => v.ZValue == NewEntry.ZValue);
-
-                                    Entries.Add(NewEntry);
-                                }
-                            }
-                        }
-
-                        //if (Dose > 0) // Try to get time stamps from file names
-                        //    try
-                        //    {
-                        //        foreach (var entry in Entries)
-                        //            entry.Time = DateTime.ParseExact(entry.Name.Substring(0, entry.Name.IndexOf(".mrc")), "MMMdd_HH.mm.ss", CultureInfo.InvariantCulture);
-                        //    }
-                        //    catch
-                        //    {
-                        //        throw new Exception("No time stamps found, need them for accumulated dose. Set default dose to 0 to ignore.");
-                        //    }
-
-                        List<MdocEntry> SortedTime = new List<MdocEntry>(Entries);
-                        SortedTime.Sort((a, b) => a.Time.CompareTo(b.Time));
-
-                        // Do running dose
-                        float Accumulated = 0;
-                        foreach (var entry in SortedTime)
-                        {
-                            Accumulated += entry.Dose;
-                            entry.Dose = Accumulated;
-                        }
-
-                        // In case mdoc doesn't tell anything about the dose, use default value
-                        if (_Dose > 0)
-                            for (int i = 0; i < SortedTime.Count; i++)
-                            {
-                                SortedTime[i].Dose = (i + 0.5f) * (float)_Dose;
-                                Accumulated += (float)_Dose;
-                            }
-
-                        // Sort entires by angle and time (accumulated dose)
-                        List<MdocEntry> SortedAngle = new List<MdocEntry>(Entries);
-                        SortedAngle.Sort((a, b) => a.TiltAngle.CompareTo(b.TiltAngle));
-                        // Sometimes, there will be 2 0-tilts at the beginning of plus and minus series. 
-                        // Sort them according to dose, considering in which order plus and minus were acquired
-                        float DoseMinus = SortedAngle.Take(SortedAngle.Count / 2).Select(v => v.Dose).Sum();
-                        float DosePlus = SortedAngle.Skip(SortedAngle.Count / 2).Take(SortedAngle.Count / 2).Select(v => v.Dose).Sum();
-                        int OrderCorrection = DoseMinus < DosePlus ? 1 : -1;
-                        SortedAngle.Sort((a, b) => a.TiltAngle.CompareTo(b.TiltAngle) != 0 ? a.TiltAngle.CompareTo(b.TiltAngle) : a.Dose.CompareTo(b.Dose) * OrderCorrection);
-
-                        //foreach (var entry in Entries)
-                        //{
-                        //    if (File.Exists(TiltMoviesFolder + entry.Name.Substring(0, entry.Name.LastIndexOf(".")) + ".xml"))
-                        //    {
-
-                        //    }
-                        //}
-
-                        //string PrexfPath = DataRoot + ImodFolder + mdocNames.Key + "\\" + mdocNames.Key + ".prexg";
-                        //if (File.Exists(PrexfPath))
-                        //{
-                        //    using (TextReader Reader = new StreamReader(File.OpenRead(PrexfPath)))
-                        //    {
-                        //        string Line;
-                        //        for (int i = 0; i < SortedAngle.Count; i++)
-                        //        {
-                        //            Line = Reader.ReadLine();
-                        //            string[] Parts = Line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-
-                        //            float2 VecX = new float2(float.Parse(Parts[0], CultureInfo.InvariantCulture),
-                        //                                     float.Parse(Parts[2], CultureInfo.InvariantCulture));
-                        //            float2 VecY = new float2(float.Parse(Parts[1], CultureInfo.InvariantCulture),
-                        //                                     float.Parse(Parts[3], CultureInfo.InvariantCulture));
-
-                        //            SortedAngle[i].Shift += VecX * float.Parse(Parts[4], CultureInfo.InvariantCulture) + VecY * float.Parse(Parts[5], CultureInfo.InvariantCulture);
-                        //        }
-                        //    }
-                        //}
-
-                        if (string.IsNullOrEmpty(_PathMovie))
-                            throw new Exception("No folder specified for the original movies.");
-
-                        SortedAngle.RemoveAll(v => IsMovieExcluded(Path.Combine(_PathMovie, v.Name)));
-
-                        if (SortedAngle.Count == 0)
-                            throw new Exception($"No movies found for {mdocNames.Key},\nor none have been processed in Warp yet.");
-
-                        string XfPath1 = Path.Combine(_PathImod, mdocNames.Key, mdocNames.Key + ".xf");
-                        string XfPath2 = Path.Combine(_PathImod, mdocNames.Key + ".xf");
-                        string XfPath = null;
                         try
                         {
-                            XfPath = (new[] { XfPath1, XfPath2 }).First(s => File.Exists(s));
-                        }
-                        catch { }
-                        bool HasAlignmentData = false;
-                        if (XfPath != null)
-                        {
-                            HasAlignmentData = true;
-                            using (TextReader Reader = new StreamReader(File.OpenRead(XfPath)))
+                            float AxisAngle = 0;
+                            List<MdocEntry> Entries = new List<MdocEntry>();
+                            bool FoundTime = false;
+
+                            foreach (var mdocName in mdocNames.Value)
                             {
-                                string Line;
-                                for (int i = 0; i < SortedAngle.Count; i++)
-                                {
-                                    Line = Reader.ReadLine();
-                                    string[] Parts = Line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-
-                                    float2 VecX = new float2(float.Parse(Parts[0], CultureInfo.InvariantCulture),
-                                                             float.Parse(Parts[2], CultureInfo.InvariantCulture));
-                                    float2 VecY = new float2(float.Parse(Parts[1], CultureInfo.InvariantCulture),
-                                                             float.Parse(Parts[3], CultureInfo.InvariantCulture));
-
-                                    Matrix3 Rotation = new Matrix3(VecX.X, VecX.Y, 0, VecY.X, VecY.Y, 0, 0, 0, 1);
-                                    float3 Euler = Matrix3.EulerFromMatrix(Rotation);
-
-                                    SortedAngle[i].AxisAngle = Euler.Z * Helper.ToDeg;
-
-                                    //SortedAngle[i].Shift += VecX * float.Parse(Parts[4], CultureInfo.InvariantCulture) + VecY * float.Parse(Parts[5], CultureInfo.InvariantCulture);
-                                    float3 Shift = new float3(-float.Parse(Parts[4], CultureInfo.InvariantCulture), -float.Parse(Parts[5], CultureInfo.InvariantCulture), 0);
-                                    Shift = Rotation.Transposed() * Shift;
-
-                                    SortedAngle[i].Shift += new float2(Shift);
-                                }
-                            }
-                        }
-
-                        string SolutionPath = Path.Combine(_PathImod, mdocNames.Key, "taSolution.log");
-                        if (File.Exists(SolutionPath))
-                        {
-                            try
-                            {
-                                using (TextReader Reader = new StreamReader(File.OpenRead(SolutionPath)))
+                                using (TextReader Reader = new StreamReader(File.OpenRead(Path.Combine(_PathMdoc, mdocName))))
                                 {
                                     string Line;
                                     while ((Line = Reader.ReadLine()) != null)
                                     {
-                                        if (Line.ToLower().Contains("view") && Line.ToLower().Contains("rotation") && Line.ToLower().Contains("mag"))
-                                            break;
-                                    }
+                                        if (Line.Contains("Tilt axis angle = "))
+                                        {
+                                            string Suffix = Line.Substring(Line.IndexOf("Tilt axis angle = ") + "Tilt axis angle = ".Length);
+                                            Suffix = Suffix.Substring(0, Suffix.IndexOf(","));
 
+                                            AxisAngle = float.Parse(Suffix, CultureInfo.InvariantCulture);
+                                            continue;
+                                        }
+
+                                        if (Line.Length < 7 || Line.Substring(0, 7) != "[ZValue")
+                                            continue;
+
+                                        MdocEntry NewEntry = new MdocEntry();
+
+                                        {
+                                            string[] Parts = Line.Split(new[] { " = " }, StringSplitOptions.RemoveEmptyEntries);
+                                            if (Parts[0] == "[ZValue")
+                                                NewEntry.ZValue = int.Parse(Parts[1].Replace("]", ""));
+                                        }
+
+                                        while ((Line = Reader.ReadLine()) != null)
+                                        {
+                                            string[] Parts = Line.Split(new[] { " = " }, StringSplitOptions.RemoveEmptyEntries);
+                                            if (Parts.Length < 2)
+                                                break;
+
+                                            if (Parts[0] == "TiltAngle")
+                                                NewEntry.TiltAngle = (float)Math.Round(float.Parse(Parts[1], CultureInfo.InvariantCulture), 1);
+                                            else if (Parts[0] == "ExposureDose")
+                                                NewEntry.Dose = float.Parse(Parts[1], CultureInfo.InvariantCulture);
+                                            else if (Parts[0] == "SubFramePath")
+                                                NewEntry.Name = Parts[1].Substring(Parts[1].LastIndexOf("\\") + 1);
+                                            else if (Parts[0] == "DateTime")
+                                            {
+                                                NewEntry.Time = DateTime.ParseExact(Parts[1], "dd-MMM-yy  HH:mm:ss", CultureInfo.InvariantCulture);
+                                                FoundTime = true;
+                                            }
+                                        }
+
+                                        if (mdocNames.Value.Count == 1)
+                                            Entries.RemoveAll(v => v.ZValue == NewEntry.ZValue);
+
+                                        Entries.Add(NewEntry);
+                                    }
+                                }
+                            }
+
+                            //if (Dose > 0) // Try to get time stamps from file names
+                            //    try
+                            //    {
+                            //        foreach (var entry in Entries)
+                            //            entry.Time = DateTime.ParseExact(entry.Name.Substring(0, entry.Name.IndexOf(".mrc")), "MMMdd_HH.mm.ss", CultureInfo.InvariantCulture);
+                            //    }
+                            //    catch
+                            //    {
+                            //        throw new Exception("No time stamps found, need them for accumulated dose. Set default dose to 0 to ignore.");
+                            //    }
+
+                            List<MdocEntry> SortedTime = new List<MdocEntry>(Entries);
+                            SortedTime.Sort((a, b) => a.Time.CompareTo(b.Time));
+
+                            // Do running dose
+                            float Accumulated = 0;
+                            foreach (var entry in SortedTime)
+                            {
+                                Accumulated += entry.Dose;
+                                entry.Dose = Accumulated;
+                            }
+
+                            // In case mdoc doesn't tell anything about the dose, use default value
+                            if (_Dose > 0)
+                                for (int i = 0; i < SortedTime.Count; i++)
+                                {
+                                    SortedTime[i].Dose = (i + 0.5f) * (float)_Dose;
+                                    Accumulated += (float)_Dose;
+                                }
+
+                            // Sort entires by angle and time (accumulated dose)
+                            List<MdocEntry> SortedAngle = new List<MdocEntry>(Entries);
+                            SortedAngle.Sort((a, b) => a.TiltAngle.CompareTo(b.TiltAngle));
+                            // Sometimes, there will be 2 0-tilts at the beginning of plus and minus series. 
+                            // Sort them according to dose, considering in which order plus and minus were acquired
+                            float DoseMinus = SortedAngle.Take(SortedAngle.Count / 2).Select(v => v.Dose).Sum();
+                            float DosePlus = SortedAngle.Skip(SortedAngle.Count / 2).Take(SortedAngle.Count / 2).Select(v => v.Dose).Sum();
+                            int OrderCorrection = DoseMinus < DosePlus ? 1 : -1;
+                            SortedAngle.Sort((a, b) => a.TiltAngle.CompareTo(b.TiltAngle) != 0 ? a.TiltAngle.CompareTo(b.TiltAngle) : a.Dose.CompareTo(b.Dose) * OrderCorrection);
+
+                            if (string.IsNullOrEmpty(_PathMovie))
+                                throw new Exception("No folder specified for the original movies.");
+
+                            SortedAngle.RemoveAll(v => IsMovieExcluded(Path.Combine(_PathMovie, v.Name)));
+
+                            if (SortedAngle.Count == 0)
+                                throw new Exception($"No movies found for {mdocNames.Key}, or none have been processed in Warp yet.");
+
+                            string XfPath1 = Path.Combine(_PathImod, mdocNames.Key, mdocNames.Key + ".xf");
+                            string XfPath2 = Path.Combine(_PathImod, mdocNames.Key + ".xf");
+                            string XfPath = null;
+                            try
+                            {
+                                XfPath = (new[] { XfPath1, XfPath2 }).First(s => File.Exists(s));
+                            }
+                            catch { }
+                            bool HasAlignmentData = false;
+                            if (XfPath != null)
+                            {
+                                HasAlignmentData = true;
+                                using (TextReader Reader = new StreamReader(File.OpenRead(XfPath)))
+                                {
+                                    string Line;
                                     for (int i = 0; i < SortedAngle.Count; i++)
                                     {
                                         Line = Reader.ReadLine();
                                         string[] Parts = Line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-                                        //SortedAngle[i].AxisAngle = float.Parse(Parts[1], CultureInfo.InvariantCulture);
-                                        SortedAngle[i].TiltAngle += float.Parse(Parts[3], CultureInfo.InvariantCulture);
+
+                                        float2 VecX = new float2(float.Parse(Parts[0], CultureInfo.InvariantCulture),
+                                                                 float.Parse(Parts[2], CultureInfo.InvariantCulture));
+                                        float2 VecY = new float2(float.Parse(Parts[1], CultureInfo.InvariantCulture),
+                                                                 float.Parse(Parts[3], CultureInfo.InvariantCulture));
+
+                                        Matrix3 Rotation = new Matrix3(VecX.X, VecX.Y, 0, VecY.X, VecY.Y, 0, 0, 0, 1);
+                                        float3 Euler = Matrix3.EulerFromMatrix(Rotation);
+
+                                        SortedAngle[i].AxisAngle = Euler.Z * Helper.ToDeg;
+
+                                        //SortedAngle[i].Shift += VecX * float.Parse(Parts[4], CultureInfo.InvariantCulture) + VecY * float.Parse(Parts[5], CultureInfo.InvariantCulture);
+                                        float3 Shift = new float3(-float.Parse(Parts[4], CultureInfo.InvariantCulture), -float.Parse(Parts[5], CultureInfo.InvariantCulture), 0);
+                                        Shift = Rotation.Transposed() * Shift;
+
+                                        SortedAngle[i].Shift += new float2(Shift);
                                     }
                                 }
                             }
-                            catch { }
-                        }
-                        //else
-                        //{
-                        //    foreach (var mdocEntry in SortedAngle)
-                        //        mdocEntry.AxisAngle = AxisAngle;
-                        //}
 
-                        //if (CreateStacks)
-                        //{
-                        //    Console.Write("Reading images");
-                        //    foreach (var mdocEntry in Entries)
-                        //    {
-                        //        MapHeader Header = MapHeader.ReadFromFile(DataRoot + TiltAveragesFolder + mdocEntry.Name, new int2(1, 1), 0, typeof (float));
-                        //        float[][] Data;
+                            string SolutionPath = Path.Combine(_PathImod, mdocNames.Key, "taSolution.log");
+                            if (File.Exists(SolutionPath))
+                            {
+                                try
+                                {
+                                    using (TextReader Reader = new StreamReader(File.OpenRead(SolutionPath)))
+                                    {
+                                        string Line;
+                                        while ((Line = Reader.ReadLine()) != null)
+                                        {
+                                            if (Line.ToLower().Contains("view") && Line.ToLower().Contains("rotation") && Line.ToLower().Contains("mag"))
+                                                break;
+                                        }
 
-                        //        Data = IOHelper.ReadMapFloat(DataRoot + TiltAveragesFolder + mdocEntry.Name, new int2(1, 1), 0, typeof (float));
+                                        for (int i = 0; i < SortedAngle.Count; i++)
+                                        {
+                                            Line = Reader.ReadLine();
+                                            string[] Parts = Line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                                            //SortedAngle[i].AxisAngle = float.Parse(Parts[1], CultureInfo.InvariantCulture);
+                                            SortedAngle[i].TiltAngle += float.Parse(Parts[3], CultureInfo.InvariantCulture);
+                                        }
+                                    }
+                                }
+                                catch { }
+                            }
 
-                        //        mdocEntry.Micrograph = new Image(Data,
-                        //                                         new int3(Header.Dimensions.X, Header.Dimensions.Y, Header.Dimensions.Z),
-                        //                                         false,
-                        //                                         false);
-                        //        Console.Write(".");
-                        //    }
-                        //    Console.WriteLine("");
-                        //}
+                            Star Table = new Star(new[]
+                            {
+                                "wrpMovieName",
+                                "wrpAngleTilt",
+                                "wrpAxisAngle",
+                                "wrpAxisOffsetX",
+                                "wrpAxisOffsetY",
+                                "wrpDose"
+                            });
 
-                        Star Table = new Star(new[]
-                        {
-                            "wrpMovieName",
-                            "wrpAngleTilt",
-                            "wrpAxisAngle",
-                            "wrpAxisOffsetX",
-                            "wrpAxisOffsetY",
-                            "wrpDose"
-                        });
+                            //Image Stack = CreateStacks ? new Image(new int3(Entries[0].Micrograph.Dims.X, Entries[0].Micrograph.Dims.Y, Entries.Count)) : null;
+                            //float[][] StackData = Stack?.GetHost(Intent.Write);
 
-                        //Image Stack = CreateStacks ? new Image(new int3(Entries[0].Micrograph.Dims.X, Entries[0].Micrograph.Dims.Y, Entries.Count)) : null;
-                        //float[][] StackData = Stack?.GetHost(Intent.Write);
+                            for (int i = 0; i < SortedAngle.Count; i++)
+                            {
+                                //if (CreateStacks)
+                                //    StackData[i] = SortedAngle[i].Micrograph.GetHost(Intent.Read)[0];
 
-                        for (int i = 0; i < SortedAngle.Count; i++)
-                        {
+                                string PathToMovie = Path.Combine(_PathMovie, SortedAngle[i].Name);
+
+                                Uri UriMovie = new Uri(Options.Import.Folder);
+                                string MovieRelativePath = UriMovie.MakeRelativeUri(new Uri(PathToMovie)).ToString();
+
+                                Table.AddRow(new List<string>()
+                                {
+                                    MovieRelativePath,
+                                    (SortedAngle[i].TiltAngle * (_DontInvertTilts ? 1 : -1)).ToString(CultureInfo.InvariantCulture),
+                                    SortedAngle[i].AxisAngle.ToString(CultureInfo.InvariantCulture),
+                                    (SortedAngle[i].Shift.X * (float)_PixelSize).ToString(CultureInfo.InvariantCulture),
+                                    (SortedAngle[i].Shift.Y * (float)_PixelSize).ToString(CultureInfo.InvariantCulture),
+                                    SortedAngle[i].Dose.ToString(CultureInfo.InvariantCulture)
+                                });
+                            }
+
+                            //Table.Save(Path.Combine(Options.Import.Folder, mdocNames.Key + ".tomostar"));
+                            Dispatcher.Invoke(() =>
+                            {
+                                ParsedEntries.Add(new ParsedEntry()
+                                {
+                                    DoImport = OldEntries.Any(v => v.Name == mdocNames.Key) ? OldEntries.First(v => v.Name == mdocNames.Key).DoImport : true,
+                                    Name = mdocNames.Key,
+                                    NTilts = Table.RowCount,
+                                    Dose = (int)Math.Round(SortedAngle.Select(v => v.Dose).Max()),
+                                    Aligned = HasAlignmentData,
+                                    Table = Table,
+                                    TiltAngles = SortedAngle.Select(e => e.TiltAngle).ToArray(),
+                                    Rotation = AxisAngle
+                                });
+                            });
+
+                            // Write out tilt series into IMOD folder + its individual subfolder
                             //if (CreateStacks)
-                            //    StackData[i] = SortedAngle[i].Micrograph.GetHost(Intent.Read)[0];
-
-                            string PathToMovie = Path.Combine(_PathMovie, SortedAngle[i].Name);
-
-                            Uri UriMovie = new Uri(Options.Import.Folder);
-                            string MovieRelativePath = UriMovie.MakeRelativeUri(new Uri(PathToMovie)).ToString();
-
-                            Table.AddRow(new List<string>()
-                            {
-                                MovieRelativePath,
-                                (SortedAngle[i].TiltAngle * (_DontInvertTilts ? 1 : -1)).ToString(CultureInfo.InvariantCulture),
-                                SortedAngle[i].AxisAngle.ToString(CultureInfo.InvariantCulture),
-                                (SortedAngle[i].Shift.X * (float)_PixelSize).ToString(CultureInfo.InvariantCulture),
-                                (SortedAngle[i].Shift.Y * (float)_PixelSize).ToString(CultureInfo.InvariantCulture),
-                                SortedAngle[i].Dose.ToString(CultureInfo.InvariantCulture)
-                            });
+                            //{
+                            //    Console.WriteLine("Writing tilt series.");
+                            //    Directory.CreateDirectory(DataRoot + ImodFolder + mdocNames.Key);
+                            //    Stack.WriteMRC(DataRoot + ImodFolder + mdocNames.Key + "\\" + mdocNames.Key + ".st");
+                            //}
                         }
-
-                        //Table.Save(Path.Combine(Options.Import.Folder, mdocNames.Key + ".tomostar"));
-                        Dispatcher.Invoke(() =>
+                        catch (Exception exc)
                         {
-                            ParsedEntries.Add(new ParsedEntry()
-                            {
-                                DoImport = OldEntries.Any(v => v.Name == mdocNames.Key) ? OldEntries.First(v => v.Name == mdocNames.Key).DoImport : true,
-                                Name = mdocNames.Key,
-                                NTilts = Table.RowCount,
-                                Dose = (int)Math.Round(SortedAngle.Select(v => v.Dose).Max()),
-                                Aligned = HasAlignmentData,
-                                Table = Table,
-                                TiltAngles = SortedAngle.Select(e => e.TiltAngle).ToArray(),
-                                Rotation = AxisAngle
-                            });
-                        });
-
-                        // Write out tilt series into IMOD folder + its individual subfolder
-                        //if (CreateStacks)
-                        //{
-                        //    Console.WriteLine("Writing tilt series.");
-                        //    Directory.CreateDirectory(DataRoot + ImodFolder + mdocNames.Key);
-                        //    Stack.WriteMRC(DataRoot + ImodFolder + mdocNames.Key + "\\" + mdocNames.Key + ".st");
-                        //}
+                            AllExceptions.AppendLine(exc.Message);
+                            AllExceptions.AppendLine("");
+                        }
                     }
                 }
                 catch (Exception exc)
                 {
-                    Dispatcher.Invoke(() =>
-                    {
-                        TextErrors.Content = exc.Message;
-                        TextErrors.Visibility = Visibility.Visible;
-                        ListParsedEntries.Visibility = Visibility.Collapsed;
-                        PanelImportResults.Visibility = Visibility.Visible;
-
-                        ButtonWrite.IsEnabled = false;
-                        ButtonCreateStacks.IsEnabled = false;
-
-                        PanelProgressIndicator.Visibility = Visibility.Hidden;
-                    });
-
-                    return;
+                    AllExceptions.AppendLine(exc.Message);
+                    AllExceptions.AppendLine("");
                 }
             });
 
@@ -457,6 +401,12 @@ namespace Warp.Controls.TaskDialogs.Tomo
             PanelImportResults.Visibility = Visibility.Visible;
             ListParsedEntries.Visibility = Visibility.Visible;
             TextErrors.Visibility = Visibility.Collapsed;
+
+            if (AllExceptions.Length > 0)
+            {
+                TextErrors.Text = AllExceptions.ToString();
+                TextErrors.Visibility = Visibility.Visible;
+            }
         }
 
         private void ButtonMdocPath_Click(object sender, RoutedEventArgs e)
@@ -513,12 +463,34 @@ namespace Warp.Controls.TaskDialogs.Tomo
             }
         }
 
-        private void ButtonWrite_Click(object sender, RoutedEventArgs e)
+        private async void ButtonWrite_Click(object sender, RoutedEventArgs e)
         {
+            List<string> Duplicates = new List<string>();
+
             foreach (var entry in ParsedEntries.Where(v => v.DoImport))
             {
                 string TablePath = Path.Combine(Options.Import.Folder, entry.Name + ".tomostar");
                 entry.Table.Save(TablePath);
+
+                if (File.Exists(Path.Combine(Options.Import.Folder, entry.Name + ".xml")))
+                    Duplicates.Add(Path.Combine(Options.Import.Folder, entry.Name));
+            }
+
+            if (Duplicates.Count > 0)
+            {
+                var Result = await ((MainWindow)Application.Current.MainWindow).ShowMessageAsync("Found old processing results!",
+                                                                                                 $"It looks like you already used Warp to process earlier versions of some of these TomoSTAR files.\n" +
+                                                                                                 $"If you write out new TomoSTAR files now, the old XML metadata won't be updated until you delete\n" +
+                                                                                                 $"them manually, reload the items in Warp, and reprocess them.\n\n" +
+                                                                                                 $"Would you like to automatically delete the XML metadata and reload the items now?",
+                                                                                                 MessageDialogStyle.AffirmativeAndNegative);
+                if (Result == MessageDialogResult.Affirmative)
+                {
+                    foreach (var item in Duplicates)
+                        File.Delete(item + ".xml");
+
+                    Options.MainWindow.AdjustInput();
+                }
             }
 
             Close?.Invoke();

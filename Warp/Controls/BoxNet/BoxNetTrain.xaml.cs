@@ -202,8 +202,11 @@ namespace Warp.Controls
 
                 int NThreads = 2;
 
+                Image.FreeDeviceAll();
+
                 Dispatcher.Invoke(() =>
                 {
+                    Options.MainWindow.MicrographDisplayControl.FreeOnDevice();
                     Options.MainWindow.MicrographDisplayControl.DropBoxNetworks();
                     Options.MainWindow.MicrographDisplayControl.DropNoiseNetworks();
                 });
@@ -494,6 +497,7 @@ namespace Warp.Controls
                 NetworkTrain.Dispose();
                 //NetworkOld.Dispose();
 
+                Image.FreeDeviceAll();
                 TFHelper.TF_FreeAllMemory();
             });
 

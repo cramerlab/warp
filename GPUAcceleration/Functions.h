@@ -277,6 +277,9 @@ extern "C" __declspec(dllexport) void __stdcall CubicInterpIrregular(int3 dimens
 // Deconv.cu:
 extern "C" __declspec(dllexport) void DeconvolveCTF(float2* d_inputft, float2* d_outputft, int3 dims, gtom::CTFParams ctfparams, float strength, float falloff, float highpassnyquist);
 
+// Defects.cu:
+extern "C" __declspec(dllexport) void CorrectDefects(float* d_input, float* d_output, int3 * d_locations, int* d_neighbors, int ndefects);
+
 // Device.cpp:
 
 extern "C" __declspec(dllexport) int __stdcall GetDeviceCount();

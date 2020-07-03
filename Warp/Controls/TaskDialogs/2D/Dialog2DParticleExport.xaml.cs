@@ -324,12 +324,11 @@ namespace Warp.Controls.TaskDialogs.TwoD
                                                        Options.Import.HeaderlessType);
 
                     if (!string.IsNullOrEmpty(Options.Import.GainPath) && Options.Import.CorrectGain)
-                        Workers[gpuID].LoadGainRef(Options.Import.GainPath,
+                        Workers[gpuID].LoadGainRef(Options.Import.CorrectGain ? Options.Import.GainPath : "",
                                                    Options.Import.GainFlipX,
                                                    Options.Import.GainFlipY,
-                                                   Options.Import.GainTranspose);
-                    else
-                        Workers[gpuID].LoadGainRef("", false, false, false);
+                                                   Options.Import.GainTranspose,
+                                                   Options.Import.CorrectDefects ? Options.Import.DefectsPath : "");
                 }
 
                 #endregion
@@ -428,7 +427,7 @@ namespace Warp.Controls.TaskDialogs.TwoD
                         decimal ScaleFactor = 1M / (decimal)Math.Pow(2, (double)ExportOptions.BinTimes);
 
                         if (!DoOnlyStar && (!FileExists || Overwrite))
-                            Workers[gpuID].LoadStack(movie.Path, ScaleFactor);
+                            Workers[gpuID].LoadStack(movie.Path, ScaleFactor, ExportOptions.EERGroupFrames);
                         //MainWindow.LoadAndPrepareHeaderAndMap(movie.Path, ImageGain[gpuID], ScaleFactor, out OriginalHeader, out OriginalStack);
 
                         if (IsCanceled)

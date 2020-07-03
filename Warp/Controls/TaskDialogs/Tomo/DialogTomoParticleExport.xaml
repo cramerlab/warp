@@ -5,7 +5,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              xmlns:m="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro"
              xmlns:s="clr-namespace:Sparta;assembly=WarpControls"
-             xmlns:local="clr-namespace:Warp.Controls"
+             xmlns:warp="clr-namespace:Warp;assembly=WarpControls"
              mc:Ignorable="d">
     <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
         <TextBlock Text="Export sub-tomograms" FontSize="24" Margin="0,20" />
@@ -74,7 +74,7 @@
             <CheckBox Name="CheckManual" Grid.Row="22" IsChecked="{Binding Tasks.IncludeUnselected}" Content="Include manually excluded items" FontSize="18" />
 
             <StackPanel Grid.Row="23" Orientation="Vertical">
-                <local:NyanBar x:Name="ProgressWrite" VerticalAlignment="Top" HorizontalAlignment="Stretch" Margin="0,12,0,8" Visibility="Collapsed" />
+                <warp:NyanBar x:Name="ProgressWrite" VerticalAlignment="Top" HorizontalAlignment="Stretch" Margin="0,12,0,8" Visibility="Collapsed" />
 
                 <StackPanel Name="PanelButtons" Orientation="Horizontal" HorizontalAlignment="Right" Height="50">
                     <Button Name="ButtonWrite" Content="EXPORT" FontSize="20" FontWeight="Medium" Foreground="CornflowerBlue" VerticalAlignment="Bottom" Style="{StaticResource ChromelessButtonStyle}" Click="ButtonWrite_OnClick" />

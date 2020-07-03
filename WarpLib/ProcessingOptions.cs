@@ -19,6 +19,8 @@ namespace Warp
         [WarpSerializable]
         public decimal BinTimes { get; set; }
         [WarpSerializable]
+        public int EERGroupFrames { get; set; }
+        [WarpSerializable]
         public string GainPath { get; set; }
         [WarpSerializable]
         public string GainHash { get; set; }
@@ -28,6 +30,10 @@ namespace Warp
         public bool GainFlipY { get; set; }
         [WarpSerializable]
         public bool GainTranspose { get; set; }
+        [WarpSerializable]
+        public string DefectsPath { get; set; }
+        [WarpSerializable]
+        public string DefectsHash { get; set; }
         [WarpSerializable]
         public float3 Dimensions { get; set; }
 
@@ -49,7 +55,9 @@ namespace Warp
                    GainFlipX == other.GainFlipX &&
                    GainFlipY == other.GainFlipY &&
                    GainTranspose == other.GainTranspose &&
-                   BinTimes == other.BinTimes;
+                   (string.IsNullOrEmpty(DefectsHash) ? DefectsPath == other.DefectsPath : DefectsHash == other.DefectsHash) &&
+                   BinTimes == other.BinTimes &&
+                   (EERGroupFrames == 0 || other.EERGroupFrames == 0 || EERGroupFrames == other.EERGroupFrames);
         }
 
         public static bool operator ==(ProcessingOptionsBase left, ProcessingOptionsBase right)

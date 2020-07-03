@@ -13,16 +13,7 @@ using Warp.Tools;
 namespace Warp
 {
     public class Options : WarpBase
-    {
-        public ObservableCollection<string> _InputDatTypes = new ObservableCollection<string>
-        {
-            "int8", "int16", "int32", "int64", "float32", "float64"
-        };
-        public ObservableCollection<string> InputDatTypes
-        {
-            get { return _InputDatTypes; }
-        } 
-        
+    {        
         #region Pixel size
 
         private decimal _PixelSizeX = 1.35M;
@@ -211,101 +202,6 @@ namespace Warp
 
         public Options()
         {
-            Import.PropertyChanged += SubOptions_PropertyChanged;
-            CTF.PropertyChanged += SubOptions_PropertyChanged;
-            Movement.PropertyChanged += SubOptions_PropertyChanged;
-            Grids.PropertyChanged += SubOptions_PropertyChanged;
-            Picking.PropertyChanged += SubOptions_PropertyChanged;
-            Tomo.PropertyChanged += SubOptions_PropertyChanged;
-            Export.PropertyChanged += SubOptions_PropertyChanged;
-            Tasks.PropertyChanged += SubOptions_PropertyChanged;
-            Filter.PropertyChanged += SubOptions_PropertyChanged;
-            Advanced.PropertyChanged += SubOptions_PropertyChanged;
-        }
-
-        private void SubOptions_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
-        {
-            if (sender == Import)
-            {
-                OnPropertyChanged("Import." + e.PropertyName);
-                if (e.PropertyName == "BinTimes")
-                    RecalcBinnedPixelSize();
-            }
-            else if (sender == CTF)
-                OnPropertyChanged("CTF." + e.PropertyName);
-            else if (sender == Movement)
-                OnPropertyChanged("Movement." + e.PropertyName);
-            else if (sender == Grids)
-                OnPropertyChanged("Grids." + e.PropertyName);
-            else if (sender == Tomo)
-                OnPropertyChanged("Tomo." + e.PropertyName);
-            else if (sender == Picking)
-                OnPropertyChanged("Picking." + e.PropertyName);
-            else if (sender == Export)
-                OnPropertyChanged("Export." + e.PropertyName);
-            else if (sender == Tasks)
-                OnPropertyChanged("Tasks." + e.PropertyName);
-            else if (sender == Filter)
-                OnPropertyChanged("Filter." + e.PropertyName);
-            else if (sender == Advanced)
-                OnPropertyChanged("Advanced." + e.PropertyName);
-        }
-
-        public void Save(string path)
-        {
-            XmlTextWriter Writer = new XmlTextWriter(File.Create(path), Encoding.Unicode);
-            Writer.Formatting = Formatting.Indented;
-            Writer.IndentChar = '\t';
-            Writer.Indentation = 1;
-            Writer.WriteStartDocument();
-            Writer.WriteStartElement("Settings");
-            
-            WriteToXML(Writer);
-
-            Writer.WriteStartElement("Import");
-            Import.WriteToXML(Writer);
-            Writer.WriteEndElement();
-
-            Writer.WriteStartElement("CTF");
-            CTF.WriteToXML(Writer);
-            Writer.WriteEndElement();
-
-            Writer.WriteStartElement("Movement");
-            Movement.WriteToXML(Writer);
-            Writer.WriteEndElement();
-
-            Writer.WriteStartElement("Grids");
-            Grids.WriteToXML(Writer);
-            Writer.WriteEndElement();
-
-            Writer.WriteStartElement("Tomo");
-            Tomo.WriteToXML(Writer);
-            Writer.WriteEndElement();
-
-            Writer.WriteStartElement("Picking");
-            Picking.WriteToXML(Writer);
-            Writer.WriteEndElement();
-
-            Writer.WriteStartElement("Export");
-            Export.WriteToXML(Writer);
-            Writer.WriteEndElement();
-
-            Writer.WriteStartElement("Tasks");
-            Tasks.WriteToXML(Writer);
-            Writer.WriteEndElement();
-
-            Writer.WriteStartElement("Filter");
-            Filter.WriteToXML(Writer);
-            Writer.WriteEndElement();
-
-            Writer.WriteStartElement("Advanced");
-            Advanced.WriteToXML(Writer);
-            Writer.WriteEndElement();
-
-            Writer.WriteEndElement();
-            Writer.WriteEndDocument();
-            Writer.Flush();
-            Writer.Close();
         }
 
         public void Load(string path)
@@ -350,8 +246,11 @@ namespace Warp
                 PixelSizeY = PixelSizeY,
                 PixelSizeAngle = PixelSizeAngle,
                 BinTimes = Import.BinTimes,
+                EERGroupFrames = Import.ExtensionEER ? Import.EERGroupFrames : 0,
                 GainPath = Import.CorrectGain ? Import.GainPath : "",
                 GainHash = Import.CorrectGain ? Runtime.GainReferenceHash : "",
+                DefectsPath = Import.CorrectDefects ? Import.DefectsPath : "",
+                DefectsHash = Import.CorrectDefects ? Runtime.DefectMapHash : "",
                 GainFlipX = Import.GainFlipX,
                 GainFlipY = Import.GainFlipY,
                 GainTranspose = Import.GainTranspose,
@@ -374,39 +273,6 @@ namespace Warp
             };
         }
 
-        public void Adopt(ProcessingOptionsMovieCTF options)
-        {
-            PixelSizeX = options.PixelSizeX;
-            PixelSizeY = options.PixelSizeY;
-            PixelSizeAngle = options.PixelSizeAngle;
-
-            Import.BinTimes = options.BinTimes;
-            Import.GainPath = options.GainPath;
-            Import.CorrectGain = !string.IsNullOrEmpty(options.GainPath);
-            Import.GainFlipX = options.GainFlipX;
-            Import.GainFlipY = options.GainFlipY;
-            Import.GainTranspose = options.GainTranspose;
-
-            CTF.Window = options.Window;
-            CTF.RangeMin = options.RangeMin;
-            CTF.RangeMax = options.RangeMax;
-            CTF.Voltage = options.Voltage;
-            CTF.Cs = options.Cs;
-            CTF.Cc = options.Cc;
-            CTF.IllAperture = options.IllumAngle;
-            CTF.DeltaE = options.EnergySpread;
-            CTF.Thickness = options.Thickness;
-            CTF.Amplitude = options.Amplitude;
-            CTF.DoPhase = options.DoPhase;
-            CTF.UseMovieSum = options.UseMovieSum;
-            CTF.ZMin = options.ZMin;
-            CTF.ZMax = options.ZMax;
-
-            Grids.CTFX = options.GridDims.X;
-            Grids.CTFY = options.GridDims.Y;
-            Grids.CTFZ = options.GridDims.Z;
-        }
-
         public ProcessingOptionsMovieMovement GetProcessingMovieMovement()
         {
             return new ProcessingOptionsMovieMovement
@@ -415,8 +281,11 @@ namespace Warp
                 PixelSizeY = PixelSizeY,
                 PixelSizeAngle = PixelSizeAngle,
                 BinTimes = Import.BinTimes,
+                EERGroupFrames = Import.ExtensionEER ? Import.EERGroupFrames : 0,
                 GainPath = Import.CorrectGain ? Import.GainPath : "",
                 GainHash = Import.CorrectGain ? Runtime.GainReferenceHash : "",
+                DefectsPath = Import.CorrectDefects ? Import.DefectsPath : "",
+                DefectsHash = Import.CorrectDefects ? Runtime.DefectMapHash : "",
                 GainFlipX = Import.GainFlipX,
                 GainFlipY = Import.GainFlipY,
                 GainTranspose = Import.GainTranspose,
@@ -425,25 +294,6 @@ namespace Warp
                 Bfactor = Movement.Bfactor,
                 GridDims = new int3(Grids.MovementX, Grids.MovementY, Grids.MovementZ)
             };
-        }
-
-        public void Adopt(ProcessingOptionsMovieMovement options)
-        {
-            PixelSizeX = options.PixelSizeX;
-            PixelSizeY = options.PixelSizeY;
-            PixelSizeAngle = options.PixelSizeAngle;
-            Import.BinTimes = options.BinTimes;
-            Import.GainPath = options.GainPath;
-            Import.CorrectGain = !string.IsNullOrEmpty(options.GainPath);
-            Import.GainFlipX = options.GainFlipX;
-            Import.GainFlipY = options.GainFlipY;
-            Import.GainTranspose = options.GainTranspose;
-            Movement.RangeMin = options.RangeMin;
-            Movement.RangeMax = options.RangeMax;
-            Movement.Bfactor = options.Bfactor;
-            Grids.MovementX = options.GridDims.X;
-            Grids.MovementY = options.GridDims.Y;
-            Grids.MovementZ = options.GridDims.Z;
         }
 
         public ProcessingOptionsMovieExport GetProcessingMovieExport()
@@ -455,8 +305,11 @@ namespace Warp
                 PixelSizeAngle = PixelSizeAngle,
 
                 BinTimes = Import.BinTimes,
+                EERGroupFrames = Import.ExtensionEER ? Import.EERGroupFrames : 0,
                 GainPath = Import.CorrectGain ? Import.GainPath : "",
                 GainHash = Import.CorrectGain ? Runtime.GainReferenceHash : "",
+                DefectsPath = Import.CorrectDefects ? Import.DefectsPath : "",
+                DefectsHash = Import.CorrectDefects ? Runtime.DefectMapHash : "",
                 GainFlipX = Import.GainFlipX,
                 GainFlipY = Import.GainFlipY,
                 GainTranspose = Import.GainTranspose,
@@ -475,99 +328,6 @@ namespace Warp
             };
         }
 
-        public void Adopt(ProcessingOptionsMovieExport options)
-        {
-            PixelSizeX = options.PixelSizeX;
-            PixelSizeY = options.PixelSizeY;
-            PixelSizeAngle = options.PixelSizeAngle;
-
-            Import.BinTimes = options.BinTimes;
-            Import.GainPath = options.GainPath;
-            Import.CorrectGain = !string.IsNullOrEmpty(options.GainPath);
-            Import.GainFlipX = options.GainFlipX;
-            Import.GainFlipY = options.GainFlipY;
-            Import.GainTranspose = options.GainTranspose;
-
-            Import.DosePerAngstromFrame = options.DosePerAngstromFrame;
-
-            CTF.Voltage = options.Voltage;
-
-            Export.DoAverage = options.DoAverage;
-            Export.DoStack = options.DoStack;
-            Export.DoDeconvolve = options.DoDeconv;
-            Export.DeconvolutionStrength = options.DeconvolutionStrength;
-            Export.DeconvolutionFalloff = options.DeconvolutionFalloff;
-            Export.StackGroupSize = options.StackGroupSize;
-            Export.SkipFirstN = options.SkipFirstN;
-            Export.SkipLastN = options.SkipLastN;
-        }
-
-        public ProcessingOptionsParticlesExport GetProcessingParticleExport()
-        {
-            decimal BinTimes = (decimal)Math.Log((double)(Tasks.Export2DPixel / PixelSizeMean), 2.0);
-
-            return new ProcessingOptionsParticlesExport
-            {
-                Suffix = Tasks.OutputSuffix,
-
-                PixelSizeX = PixelSizeX,
-                PixelSizeY = PixelSizeY,
-                PixelSizeAngle = PixelSizeAngle,
-
-                BinTimes = BinTimes,
-                GainPath = Import.CorrectGain ? Import.GainPath : "",
-                GainHash = Import.CorrectGain ? Runtime.GainReferenceHash : "",
-                GainFlipX = Import.GainFlipX,
-                GainFlipY = Import.GainFlipY,
-                GainTranspose = Import.GainTranspose,
-                DosePerAngstromFrame = Import.DosePerAngstromFrame,
-
-                DoAverage = Tasks.Export2DDoAverages,
-                DoStack = Tasks.Export2DDoMovies,
-                StackGroupSize = Export.StackGroupSize,
-                SkipFirstN = Export.SkipFirstN,
-                SkipLastN = Export.SkipLastN,
-
-                Voltage = CTF.Voltage
-            };
-        }
-
-        public ProcessingOptionsFullMatch GetProcessingFullMatch()
-        {
-            decimal BinTimes = (decimal)Math.Log((double)(Tasks.TomoFullReconstructPixel / PixelSizeMean), 2.0);
-
-            return new ProcessingOptionsFullMatch
-            {
-                PixelSizeX = PixelSizeX,
-                PixelSizeY = PixelSizeY,
-                PixelSizeAngle = PixelSizeAngle,
-
-                BinTimes = BinTimes,
-                GainPath = Import.CorrectGain ? Import.GainPath : "",
-                GainHash = Import.CorrectGain ? Runtime.GainReferenceHash : "",
-                GainFlipX = Import.GainFlipX,
-                GainFlipY = Import.GainFlipY,
-                GainTranspose = Import.GainTranspose,
-                DosePerAngstromFrame = Import.DosePerAngstromFrame,
-                Voltage = CTF.Voltage,
-
-                TemplatePixel = Tasks.TomoMatchTemplatePixel,
-                TemplateDiameter = Tasks.TomoMatchTemplateDiameter,
-                TemplateFraction = Tasks.TomoMatchTemplateFraction,
-
-                SubPatchSize = 384,
-                Symmetry = Tasks.TomoMatchSymmetry,
-                HealpixOrder = (int)Tasks.TomoMatchHealpixOrder,
-
-                Supersample = 5,
-                
-                NResults = (int)Tasks.TomoMatchNResults,
-
-                Invert = Tasks.InputInvert,
-                WhitenSpectrum = Tasks.TomoMatchWhitenSpectrum
-            };
-        }
-
         public ProcessingOptionsBoxNet GetProcessingBoxNet()
         {
             return new ProcessingOptionsBoxNet
@@ -577,8 +337,11 @@ namespace Warp
                 PixelSizeAngle = PixelSizeAngle,
 
                 BinTimes = Import.BinTimes,
+                EERGroupFrames = Import.ExtensionEER ? Import.EERGroupFrames : 0,
                 GainPath = Import.CorrectGain ? Import.GainPath : "",
                 GainHash = Import.CorrectGain ? Runtime.GainReferenceHash : "",
+                DefectsPath = Import.CorrectDefects ? Import.DefectsPath : "",
+                DefectsHash = Import.CorrectDefects ? Runtime.DefectMapHash : "",
                 GainFlipX = Import.GainFlipX,
                 GainFlipY = Import.GainFlipY,
                 GainTranspose = Import.GainTranspose,
@@ -596,116 +359,6 @@ namespace Warp
                 ExportBoxSize = Picking.BoxSize,
                 ExportInvert = Picking.Invert,
                 ExportNormalize = Picking.Normalize
-            };
-        }
-
-        #endregion
-
-        #region Tomo processing settings creation
-
-        public ProcessingOptionsTomoFullReconstruction GetProcessingTomoFullReconstruction()
-        {
-            decimal BinTimes = (decimal)Math.Log((double)(Tasks.TomoFullReconstructPixel / PixelSizeMean), 2.0);
-
-            return new ProcessingOptionsTomoFullReconstruction
-            {
-                PixelSizeX = PixelSizeX,
-                PixelSizeY = PixelSizeY,
-                PixelSizeAngle = PixelSizeAngle,
-
-                BinTimes = BinTimes,
-                GainPath = Import.CorrectGain ? Import.GainPath : "",
-                GainHash = Import.CorrectGain ? Runtime.GainReferenceHash : "",
-                GainFlipX = Import.GainFlipX,
-                GainFlipY = Import.GainFlipY,
-                GainTranspose = Import.GainTranspose,
-
-                Dimensions = new float3((float)Tomo.DimensionsX,
-                                        (float)Tomo.DimensionsY,
-                                        (float)Tomo.DimensionsZ),
-
-                DoDeconv = Tasks.TomoFullReconstructDoDeconv,
-                DeconvStrength = Tasks.TomoFullReconstructDeconvStrength,
-                DeconvFalloff = Tasks.TomoFullReconstructDeconvFalloff,
-                DeconvHighpass = Tasks.TomoFullReconstructDeconvHighpass,
-
-                Invert = Tasks.TomoFullReconstructInvert,
-                Normalize = Tasks.TomoFullReconstructNormalize,
-                SubVolumeSize = 64,
-                SubVolumePadding = 2,
-                KeepOnlyFullVoxels = Tasks.TomoFullReconstructOnlyFullVoxels
-            };
-        }
-
-        public ProcessingOptionsTomoFullMatch GetProcessingTomoFullMatch()
-        {
-            decimal BinTimes = (decimal)Math.Log((double)(Tasks.TomoFullReconstructPixel / PixelSizeMean), 2.0);
-
-            return new ProcessingOptionsTomoFullMatch
-            {
-                PixelSizeX = PixelSizeX,
-                PixelSizeY = PixelSizeY,
-                PixelSizeAngle = PixelSizeAngle,
-
-                BinTimes = BinTimes,
-                GainPath = Import.CorrectGain ? Import.GainPath : "",
-                GainHash = Import.CorrectGain ? Runtime.GainReferenceHash : "",
-                GainFlipX = Import.GainFlipX,
-                GainFlipY = Import.GainFlipY,
-                GainTranspose = Import.GainTranspose,
-
-                Dimensions = new float3((float)Tomo.DimensionsX,
-                                        (float)Tomo.DimensionsY,
-                                        (float)Tomo.DimensionsZ),
-                
-                TemplatePixel = Tasks.TomoMatchTemplatePixel,
-                TemplateDiameter = Tasks.TomoMatchTemplateDiameter,
-                TemplateFraction = Tasks.TomoMatchTemplateFraction,
-                
-                SubVolumeSize = 192,
-                Symmetry = Tasks.TomoMatchSymmetry,
-                HealpixOrder = (int)Tasks.TomoMatchHealpixOrder,
-
-                Supersample = 1,
-
-                KeepOnlyFullVoxels = true,
-                NResults = (int)Tasks.TomoMatchNResults,
-
-                WhitenSpectrum = Tasks.TomoMatchWhitenSpectrum
-            };
-        }
-
-        public ProcessingOptionsTomoSubReconstruction GetProcessingTomoSubReconstruction()
-        {
-            decimal BinTimes = (decimal)Math.Log((double)(Tasks.TomoSubReconstructPixel / PixelSizeMean), 2.0);
-
-            return new ProcessingOptionsTomoSubReconstruction
-            {
-                PixelSizeX = PixelSizeX,
-                PixelSizeY = PixelSizeY,
-                PixelSizeAngle = PixelSizeAngle,
-
-                BinTimes = BinTimes,
-                GainPath = Import.CorrectGain ? Import.GainPath : "",
-                GainHash = Import.CorrectGain ? Runtime.GainReferenceHash : "",
-                GainFlipX = Import.GainFlipX,
-                GainFlipY = Import.GainFlipY,
-                GainTranspose = Import.GainTranspose,
-
-                Dimensions = new float3((float)Tomo.DimensionsX,
-                                        (float)Tomo.DimensionsY,
-                                        (float)Tomo.DimensionsZ),
-
-                BoxSize = (int)Tasks.TomoSubReconstructBox,
-                ParticleDiameter = (int)Tasks.TomoSubReconstructDiameter,
-
-                Invert = Tasks.InputInvert,
-                NormalizeInput = Tasks.InputNormalize,
-                NormalizeOutput = Tasks.OutputNormalize,
-
-                PrerotateParticles = Tasks.TomoSubReconstructPrerotated,
-                DoLimitDose = Tasks.TomoSubReconstructDoLimitDose,
-                NTilts = Tasks.TomoSubReconstructNTilts
             };
         }
 
@@ -806,7 +459,35 @@ namespace Warp
                 }
             }
         }
-        
+
+        public bool ExtensionTIFFF
+        {
+            get { return Extension == "*.tiff"; }
+            set
+            {
+                if (value != (Extension == "*.tiff"))
+                {
+                    if (value)
+                        Extension = "*.tiff";
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        public bool ExtensionEER
+        {
+            get { return Extension == "*.eer"; }
+            set
+            {
+                if (value != (Extension == "*.eer"))
+                {
+                    if (value)
+                        Extension = "*.eer";
+                    OnPropertyChanged();
+                }
+            }
+        }
+
         public bool ExtensionTomoSTAR
         {
             get { return Extension == "*.tomostar"; }
@@ -897,6 +578,14 @@ namespace Warp
             }
         }
 
+        private string _DefectsPath = "";
+        [WarpSerializable]
+        public string DefectsPath
+        {
+            get { return _DefectsPath; }
+            set { if (value != _DefectsPath) { _DefectsPath = value; OnPropertyChanged(); } }
+        }
+
         private bool _GainFlipX = false;
         [WarpSerializable]
         public bool GainFlipX
@@ -936,12 +625,28 @@ namespace Warp
             }
         }
 
+        private bool _CorrectDefects = false;
+        [WarpSerializable]
+        public bool CorrectDefects
+        {
+            get { return _CorrectDefects; }
+            set { if (value != _CorrectDefects) { _CorrectDefects = value; OnPropertyChanged(); } }
+        }
+
         private decimal _DosePerAngstromFrame = 0;
         [WarpSerializable]
         public decimal DosePerAngstromFrame
         {
             get { return _DosePerAngstromFrame; }
             set { if (value != _DosePerAngstromFrame) { _DosePerAngstromFrame = value; OnPropertyChanged(); } }
+        }
+
+        private int _EERGroupFrames = 10;
+        [WarpSerializable]
+        public int EERGroupFrames
+        {
+            get { return _EERGroupFrames; }
+            set { if (value != _EERGroupFrames) { _EERGroupFrames = value; OnPropertyChanged(); } }
         }
     }
 
@@ -2041,6 +1746,13 @@ namespace Warp
         {
             get { return _GainReferenceHash; }
             set { if (value != _GainReferenceHash) { _GainReferenceHash = value; OnPropertyChanged(); } }
+        }
+
+        private string _DefectMapHash = "";
+        public string DefectMapHash
+        {
+            get { return _DefectMapHash; }
+            set { if (value != _DefectMapHash) { _DefectMapHash = value; OnPropertyChanged(); } }
         }
 
         private string _GPUStats = "";

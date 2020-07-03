@@ -15,7 +15,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 
-namespace Warp.Controls
+namespace Warp
 {
     /// <summary>
     /// Interaction logic for NyanBar.xaml

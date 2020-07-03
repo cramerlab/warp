@@ -154,14 +154,14 @@ namespace M.Controls.Sociology.Dialogs
             get { return (decimal)GetValue(ParticleCoordinatesPixelProperty); }
             set { SetValue(ParticleCoordinatesPixelProperty, value); }
         }
-        public static readonly DependencyProperty ParticleCoordinatesPixelProperty = DependencyProperty.Register("ParticleCoordinatesPixel", typeof(decimal), typeof(DialogCreateNewSpecies), new PropertyMetadata(1M));
+        public static readonly DependencyProperty ParticleCoordinatesPixelProperty = DependencyProperty.Register("ParticleCoordinatesPixel", typeof(decimal), typeof(DialogCreateNewSpecies), new PropertyMetadata(1M, (sender, value) => ((DialogCreateNewSpecies)sender).UpdateParticles()));
 
         public decimal ParticleShiftsPixel
         {
             get { return (decimal)GetValue(ParticleShiftsPixelProperty); }
             set { SetValue(ParticleShiftsPixelProperty, value); }
         }
-        public static readonly DependencyProperty ParticleShiftsPixelProperty = DependencyProperty.Register("ParticleShiftsPixel", typeof(decimal), typeof(DialogCreateNewSpecies), new PropertyMetadata(1M));
+        public static readonly DependencyProperty ParticleShiftsPixelProperty = DependencyProperty.Register("ParticleShiftsPixel", typeof(decimal), typeof(DialogCreateNewSpecies), new PropertyMetadata(1M, (sender, value) => ((DialogCreateNewSpecies)sender).UpdateParticles()));
 
         private bool[] UseSource;
         private DataSource[] ValidSources;
@@ -553,9 +553,11 @@ namespace M.Controls.Sociology.Dialogs
 
         #region Particles
 
+        bool PauseParticleUpdates = false;
+
         async void UpdateParticles()
         {
-            if (!IsInitialized)
+            if (!IsInitialized || PauseParticleUpdates)
                 return;
 
             bool UseWarp = (bool)RadioParticlesWarp.IsChecked;
@@ -822,8 +824,12 @@ namespace M.Controls.Sociology.Dialogs
                         decimal DetectorPixel = decimal.Parse(TableRelion.GetRowValue(0, "rlnDetectorPixelSize")) * 1e4M;
                         decimal Mag = decimal.Parse(TableRelion.GetRowValue(0, "rlnMagnification"));
 
-                        ParticleCoordinatesPixel = DetectorPixel / Mag;
-                        ParticleShiftsPixel = DetectorPixel / Mag;
+                        PauseParticleUpdates = true;
+                        {
+                            ParticleCoordinatesPixel = DetectorPixel / Mag;
+                            ParticleShiftsPixel = DetectorPixel / Mag;
+                        }
+                        PauseParticleUpdates = false;
                     }
                     catch { }
                 }

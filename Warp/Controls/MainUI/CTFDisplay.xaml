@@ -121,7 +121,7 @@
                         </TextBlock.RenderTransform>
                     </TextBlock>
                 </StackPanel>
-                <TextBlock Name="TextAngleMismatch" Height="18" Text="Tilt angles seem inverted!" FontWeight="Medium" Foreground="Red" />
+                <TextBlock Name="TextAngleMismatch" Height="18" Text="Defocus handedness has been inverted!" />
             </StackPanel>
 
             <m:ProgressRing Grid.Column="0" Grid.Row="0" Name="ProgressCTF2D" Foreground="Gray" Visibility="Hidden" />

@@ -1734,6 +1734,9 @@ namespace Warp.Controls
 
         private void PopulateBoxNetworks(string modelDir)
         {
+            FreeOnDevice();
+            Image.FreeDeviceAll();
+
             BoxNetworks = new[] { new BoxNet2(modelDir, GPU.GetDeviceWithMostMemory(), 2, 1, false) };
             BoxNetworksModelDir = modelDir;
         }
@@ -1757,6 +1760,9 @@ namespace Warp.Controls
                 Progress = await ((MainWindow)Application.Current.MainWindow).ShowProgressAsync("Loading NoiseNet model...", "");
                 Progress.SetIndeterminate();
             });
+
+            FreeOnDevice();
+            Image.FreeDeviceAll();
 
             await Task.Run(() =>
             {
@@ -1866,6 +1872,9 @@ namespace Warp.Controls
                     ProgressDialog.SetIndeterminate();
                     ProgressDialog.SetTitle("Loading old model...");
                 });
+
+                FreeOnDevice();
+                Image.FreeDeviceAll();
 
                 NoiseNet2D TrainModel = new NoiseNet2D("noisenetmodel", new int2(Dim), 1, BatchSize, true);
 
@@ -2006,9 +2015,11 @@ namespace Warp.Controls
                 TrainModel.Dispose();
             });
 
+            Image.FreeDeviceAll();
+            FreeOnDevice();
             DropNoiseNetworks();
             DropBoxNetworks();
-            TFHelper.TF_FreeAllMemory();
+            //TFHelper.TF_FreeAllMemory();
 
             await ProgressDialog.CloseAsync();
 
@@ -2379,12 +2390,12 @@ namespace Warp.Controls
             return null;
         }
 
-        void FreeOnDevice()
+        public void FreeOnDevice()
         {
-            MicrographFT?.Dispose();
+            MicrographFT?.FreeDevice();
             MicrographFT = null;
 
-            MicrographDenoised?.Dispose();
+            MicrographDenoised?.FreeDevice();
             MicrographDenoised = null;
 
             MicrographOwner = null;

@@ -101,7 +101,9 @@
     <Compile Include="TiltSeries.cs" />
     <Compile Include="Tools\BenchmarkTimer.cs" />
     <Compile Include="Tools\ColorScale.cs" />
+    <Compile Include="Tools\DefectModel.cs" />
     <Compile Include="Tools\EERNative.cs" />
+    <Compile Include="Tools\HungarianAlgorithm.cs" />
     <Compile Include="Tools\ImodHelper.cs" />
     <Compile Include="Tools\NamedSerializableObject.cs" />
     <Compile Include="Tools\Quaternion.cs" />

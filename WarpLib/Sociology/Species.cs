@@ -168,7 +168,7 @@ namespace Warp.Sociology
             set { if (value != _DiameterAngstrom) { _DiameterAngstrom = value; OnPropertyChanged(); } }
         }
 
-        public int Size => (int)Math.Round(DiameterAngstrom / PixelSize * 2M / 2M) * 2;
+        public int Size => (int)Math.Round(DiameterAngstrom / PixelSize) * 2;
 
         private string _Symmetry = "C1";
         [WarpSerializable]
@@ -186,7 +186,7 @@ namespace Warp.Sociology
             set { if (value != _DoEwald) { _DoEwald = value; OnPropertyChanged(); } }
         }
 
-        private bool _EwaldReverse = false;
+        private bool _EwaldReverse = true;
         [WarpSerializable]
         public bool EwaldReverse
         {
@@ -884,6 +884,14 @@ namespace Warp.Sociology
         }
 
         #region Particle operations
+
+        public void AddParticles(Particle[] newParticles)
+        {
+            if (Particles != null)
+                Particles = Helper.Combine(new[] { Particles, newParticles });
+            else
+                Particles = newParticles;
+        }
 
         public Star ParticlesToStar()
         {

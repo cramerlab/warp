@@ -30,6 +30,7 @@ namespace WarpWorker
         static BinaryFormatter Formatter;
 
         static Image GainRef = null;
+        static DefectModel DefectMap = null;
         static int2 HeaderlessDims = new int2(2);
         static long HeaderlessOffset = 0;
         static string HeaderlessType = "float32";
@@ -123,18 +124,24 @@ namespace WarpWorker
                     else if (Command.Name == "LoadGainRef")
                     {
                         GainRef?.Dispose();
+                        DefectMap?.Dispose();
 
-                        string Path = (string)Command.Content[0];
+                        string GainPath = (string)Command.Content[0];
                         bool FlipX = (bool)Command.Content[1];
                         bool FlipY = (bool)Command.Content[2];
                         bool Transpose = (bool)Command.Content[3];
+                        string DefectsPath = (string)Command.Content[4];
 
-                        if (!string.IsNullOrEmpty(Path))
+                        if (!string.IsNullOrEmpty(GainPath))
                         {
-                            GainRef = LoadAndPrepareGainReference(Path, FlipX, FlipY, Transpose);
+                            GainRef = LoadAndPrepareGainReference(GainPath, FlipX, FlipY, Transpose);
+                        }
+                        if (!string.IsNullOrEmpty(DefectsPath))
+                        {
+                            DefectMap = LoadAndPrepareDefectMap(DefectsPath, FlipX, FlipY, Transpose);
                         }
 
-                        Console.WriteLine($"Loaded gain reference: {GainRef}, {FlipX}, {FlipY}, {Transpose}");
+                        Console.WriteLine($"Loaded gain reference and defect map: {GainRef}, {FlipX}, {FlipY}, {Transpose}, {DefectsPath}");
                     }
                     else if (Command.Name == "LoadStack")
                     {
@@ -142,8 +149,11 @@ namespace WarpWorker
 
                         string Path = (string)Command.Content[0];
                         decimal ScaleFactor = (decimal)Command.Content[1];
+                        int EERGroupFrames = (int)Command.Content[2];
 
-                        OriginalStack = LoadAndPrepareStack(Path, GainRef, ScaleFactor);
+                        HeaderEER.GroupNFrames = EERGroupFrames;
+
+                        OriginalStack = LoadAndPrepareStack(Path, ScaleFactor);
                         OriginalStackOwner = Helper.PathToNameWithExtension(Path);
 
                         Console.WriteLine($"Loaded stack: {OriginalStack}, {ScaleFactor}");
@@ -261,7 +271,7 @@ namespace WarpWorker
 
                         GPU.SetDevice(DeviceID);
 
-                        Item.PerformMultiParticleRefinement(WorkingDirectory, Options, MPAPopulation.Species.ToArray(), Source, GainRef, (message) =>
+                        Item.PerformMultiParticleRefinement(WorkingDirectory, Options, MPAPopulation.Species.ToArray(), Source, GainRef, DefectMap, (message) =>
                         {
                             Console.WriteLine(message);
 
@@ -345,6 +355,7 @@ namespace WarpWorker
         static void CleanUp()
         {
             GainRef?.Dispose();
+            DefectMap?.Dispose();
             OriginalStack?.Dispose();
 
             Terminating = true;
@@ -361,6 +372,9 @@ namespace WarpWorker
                                                (int)HeaderlessOffset,
                                                ImageFormatsHelper.StringToType(HeaderlessType));
 
+            float Mean = MathHelper.Mean(Gain.GetHost(Intent.Read)[0]);
+            Gain.TransformValues(v => v == 0 ? 1 : v / Mean);
+
             if (flipX)
                 Gain = Gain.AsFlippedX();
             if (flipY)
@@ -371,7 +385,28 @@ namespace WarpWorker
             return Gain;
         }
 
-        static Image LoadAndPrepareStack(string path, Image imageGain, decimal scaleFactor, int maxThreads = 8)
+        static DefectModel LoadAndPrepareDefectMap(string path, bool flipX, bool flipY, bool transpose)
+        {
+            Image Defects = Image.FromFilePatient(50, 500,
+                                                  path,
+                                                  HeaderlessDims,
+                                                  (int)HeaderlessOffset,
+                                                  ImageFormatsHelper.StringToType(HeaderlessType));
+
+            if (flipX)
+                Defects = Defects.AsFlippedX();
+            if (flipY)
+                Defects = Defects.AsFlippedY();
+            if (transpose)
+                Defects = Defects.AsTransposed();
+
+            DefectModel Model = new DefectModel(Defects, 4);
+            Defects.Dispose();
+
+            return Model;
+        }
+
+        static Image LoadAndPrepareStack(string path, decimal scaleFactor, int maxThreads = 8)
         {
             Image stack = null;
 
@@ -385,19 +420,19 @@ namespace WarpWorker
             bool IsTiff = header.GetType() == typeof(HeaderTiff);
             bool IsEER = header.GetType() == typeof(HeaderEER);
 
-            if (imageGain != null)
+            if (GainRef != null)
                 if (!IsEER)
-                    if (header.Dimensions.X != imageGain.Dims.X || header.Dimensions.Y != imageGain.Dims.Y)
+                    if (header.Dimensions.X != GainRef.Dims.X || header.Dimensions.Y != GainRef.Dims.Y)
                         throw new Exception("Gain reference dimensions do not match image.");
 
             int EERSupersample = 1;
-            if (imageGain != null && IsEER)
+            if (GainRef != null && IsEER)
             {
-                if (header.Dimensions.X == imageGain.Dims.X)
+                if (header.Dimensions.X == GainRef.Dims.X)
                     EERSupersample = 1;
-                else if (header.Dimensions.X * 2 == imageGain.Dims.X)
+                else if (header.Dimensions.X * 2 == GainRef.Dims.X)
                     EERSupersample = 2;
-                else if (header.Dimensions.X * 4 == imageGain.Dims.X)
+                else if (header.Dimensions.X * 4 == GainRef.Dims.X)
                     EERSupersample = 3;
                 else
                     throw new Exception("Invalid supersampling factor requested for EER based on gain reference dimensions");
@@ -405,10 +440,10 @@ namespace WarpWorker
 
             HeaderEER.SuperResolution = EERSupersample;
 
-            if (IsEER && imageGain != null)
+            if (IsEER && GainRef != null)
             {
-                header.Dimensions.X = imageGain.Dims.X;
-                header.Dimensions.Y = imageGain.Dims.Y;
+                header.Dimensions.X = GainRef.Dims.X;
+                header.Dimensions.Y = GainRef.Dims.Y;
             }
 
             int NThreads = (IsTiff || IsEER) ? 6 : 2;
@@ -451,8 +486,21 @@ namespace WarpWorker
                     {
                         GPU.CopyHostToDevice(RawLayers[threadID], GPULayers[GPUThreadID].GetDevice(Intent.Write), RawLayers[threadID].Length);
 
-                        if (imageGain != null)
-                            GPULayers[GPUThreadID].MultiplySlices(imageGain);
+                        if (GainRef != null)
+                        {
+                            if (IsEER)
+                                GPULayers[GPUThreadID].DivideSlices(GainRef);
+                            else
+                                GPULayers[GPUThreadID].MultiplySlices(GainRef);
+                        }
+
+                        if (DefectMap != null)
+                        {
+                            GPU.CopyDeviceToDevice(GPULayers[GPUThreadID].GetDevice(Intent.Read),
+                                                   GPULayers2[GPUThreadID].GetDevice(Intent.Write),
+                                                   header.Dimensions.Elements());
+                            DefectMap.Correct(GPULayers2[GPUThreadID], GPULayers[GPUThreadID]);
+                        }
 
                         GPU.Xray(GPULayers[GPUThreadID].GetDevice(Intent.Read),
                                  GPULayers2[GPUThreadID].GetDevice(Intent.Write),
@@ -508,8 +556,21 @@ namespace WarpWorker
                     {
                         GPU.CopyHostToDevice(RawLayers[threadID], GPULayers[GPUThreadID].GetDevice(Intent.Write), RawLayers[threadID].Length);
 
-                        if (imageGain != null)
-                            GPULayers[GPUThreadID].MultiplySlices(imageGain);
+                        if (GainRef != null)
+                        {
+                            if (IsEER)
+                                GPULayers[GPUThreadID].DivideSlices(GainRef);
+                            else
+                                GPULayers[GPUThreadID].MultiplySlices(GainRef);
+                        }
+
+                        if (DefectMap != null)
+                        {
+                            GPU.CopyDeviceToDevice(GPULayers[GPUThreadID].GetDevice(Intent.Read),
+                                                   GPULayers2[GPUThreadID].GetDevice(Intent.Write),
+                                                   header.Dimensions.Elements());
+                            DefectMap.Correct(GPULayers2[GPUThreadID], GPULayers[GPUThreadID]);
+                        }
 
                         GPU.Xray(GPULayers[GPUThreadID].GetDevice(Intent.Read),
                                  GPULayers2[GPUThreadID].GetDevice(Intent.Write),

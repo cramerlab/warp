@@ -365,8 +365,11 @@ namespace Warp
                 PixelSizeY = PixelSizeY,
                 PixelSizeAngle = PixelSizeAngle,
                 BinTimes = Import.BinTimes,
+                EERGroupFrames = Import.ExtensionEER ? Import.EERGroupFrames : 0,
                 GainPath = Import.CorrectGain ? Import.GainPath : "",
                 GainHash = Import.CorrectGain ? Runtime.GainReferenceHash : "",
+                DefectsPath = Import.CorrectDefects ? Import.DefectsPath : "",
+                DefectsHash = Import.CorrectDefects ? Runtime.DefectMapHash : "",
                 GainFlipX = Import.GainFlipX,
                 GainFlipY = Import.GainFlipY,
                 GainTranspose = Import.GainTranspose,
@@ -401,6 +404,8 @@ namespace Warp
             Import.GainFlipX = options.GainFlipX;
             Import.GainFlipY = options.GainFlipY;
             Import.GainTranspose = options.GainTranspose;
+            Import.DefectsPath = options.DefectsPath;
+            Import.CorrectDefects = !string.IsNullOrEmpty(options.DefectsPath);
 
             CTF.Window = options.Window;
             CTF.RangeMin = options.RangeMin;
@@ -430,8 +435,11 @@ namespace Warp
                 PixelSizeY = PixelSizeY,
                 PixelSizeAngle = PixelSizeAngle,
                 BinTimes = Import.BinTimes,
+                EERGroupFrames = Import.ExtensionEER ? Import.EERGroupFrames : 0,
                 GainPath = Import.CorrectGain ? Import.GainPath : "",
                 GainHash = Import.CorrectGain ? Runtime.GainReferenceHash : "",
+                DefectsPath = Import.CorrectDefects ? Import.DefectsPath : "",
+                DefectsHash = Import.CorrectDefects ? Runtime.DefectMapHash : "",
                 GainFlipX = Import.GainFlipX,
                 GainFlipY = Import.GainFlipY,
                 GainTranspose = Import.GainTranspose,
@@ -453,6 +461,8 @@ namespace Warp
             Import.GainFlipX = options.GainFlipX;
             Import.GainFlipY = options.GainFlipY;
             Import.GainTranspose = options.GainTranspose;
+            Import.DefectsPath = options.DefectsPath;
+            Import.CorrectDefects = !string.IsNullOrEmpty(options.DefectsPath);
             Movement.RangeMin = options.RangeMin;
             Movement.RangeMax = options.RangeMax;
             Movement.Bfactor = options.Bfactor;
@@ -470,8 +480,11 @@ namespace Warp
                 PixelSizeAngle = PixelSizeAngle,
 
                 BinTimes = Import.BinTimes,
+                EERGroupFrames = Import.ExtensionEER ? Import.EERGroupFrames : 0,
                 GainPath = Import.CorrectGain ? Import.GainPath : "",
                 GainHash = Import.CorrectGain ? Runtime.GainReferenceHash : "",
+                DefectsPath = Import.CorrectDefects ? Import.DefectsPath : "",
+                DefectsHash = Import.CorrectDefects ? Runtime.DefectMapHash : "",
                 GainFlipX = Import.GainFlipX,
                 GainFlipY = Import.GainFlipY,
                 GainTranspose = Import.GainTranspose,
@@ -502,6 +515,8 @@ namespace Warp
             Import.GainFlipX = options.GainFlipX;
             Import.GainFlipY = options.GainFlipY;
             Import.GainTranspose = options.GainTranspose;
+            Import.DefectsPath = options.DefectsPath;
+            Import.CorrectDefects = !string.IsNullOrEmpty(options.DefectsPath);
 
             Import.DosePerAngstromFrame = options.DosePerAngstromFrame;
 
@@ -530,8 +545,11 @@ namespace Warp
                 PixelSizeAngle = PixelSizeAngle,
 
                 BinTimes = BinTimes,
+                EERGroupFrames = Import.ExtensionEER ? Import.EERGroupFrames : 0,
                 GainPath = Import.CorrectGain ? Import.GainPath : "",
                 GainHash = Import.CorrectGain ? Runtime.GainReferenceHash : "",
+                DefectsPath = Import.CorrectDefects ? Import.DefectsPath : "",
+                DefectsHash = Import.CorrectDefects ? Runtime.DefectMapHash : "",
                 GainFlipX = Import.GainFlipX,
                 GainFlipY = Import.GainFlipY,
                 GainTranspose = Import.GainTranspose,
@@ -559,8 +577,11 @@ namespace Warp
                 PixelSizeAngle = PixelSizeAngle,
 
                 BinTimes = BinTimes,
+                EERGroupFrames = Import.ExtensionEER ? Import.EERGroupFrames : 0,
                 GainPath = Import.CorrectGain ? Import.GainPath : "",
                 GainHash = Import.CorrectGain ? Runtime.GainReferenceHash : "",
+                DefectsPath = Import.CorrectDefects ? Import.DefectsPath : "",
+                DefectsHash = Import.CorrectDefects ? Runtime.DefectMapHash : "",
                 GainFlipX = Import.GainFlipX,
                 GainFlipY = Import.GainFlipY,
                 GainTranspose = Import.GainTranspose,
@@ -593,8 +614,11 @@ namespace Warp
                 PixelSizeAngle = PixelSizeAngle,
 
                 BinTimes = Import.BinTimes,
+                EERGroupFrames = Import.ExtensionEER ? Import.EERGroupFrames : 0,
                 GainPath = Import.CorrectGain ? Import.GainPath : "",
                 GainHash = Import.CorrectGain ? Runtime.GainReferenceHash : "",
+                DefectsPath = Import.CorrectDefects ? Import.DefectsPath : "",
+                DefectsHash = Import.CorrectDefects ? Runtime.DefectMapHash : "",
                 GainFlipX = Import.GainFlipX,
                 GainFlipY = Import.GainFlipY,
                 GainTranspose = Import.GainTranspose,
@@ -630,8 +654,11 @@ namespace Warp
                 PixelSizeAngle = PixelSizeAngle,
 
                 BinTimes = BinTimes,
+                EERGroupFrames = Import.ExtensionEER ? Import.EERGroupFrames : 0,
                 GainPath = Import.CorrectGain ? Import.GainPath : "",
                 GainHash = Import.CorrectGain ? Runtime.GainReferenceHash : "",
+                DefectsPath = Import.CorrectDefects ? Import.DefectsPath : "",
+                DefectsHash = Import.CorrectDefects ? Runtime.DefectMapHash : "",
                 GainFlipX = Import.GainFlipX,
                 GainFlipY = Import.GainFlipY,
                 GainTranspose = Import.GainTranspose,
@@ -667,8 +694,11 @@ namespace Warp
                 PixelSizeAngle = PixelSizeAngle,
 
                 BinTimes = BinTimes,
+                EERGroupFrames = Import.ExtensionEER ? Import.EERGroupFrames : 0,
                 GainPath = Import.CorrectGain ? Import.GainPath : "",
                 GainHash = Import.CorrectGain ? Runtime.GainReferenceHash : "",
+                DefectsPath = Import.CorrectDefects ? Import.DefectsPath : "",
+                DefectsHash = Import.CorrectDefects ? Runtime.DefectMapHash : "",
                 GainFlipX = Import.GainFlipX,
                 GainFlipY = Import.GainFlipY,
                 GainTranspose = Import.GainTranspose,
@@ -707,8 +737,11 @@ namespace Warp
                 PixelSizeAngle = PixelSizeAngle,
 
                 BinTimes = BinTimes,
+                EERGroupFrames = Import.ExtensionEER ? Import.EERGroupFrames : 0,
                 GainPath = Import.CorrectGain ? Import.GainPath : "",
                 GainHash = Import.CorrectGain ? Runtime.GainReferenceHash : "",
+                DefectsPath = Import.CorrectDefects ? Import.DefectsPath : "",
+                DefectsHash = Import.CorrectDefects ? Runtime.DefectMapHash : "",
                 GainFlipX = Import.GainFlipX,
                 GainFlipY = Import.GainFlipY,
                 GainTranspose = Import.GainTranspose,
@@ -716,6 +749,8 @@ namespace Warp
                 Dimensions = new float3((float)Tomo.DimensionsX,
                                         (float)Tomo.DimensionsY,
                                         (float)Tomo.DimensionsZ),
+
+                Suffix = "",
 
                 BoxSize = (int)Tasks.TomoSubReconstructBox,
                 ParticleDiameter = (int)Tasks.TomoSubReconstructDiameter,
@@ -959,6 +994,15 @@ namespace Warp
             }
         }
 
+        private string _DefectsPath = "";
+        [WarpSerializable]
+        [JsonProperty]
+        public string DefectsPath
+        {
+            get { return _DefectsPath; }
+            set { if (value != _DefectsPath) { _DefectsPath = value; OnPropertyChanged(); } }
+        }
+
         private bool _GainFlipX = false;
         [WarpSerializable]
         [JsonProperty]
@@ -1002,6 +1046,15 @@ namespace Warp
             }
         }
 
+        private bool _CorrectDefects = false;
+        [WarpSerializable]
+        [JsonProperty]
+        public bool CorrectDefects
+        {
+            get { return _CorrectDefects; }
+            set { if (value != _CorrectDefects) { _CorrectDefects = value; OnPropertyChanged(); } }
+        }
+
         private decimal _DosePerAngstromFrame = 0;
         [WarpSerializable]
         [JsonProperty]
@@ -1009,6 +1062,15 @@ namespace Warp
         {
             get { return _DosePerAngstromFrame; }
             set { if (value != _DosePerAngstromFrame) { _DosePerAngstromFrame = value; OnPropertyChanged(); } }
+        }
+
+        private int _EERGroupFrames = 10;
+        [WarpSerializable]
+        [JsonProperty]
+        public int EERGroupFrames
+        {
+            get { return _EERGroupFrames; }
+            set { if (value != _EERGroupFrames) { _EERGroupFrames = value; OnPropertyChanged(); } }
         }
     }
 
@@ -2182,6 +2244,13 @@ namespace Warp
         {
             get { return _GainReferenceHash; }
             set { if (value != _GainReferenceHash) { _GainReferenceHash = value; OnPropertyChanged(); } }
+        }
+
+        private string _DefectMapHash = "";
+        public string DefectMapHash
+        {
+            get { return _DefectMapHash; }
+            set { if (value != _DefectMapHash) { _DefectMapHash = value; OnPropertyChanged(); } }
         }
 
         private string _GPUStats = "";

@@ -529,6 +529,7 @@ namespace Warp
                     return;
                 }
                 ButtonInputPathText.Text = Options.Import.Folder == "" ? "Select folder..." : Options.Import.Folder;
+                ButtonInputPathText.ToolTip = Options.Import.Folder == "" ? "" : Options.Import.Folder;
 
                 if (OptionsLookForFolderOptions)
                 {
@@ -577,6 +578,18 @@ namespace Warp
                 Options.Runtime.GainReferenceHash = MathHelper.GetSHA1(Options.Import.GainPath, 1 << 20);
                 ButtonGainPathText.Text = Options.Import.GainPath == "" ? "Select gain reference..." : Options.Import.GainPath;
                 ButtonGainPathText.ToolTip = Options.Import.GainPath == "" ? null : Options.Import.GainPath;
+            }
+            else if (e.PropertyName == "Import.DefectsPath")
+            {
+                if (!File.Exists(Options.Import.DefectsPath))
+                {
+                    Options.Import.DefectsPath = "";
+                    return;
+                }
+
+                Options.Runtime.DefectMapHash = MathHelper.GetSHA1(Options.Import.DefectsPath, 1 << 20);
+                ButtonDefectsPathText.Text = Options.Import.DefectsPath == "" ? "Select defect map..." : Options.Import.DefectsPath;
+                ButtonDefectsPathText.ToolTip = Options.Import.DefectsPath == "" ? null : Options.Import.DefectsPath;
             }
             else if (e.PropertyName == "CTF.Window")
             {
@@ -846,6 +859,99 @@ namespace Warp
             }
         }
 
+        private async void ButtonDefectPath_OnClick(object sender, RoutedEventArgs e)
+        {
+            System.Windows.Forms.OpenFileDialog Dialog = new System.Windows.Forms.OpenFileDialog
+            {
+                Filter = "Image Files|*.dm4;*.mrc;*.em;*.tif;*.tiff|Rectangle list|*.txt",
+                Multiselect = false
+            };
+            System.Windows.Forms.DialogResult Result = Dialog.ShowDialog();
+
+            if (Result.ToString() == "OK")
+            {
+                string Extension = Helper.PathToExtension(Dialog.FileName).ToLower();
+
+                if (Extension != ".txt")
+                {
+                    Options.Import.DefectsPath = Dialog.FileName;
+                    Options.Import.CorrectDefects = true;
+                }
+                else
+                {
+                    if (!File.Exists(Options.Import.GainPath) || !Options.Import.CorrectGain)
+                    {
+                        await Dispatcher.InvokeAsync(async () =>
+                        {
+                            await this.ShowMessageAsync("Oopsie",
+                                                        "Please select and activate a gain reference before a defect map\n" +
+                                                        "can be created from a rectangle list file");
+                        });
+                        return;
+                    }
+
+                    try
+                    {
+                        int3 GainDims = (MapHeader.ReadFromFile(Options.Import.GainPath)).Dimensions;
+                        List<int4> Rectangles = new List<int4>();
+                        using (TextReader Reader = File.OpenText(Dialog.FileName))
+                        {
+                            string Line;
+                            while ((Line = Reader.ReadLine()) != null)
+                            {
+                                string[] Parts = Line.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+                                if (Parts.Length == 4)
+                                    Rectangles.Add(new int4(int.Parse(Parts[0]),
+                                                            int.Parse(Parts[1]),
+                                                            int.Parse(Parts[2]),
+                                                            int.Parse(Parts[3])));
+                            }
+                        }
+
+                        if (Rectangles.Count == 0)
+                            throw new Exception("No valid rectangle definitions could be found.");
+
+                        Image DefectsMap = new Image(GainDims);
+                        float[] DefectsData = DefectsMap.GetHost(Intent.ReadWrite)[0];
+                        foreach (var rect in Rectangles)
+                        {
+                            for (int y = 0; y < rect.W; y++)
+                            {
+                                int yy = rect.Y + y;
+                                for (int x = 0; x < rect.Z; x++)
+                                {
+                                    int xx = rect.X + x;
+                                    if (xx < 0 || xx >= GainDims.X || yy < 0 || yy >= GainDims.Y)
+                                        throw new Exception($"Rectangle exceeded image dimensions: {xx}, {yy} (0-based)");
+
+                                    DefectsData[yy * GainDims.X + xx] = 1;
+                                }
+                            }
+                        }
+
+                        Directory.CreateDirectory(Path.Combine(Options.Import.Folder, "defectmap"));
+                        DefectsMap.WriteTIFF(Path.Combine(Options.Import.Folder, "defectmap", "defects.tif"), 1, typeof(float));
+                        DefectsMap.Dispose();
+
+                        Options.Import.DefectsPath = Path.Combine(Options.Import.Folder, "defectmap", "defects.tif");
+                        Options.Import.CorrectDefects = true;
+                    }
+                    catch (Exception exc)
+                    {
+                        await Dispatcher.InvokeAsync(async () =>
+                        {
+                            await this.ShowMessageAsync("Oopsie",
+                                                        "Couldn't create defect map because:\n" +
+                                                        exc.ToString());
+                        });
+                        return;
+                    }
+
+
+                }
+            }
+        }
+
         private void ButtonOptionsSave_OnClick(object sender, RoutedEventArgs e)
         {
             System.Windows.Forms.SaveFileDialog Dialog = new System.Windows.Forms.SaveFileDialog
@@ -1014,6 +1120,7 @@ namespace Warp
                     #region Load gain reference if needed
 
                     Image ImageGain = null;
+                    DefectModel DefectMap = null;
                     if (!string.IsNullOrEmpty(Options.Import.GainPath) && Options.Import.CorrectGain && File.Exists(Options.Import.GainPath))
                         try
                         {
@@ -1034,6 +1141,29 @@ namespace Warp
 
                             return;
                         }
+                    if (!string.IsNullOrEmpty(Options.Import.DefectsPath) && Options.Import.CorrectDefects && File.Exists(Options.Import.DefectsPath))
+                        try
+                        {
+                            DefectMap = LoadAndPrepareDefectMap();
+
+                            if (ImageGain != null && new int2(ImageGain.Dims) != DefectMap.Dims)
+                                throw new Exception("Defect map and gain reference dimensions don't match.");
+                        }
+                        catch (Exception exc)
+                        {
+                            DefectMap?.Dispose();
+
+                            await Dispatcher.InvokeAsync(async () =>
+                            {
+                                await this.ShowMessageAsync("Oopsie",
+                                                            "Something went wrong when trying to load the defect map.\n\n" +
+                                                            "The exception raised is:\n" + exc);
+
+                                ButtonStartProcessing_OnClick(sender, e);
+                            });
+
+                            return;
+                        }
 
                     #endregion
 
@@ -1045,6 +1175,8 @@ namespace Warp
                     if (!IsTomo && Options.ProcessPicking)
                     {
                         ProgressDialogController ProgressDialog = null;
+
+                        Image.FreeDeviceAll();
 
                         try
                         {
@@ -1070,6 +1202,7 @@ namespace Warp
                             });
 
                             ImageGain?.Dispose();
+                            DefectMap?.Dispose();
 
                             await ProgressDialog.CloseAsync();
 
@@ -1256,13 +1389,15 @@ namespace Warp
                                                            Options.Import.HeaderlessOffset, 
                                                            Options.Import.HeaderlessType);
 
-                        if (!string.IsNullOrEmpty(Options.Import.GainPath) && Options.Import.CorrectGain)
-                            Workers[gpuID].LoadGainRef(Options.Import.GainPath,
+                        if ((!string.IsNullOrEmpty(Options.Import.GainPath) || !string.IsNullOrEmpty(Options.Import.DefectsPath)) && 
+                            (Options.Import.CorrectGain || Options.Import.CorrectDefects))
+                            Workers[gpuID].LoadGainRef(Options.Import.CorrectGain ? Options.Import.GainPath : "",
                                                        Options.Import.GainFlipX,
                                                        Options.Import.GainFlipY,
-                                                       Options.Import.GainTranspose);
+                                                       Options.Import.GainTranspose,
+                                                       Options.Import.CorrectDefects ? Options.Import.DefectsPath : "");
                         else
-                            Workers[gpuID].LoadGainRef("", false, false, false);
+                            Workers[gpuID].LoadGainRef("", false, false, false, "");
                     }
 
                     bool CheckedGainDims = ImageGain == null;
@@ -1325,6 +1460,7 @@ namespace Warp
                                 if (Header.Dimensions.X != ImageGain.Dims.X || Header.Dimensions.Y != ImageGain.Dims.Y)
                                 {
                                     ImageGain.Dispose();
+                                    DefectMap?.Dispose();
 
                                     foreach (var worker in Workers)
                                         worker?.Dispose();
@@ -1399,9 +1535,9 @@ namespace Warp
                                     Debug.WriteLine(GPU.GetDevice() + " loading...");
                                     var TimerRead = BenchmarkRead.Start();
 
-                                    LoadAndPrepareHeaderAndMap(item.Path, ImageGain, ScaleFactor, out OriginalHeader, out OriginalStack, false);
+                                    LoadAndPrepareHeaderAndMap(item.Path, ImageGain, DefectMap, ScaleFactor, out OriginalHeader, out OriginalStack, false);
                                     if (NeedStack)
-                                        Workers[gpuID].LoadStack(item.Path, ScaleFactor);
+                                        Workers[gpuID].LoadStack(item.Path, ScaleFactor, CurrentOptionsExport.EERGroupFrames);
 
                                     BenchmarkRead.Finish(TimerRead);
                                     Debug.WriteLine(GPU.GetDevice() + " loaded.");
@@ -1730,6 +1866,7 @@ namespace Warp
                     }
 
                     ImageGain?.Dispose();
+                    DefectMap?.Dispose();
 
                     foreach (var worker in Workers)
                         worker?.Dispose();
@@ -2786,6 +2923,11 @@ namespace Warp
                     element.Visibility = Visibility.Collapsed;
                 foreach (var element in HideWhenTomo)
                     element.Visibility = Visibility.Visible;
+
+                if (Options.Import.ExtensionEER)
+                    GridOptionsFrameGrouping.Visibility = Visibility.Visible;
+                else
+                    GridOptionsFrameGrouping.Visibility = Visibility.Collapsed;
             }
         }
 
@@ -2809,7 +2951,10 @@ namespace Warp
             await Task.Run(async () =>
             {
                 Image ImageGain = null;
+                DefectModel DefectMap = null;
                 Image OriginalStack = null;
+
+                HeaderEER.GroupNFrames = Options.Import.EERGroupFrames;
 
                 try
                 {
@@ -2817,6 +2962,13 @@ namespace Warp
 
                     if (!string.IsNullOrEmpty(Options.Import.GainPath) && Options.Import.CorrectGain && File.Exists(Options.Import.GainPath))
                         ImageGain = LoadAndPrepareGainReference();
+
+                    if (!string.IsNullOrEmpty(Options.Import.DefectsPath) && Options.Import.CorrectDefects && File.Exists(Options.Import.DefectsPath))
+                        DefectMap = LoadAndPrepareDefectMap();
+
+                    if (ImageGain != null && DefectMap != null)
+                        if (ImageGain.Dims.X != DefectMap.Dims.X || ImageGain.Dims.Y != DefectMap.Dims.Y)
+                            throw new Exception("Gain reference and defect map dimensions don't match");
 
                     #endregion
 
@@ -2828,7 +2980,7 @@ namespace Warp
                     decimal ScaleFactor = 1M / (decimal)Math.Pow(2, (double)Options.Import.BinTimes);
 
                     if (!IsTomo)
-                        LoadAndPrepareHeaderAndMap(Item.Path, ImageGain, ScaleFactor, out OriginalHeader, out OriginalStack);
+                        LoadAndPrepareHeaderAndMap(Item.Path, ImageGain, DefectMap, ScaleFactor, out OriginalHeader, out OriginalStack);
 
                     #endregion
 
@@ -2866,12 +3018,14 @@ namespace Warp
 
                     OriginalStack?.Dispose();
                     ImageGain?.Dispose();
+                    DefectMap?.Dispose();
 
                     await Dialog.CloseAsync();
                 }
                 catch (Exception exc)
                 {
                     ImageGain?.Dispose();
+                    DefectMap?.Dispose();
                     OriginalStack?.Dispose();
 
                     await Dispatcher.Invoke(async () =>
@@ -2963,10 +3117,36 @@ namespace Warp
                             await this.ShowMessageAsync("", $"It looks like the angles are in accord with the estimated defocus gradients. Correlation = {Correlation:F2}");
                         });
                     else
+                    {
+                        bool DoFlip = false;
+
                         await Dispatcher.Invoke(async () =>
                         {
-                            await this.ShowMessageAsync("", $"It looks like the angles should be flipped during tilt series import. Correlation = {Correlation:F2}");
+                            var Result = await ((MainWindow)Application.Current.MainWindow).ShowMessageAsync("You're in the Upside Down!",
+                                                                                                             $"It looks like the defocus handedness should be flipped. Correlation = {Correlation:F2}\n" +
+                                                                                                             "Would you like to flip it for all tilt series currently loaded?\n" +
+                                                                                                             "You should probably repeat CTF estimation after flipping.",
+                                                                                                             MessageDialogStyle.AffirmativeAndNegative);
+                            if (Result == MessageDialogResult.Affirmative)
+                                DoFlip = true;
                         });
+
+                        if (DoFlip)
+                        {
+                            await Dispatcher.Invoke(async () => Dialog = await this.ShowProgressAsync("Please wait...", $"Saving tilt series metadata..."));
+
+                            TiltSeries[] AllSeries = FileDiscoverer.GetImmutableFiles().Select(m => (TiltSeries)m).ToArray();
+                            Dispatcher.Invoke(() => Dialog.Maximum = AllSeries.Length);
+
+                            for (int i = 0; i < AllSeries.Length; i++)
+                            {
+                                AllSeries[i].AreAnglesInverted = !AllSeries[i].AreAnglesInverted;
+                                AllSeries[i].SaveMeta();
+
+                                Dialog.SetProgress(i + 1);
+                            }
+                        }
+                    }
                 }
                 catch (Exception exc)
                 {
@@ -2979,6 +3159,9 @@ namespace Warp
                     });
                 }
             });
+
+            if (Dialog.IsOpen)
+                await Dialog.CloseAsync();
         }
 
         #endregion
@@ -2998,7 +3181,7 @@ namespace Warp
         
         #region Helper methods
 
-        void AdjustInput()
+        public void AdjustInput()
         {
             FileDiscoverer.ChangePath(Options.Import.Folder, Options.Import.Extension);
         }
@@ -3011,6 +3194,9 @@ namespace Warp
                                                (int)Options.Import.HeaderlessOffset,
                                                ImageFormatsHelper.StringToType(Options.Import.HeaderlessType));
 
+            float Mean = MathHelper.Mean(Gain.GetHost(Intent.Read)[0]);
+            Gain.TransformValues(v => v == 0 ? 1 : v / Mean);
+
             if (Options.Import.GainFlipX)
                 Gain = Gain.AsFlippedX();
             if (Options.Import.GainFlipY)
@@ -3021,8 +3207,31 @@ namespace Warp
             return Gain;
         }
 
-        public static void LoadAndPrepareHeaderAndMap(string path, Image imageGain, decimal scaleFactor, out MapHeader header, out Image stack, bool needStack = true, int maxThreads = 8)
+        public static DefectModel LoadAndPrepareDefectMap()
         {
+            Image Defects = Image.FromFilePatient(50, 500,
+                                                  Options.Import.DefectsPath,
+                                                  new int2(Options.Import.HeaderlessWidth, Options.Import.HeaderlessHeight),
+                                                  (int)Options.Import.HeaderlessOffset,
+                                                  ImageFormatsHelper.StringToType(Options.Import.HeaderlessType));
+
+            if (Options.Import.GainFlipX)
+                Defects = Defects.AsFlippedX();
+            if (Options.Import.GainFlipY)
+                Defects = Defects.AsFlippedY();
+            if (Options.Import.GainTranspose)
+                Defects = Defects.AsTransposed();
+
+            DefectModel Model = new DefectModel(Defects, 4);
+            Defects.Dispose();
+
+            return Model;
+        }
+
+        public static void LoadAndPrepareHeaderAndMap(string path, Image imageGain, DefectModel defectMap, decimal scaleFactor, out MapHeader header, out Image stack, bool needStack = true, int maxThreads = 8)
+        {
+            HeaderEER.GroupNFrames = Options.Import.EERGroupFrames;
+
             header = MapHeader.ReadFromFilePatient(50, 500,
                                                    path,
                                                    new int2(Options.Import.HeaderlessWidth, Options.Import.HeaderlessHeight),
@@ -3103,7 +3312,20 @@ namespace Warp
                         lock (OriginalStackData)
                         {
                             if (imageGain != null)
-                                Layer.MultiplySlices(imageGain);
+                            {
+                                if (IsEER)
+                                    Layer.DivideSlices(imageGain);
+                                else
+                                    Layer.MultiplySlices(imageGain);
+                            }
+
+                            if (defectMap != null)
+                            {
+                                Image LayerCopy = Layer.GetCopyGPU();
+                                defectMap.Correct(LayerCopy, Layer);
+                                LayerCopy.Dispose();
+                            }
+
                             Layer.Xray(20f);
 
                             OriginalStackData[z] = Layer.GetHost(Intent.Read)[0];
@@ -3148,7 +3370,20 @@ namespace Warp
                         lock (OriginalStackData)
                         {
                             if (imageGain != null)
-                                Layer.MultiplySlices(imageGain);
+                            {
+                                if (IsEER)
+                                    Layer.DivideSlices(imageGain);
+                                else
+                                    Layer.MultiplySlices(imageGain);
+                            }
+
+                            if (defectMap != null)
+                            {
+                                Image LayerCopy = Layer.GetCopyGPU();
+                                defectMap.Correct(LayerCopy, Layer);
+                                LayerCopy.Dispose();
+                            }
+
                             Layer.Xray(20f);
 
                             ScaledLayer = Layer.AsScaled(new int2(ScaledDims), PlanForw, PlanBack);

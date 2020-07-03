@@ -208,12 +208,26 @@
     <Compile Include="Controls\Sociology\Dialogs\DialogDataSources.xaml.cs">
       <DependentUpon>DialogDataSources.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Controls\Sociology\Dialogs\DialogSpeciesParticleSets.xaml.cs">
+      <DependentUpon>DialogSpeciesParticleSets.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Controls\Sociology\Dialogs\DialogTomoParticleExport.xaml.cs">
+      <DependentUpon>DialogTomoParticleExport.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Controls\Sociology\SpeciesView.xaml.cs">
       <DependentUpon>SpeciesView.xaml</DependentUpon>
     </Compile>
     <Page Include="Controls\DialogRefinementSettings.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Controls\Sociology\Dialogs\DialogSpeciesParticleSets.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Controls\Sociology\Dialogs\DialogTomoParticleExport.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
     </Page>
     <Page Include="MainWindow.xaml">
       <Generator>MSBuild:Compile</Generator>

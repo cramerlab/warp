@@ -526,6 +526,7 @@ namespace M
             SettingsDialog.DataContext = ActivePopulation.LastRefinementOptions;
 
             DialogRefinementSettings SettingsDialogContent = new DialogRefinementSettings();
+            SettingsDialogContent.DataContext = ActivePopulation.LastRefinementOptions;
             SettingsDialogContent.Close += async () => await this.HideMetroDialogAsync(SettingsDialog);
             SettingsDialogContent.StartRefinement += async () =>
             {
@@ -539,6 +540,8 @@ namespace M
 
                 Options.DoAstigmatismDelta = Options.DoDefocus;
                 Options.DoAstigmatismAngle = Options.DoDefocus;
+
+                Dispatcher.Invoke(() => { SettingsDialogContent.DataContext = null; });
 
                 PerformRefinementIteration(Options);
 
@@ -686,13 +689,11 @@ namespace M
                                 {
                                     Helper.ForEachGPUOnce(gpuID =>
                                     {
-                                        if (!string.IsNullOrEmpty(source.GainPath))
-                                            Workers[gpuID].LoadGainRef(source.GainPath,
-                                                                        source.GainFlipX,
-                                                                        source.GainFlipY,
-                                                                        source.GainTranspose);
-                                        else
-                                            Workers[gpuID].LoadGainRef("", false, false, false);
+                                        Workers[gpuID].LoadGainRef(source.GainPath,
+                                                                   source.GainFlipX,
+                                                                   source.GainFlipY,
+                                                                   source.GainTranspose,
+                                                                   source.DefectsPath);
                                     }, UsedDevices);
                                 }
                                 else
@@ -807,7 +808,7 @@ namespace M
                                     {
                                         Dispatcher.InvokeAsync(() => Progress.SetTitle($"Refining {CurrentItem.Name}..."));
 
-                                        CurrentItem.PerformMultiParticleRefinement(WorkerFolders[GPUID], options, ActivePopulation.Species.ToArray(), source, GainRefs[GPUID], (s) =>
+                                        CurrentItem.PerformMultiParticleRefinement(WorkerFolders[GPUID], options, ActivePopulation.Species.ToArray(), source, GainRefs[GPUID], null, (s) =>
                                         {
                                             Dispatcher.InvokeAsync(() =>
                                             {

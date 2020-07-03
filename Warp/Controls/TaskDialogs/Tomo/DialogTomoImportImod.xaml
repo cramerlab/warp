@@ -16,26 +16,33 @@
                     <ColumnDefinition />
                 </Grid.ColumnDefinitions>
                 <StackPanel Grid.Column="0" Orientation="Vertical">
-                    <TextBlock Text="Folder with .mdoc files:" FontSize="18" Height="30" />
-                    <Button Name="ButtonMdocPath" Style="{StaticResource HyperlinkLikeButton}" Height="30" HorizontalAlignment="Left" Click="ButtonMdocPath_Click">
-                        <TextBlock Name="ButtonMdocPathText" TextTrimming="CharacterEllipsis" MaxWidth="300" FontSize="18">Select folder...</TextBlock>
-                    </Button>
 
-                    <StackPanel Height="10"/>
                     <TextBlock Text="Folder with original movies:" FontSize="18" Height="30" />
                     <Button Name="ButtonMoviePath" Style="{StaticResource HyperlinkLikeButton}" Height="30" HorizontalAlignment="Left" Click="ButtonMoviePath_Click">
                         <TextBlock Name="ButtonMoviePathText" TextTrimming="CharacterEllipsis" MaxWidth="300" FontSize="18">Select folder...</TextBlock>
                     </Button>
 
                     <StackPanel Height="10"/>
+                    <!--<RadioButton>-->
+                        <TextBlock Text="Folder with .mdoc files:" FontSize="18" Height="30" />
+                    <!--</RadioButton>-->
+                    <!--<StackPanel Orientation="Vertical" Margin="24,0,0,0">-->
+                        <Button Name="ButtonMdocPath" Style="{StaticResource HyperlinkLikeButton}" Height="30" HorizontalAlignment="Left" Click="ButtonMdocPath_Click">
+                            <TextBlock Name="ButtonMdocPathText" TextTrimming="CharacterEllipsis" MaxWidth="300" FontSize="18">Select folder...</TextBlock>
+                        </Button>
+
+                        <StackPanel Height="6"/>
+                        <TextBlock Text=".mdoc file name suffixes (comma-separated):" FontSize="18" Height="30" />
+                        <TextBox Name="TextSuffixes" Text="{Binding Suffixes,Mode=TwoWay,UpdateSourceTrigger=PropertyChanged}" FontSize="18" Width="300" HorizontalAlignment="Left" />
+                    <!--</StackPanel>-->
+
+                    <!--<StackPanel Height="10"/>-->
+
+                    <StackPanel Height="10"/>
                     <TextBlock Text="Root folder with IMOD processing results:" FontSize="18" Height="30" />
                     <Button Name="ButtonImodPath" Style="{StaticResource HyperlinkLikeButton}" Height="30" HorizontalAlignment="Left" Click="ButtonImodPath_Click">
                         <TextBlock Name="ButtonImodPathText" TextTrimming="CharacterEllipsis" MaxWidth="300" FontSize="18">Select folder...</TextBlock>
                     </Button>
-
-                    <StackPanel Height="10"/>
-                    <TextBlock Text=".mdoc file name suffixes (comma-separated):" FontSize="18" Height="30" />
-                    <TextBox Name="TextSuffixes" Text="{Binding Suffixes,Mode=TwoWay,UpdateSourceTrigger=PropertyChanged}" FontSize="18" Width="300" HorizontalAlignment="Left" />
 
                     <StackPanel Height="10"/>
                     <CheckBox Name="CheckDontInvertTilts" IsChecked="{Binding DontInvertTilts,Mode=TwoWay}" FontSize="18" Height="30" Content="Don't invert tilt angles" />
@@ -46,7 +53,7 @@
                 </StackPanel>
 
                 <StackPanel Name="PanelImportResults" Grid.Column="1" Orientation="Vertical" MinWidth="400" Margin="20,0,0,0" Visibility="Visible">
-                    <Label Name="TextErrors" FontSize="18" Visibility="Collapsed" Height="30" />
+                    <TextBox Name="TextErrors" FontSize="18" Visibility="Collapsed" Height="100" VerticalScrollBarVisibility="Visible" Foreground="Red" Margin="0,0,0,10" />
                     <ScrollViewer Height="450" VerticalAlignment="Stretch" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Hidden">
                         <ListView Name="ListParsedEntries" ItemsSource="{Binding Path=ParsedEntries}" FontSize="18" BorderThickness="0.0" SelectionMode="Single" HorizontalAlignment="Stretch" >
                             <ListView.View>

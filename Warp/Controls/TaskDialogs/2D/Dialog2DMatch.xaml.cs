@@ -158,11 +158,13 @@ namespace Warp.Controls.TaskDialogs.TwoD
                 #region Load gain reference if needed
 
                 Image[] ImageGain = new Image[NParallel];
+                DefectModel[] DefectMap = new DefectModel[NParallel];
                 if (!string.IsNullOrEmpty(Options.Import.GainPath) && Options.Import.CorrectGain && File.Exists(Options.Import.GainPath))
                     for (int d = 0; d < NParallel; d++)
-                    {
                         ImageGain[d] = MainWindow.LoadAndPrepareGainReference();
-                    }
+                if (!string.IsNullOrEmpty(Options.Import.DefectsPath) && Options.Import.CorrectDefects && File.Exists(Options.Import.DefectsPath))
+                    for (int d = 0; d < NParallel; d++)
+                        DefectMap[d] = MainWindow.LoadAndPrepareDefectMap();
 
                 #endregion
 
@@ -190,7 +192,7 @@ namespace Warp.Controls.TaskDialogs.TwoD
 
                     MapHeader OriginalHeader = MapHeader.ReadFromFile(item.Path);
 
-                    MainWindow.LoadAndPrepareHeaderAndMap(item.Path, ImageGain[gpuID], ScaleFactor, out OriginalHeader, out OriginalStack);
+                    MainWindow.LoadAndPrepareHeaderAndMap(item.Path, ImageGain[gpuID], DefectMap[gpuID], ScaleFactor, out OriginalHeader, out OriginalStack);
 
                     if (IsCanceled)
                     {

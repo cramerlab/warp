@@ -26,8 +26,14 @@
             <Button VerticalAlignment="Center" Style="{StaticResource HyperlinkLikeButton}" Margin="0,0,0,6">
                 <sparta:FormattedTextBlock TextFormat="{}{0:F1} Å" Value="{Binding GlobalResolution}" FontSize="20" />
             </Button>
-            <Button VerticalAlignment="Center" Style="{StaticResource HyperlinkLikeButton}" Margin="0,0,0,6">
+            <Button Name="ButtonParticles" VerticalAlignment="Center" Style="{StaticResource HyperlinkLikeButton}" Margin="0,0,0,6" Click="ButtonParticles_Click">
                 <sparta:FormattedTextBlock TextFormat="{}{0} particles" Value="{Binding NParticles}" FontSize="20" />
+                <Button.ContextMenu>
+                    <ContextMenu Name="MenuParticles">
+                        <MenuItem Header="Intersect with another particle set" Click="AddParticles_Click" />
+                        <MenuItem Header="Export sub-tomograms" Click="ExportSubtomo_Click" />
+                    </ContextMenu>
+                </Button.ContextMenu>
             </Button>
         </StackPanel>
     </Grid>

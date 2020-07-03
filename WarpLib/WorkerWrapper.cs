@@ -126,21 +126,23 @@ namespace Warp
                 throw new Exception("Couldn't set headerless parameters!");
         }
 
-        public void LoadGainRef(string path, bool flipX, bool flipY, bool transpose)
+        public void LoadGainRef(string path, bool flipX, bool flipY, bool transpose, string defectsPath)
         {
             if (!SendCommand(new NamedSerializableObject("LoadGainRef",
                                                          path,
                                                          flipX,
                                                          flipY,
-                                                         transpose)))
+                                                         transpose,
+                                                         defectsPath)))
                 throw new Exception("Couldn't load the gain reference!");
         }
 
-        public void LoadStack(string path, decimal scaleFactor)
+        public void LoadStack(string path, decimal scaleFactor, int eerGroupFrames)
         {
             if (!SendCommand(new NamedSerializableObject("LoadStack",
                                                          path,
-                                                         scaleFactor)))
+                                                         scaleFactor,
+                                                         eerGroupFrames)))
                 throw new Exception("Couldn't load the stack!");
         }
 

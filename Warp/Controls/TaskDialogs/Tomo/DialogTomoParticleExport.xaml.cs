@@ -291,13 +291,11 @@ namespace Warp.Controls
                                                         Options.Import.HeaderlessOffset,
                                                         Options.Import.HeaderlessType);
 
-                    if (!string.IsNullOrEmpty(Options.Import.GainPath) && Options.Import.CorrectGain)
-                        Workers[gpuID].LoadGainRef(Options.Import.GainPath,
-                                                    Options.Import.GainFlipX,
-                                                    Options.Import.GainFlipY,
-                                                    Options.Import.GainTranspose);
-                    else
-                        Workers[gpuID].LoadGainRef("", false, false, false);
+                    Workers[gpuID].LoadGainRef(Options.Import.CorrectGain ? Options.Import.GainPath : "",
+                                               Options.Import.GainFlipX,
+                                               Options.Import.GainFlipY,
+                                               Options.Import.GainTranspose,
+                                               Options.Import.CorrectDefects ? Options.Import.DefectsPath : "");
                 }
 
                 #endregion
@@ -416,10 +414,10 @@ namespace Warp.Controls
 
                             #region Figure out relative or absolute path to sub-tomo and its CTF
 
-                            string PathSubtomo = series.SubtomoDir + $"{series.RootName}_{pi:D7}_{ExportOptions.BinnedPixelSizeMean:F2}A.mrc";
+                            string PathSubtomo = series.SubtomoDir + $"{series.RootName}{ExportOptions.Suffix}_{pi:D7}_{ExportOptions.BinnedPixelSizeMean:F2}A.mrc";
                             string PathCTF = //MakeSparse ?
                                             //(series.SubtomoDir + $"{series.RootName}_{pi:D7}_ctf_{ExportOptions.BinnedPixelSizeMean:F2}A.tif") :
-                                            (series.SubtomoDir + $"{series.RootName}_{pi:D7}_ctf_{ExportOptions.BinnedPixelSizeMean:F2}A.mrc");
+                                            (series.SubtomoDir + $"{series.RootName}{ExportOptions.Suffix}_{pi:D7}_ctf_{ExportOptions.BinnedPixelSizeMean:F2}A.mrc");
                             if (Relative)
                             {
                                 Uri UriStar = new Uri(ExportPath);
@@ -462,7 +460,9 @@ namespace Warp.Controls
                         else
                         {
                             Star SeriesTable;
-                            series.ReconstructParticleSeries(ExportOptions, TomoPositions, TomoAngles, out SeriesTable);
+                            Random Rand = new Random(123);
+                            int[] Subsets = Helper.ArrayOfFunction(i => Rand.Next(1, 3), GroupRows.Count);
+                            series.ReconstructParticleSeries(ExportOptions, TomoPositions, TomoAngles, Subsets, ExportPath, out SeriesTable);
 
                             lock (MicrographTables)
                                 MicrographTables.Add(series.RootName, SeriesTable);

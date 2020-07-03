@@ -23,9 +23,13 @@ namespace M
             CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.InvariantCulture;
 
             base.OnStartup(e);
-            AppDomain.CurrentDomain.UnhandledException += CurrentDomainOnUnhandledException;
-            Application.Current.DispatcherUnhandledException += DispatcherOnUnhandledException;
-            TaskScheduler.UnobservedTaskException += TaskSchedulerOnUnobservedTaskException;
+
+            if (!Debugger.IsAttached)
+            {
+                AppDomain.CurrentDomain.UnhandledException += CurrentDomainOnUnhandledException;
+                Application.Current.DispatcherUnhandledException += DispatcherOnUnhandledException;
+                TaskScheduler.UnobservedTaskException += TaskSchedulerOnUnobservedTaskException;
+            }
         }
 
         private void TaskSchedulerOnUnobservedTaskException(object sender, UnobservedTaskExceptionEventArgs unobservedTaskExceptionEventArgs)

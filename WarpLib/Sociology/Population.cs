@@ -31,7 +31,7 @@ namespace Warp.Sociology
             }
         }
 
-        public string FolderPath => Path.Substring(0, Math.Max(Path.LastIndexOf("/"), Path.LastIndexOf("\\")) + 1);
+        public string FolderPath => Helper.PathToFolder(Path);
 
         private string _Name = "";
         [WarpSerializable]
@@ -120,7 +120,7 @@ namespace Warp.Sociology
                     Guid SpeciesGUID = Guid.Parse(nav.GetAttribute("GUID", ""));
                     string SpeciesPath = nav.GetAttribute("Path", "");
 
-                    Species LoadedSpecies = Sociology.Species.FromFile(SpeciesPath);
+                    Species LoadedSpecies = Sociology.Species.FromFile(System.IO.Path.Combine(FolderPath, SpeciesPath));
                     if (LoadedSpecies.GUID != SpeciesGUID)
                         throw new Exception("Stored GUID does not match that of the species.");
 
@@ -138,7 +138,7 @@ namespace Warp.Sociology
                     string Path = nav.GetAttribute("Path", "");
                     Guid SourceGUID = Guid.Parse(nav.GetAttribute("GUID", ""));
 
-                    DataSource LoadedSource = DataSource.FromFile(Path);
+                    DataSource LoadedSource = DataSource.FromFile(System.IO.Path.Combine(FolderPath, Path));
                     if (SourceGUID != LoadedSource.GUID)
                         throw new Exception("Stored GUID does not match that of the data source.");
 
@@ -174,7 +174,7 @@ namespace Warp.Sociology
             {
                 Writer.WriteStartElement("Species");
                 XMLHelper.WriteAttribute(Writer, "GUID", species.GUID.ToString());
-                XMLHelper.WriteAttribute(Writer, "Path", species.Path);
+                XMLHelper.WriteAttribute(Writer, "Path", Helper.MakePathRelativeTo(species.Path, FolderPath));
                 Writer.WriteEndElement();
             }
             Writer.WriteEndElement();
@@ -184,7 +184,7 @@ namespace Warp.Sociology
             {
                 Writer.WriteStartElement("Source");
                 XMLHelper.WriteAttribute(Writer, "GUID", source.GUID.ToString());
-                XMLHelper.WriteAttribute(Writer, "Path", source.Path);
+                XMLHelper.WriteAttribute(Writer, "Path", Helper.MakePathRelativeTo(source.Path, FolderPath));
                 Writer.WriteEndElement();
             }
             Writer.WriteEndElement();

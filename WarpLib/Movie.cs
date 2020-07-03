@@ -4206,9 +4206,12 @@ namespace Warp
                                                            Species[] allSpecies,
                                                            DataSource dataSource,
                                                            Image gainRef,
+                                                           DefectModel defectMap,
                                                            Action<string> progressCallback)
         {
             int GPUID = GPU.GetDevice();
+            HeaderEER.GroupNFrames = dataSource.EERGroupFrames;
+
             NFrames = Math.Min(MapHeader.ReadFromFile(Path).Dimensions.Z, dataSource.FrameLimit);
             //NFrames = 1;
             FractionFrames = (float)NFrames / MapHeader.ReadFromFile(Path).Dimensions.Z;
@@ -4269,11 +4272,14 @@ namespace Warp
                 PixelSizeAngle = dataSource.PixelSizeAngle,
 
                 BinTimes = BinTimes,
+                EERGroupFrames = dataSource.EERGroupFrames,
                 GainPath = dataSource.GainPath,
                 GainHash = "",
                 GainFlipX = dataSource.GainFlipX,
                 GainFlipY = dataSource.GainFlipY,
                 GainTranspose = dataSource.GainTranspose,
+                DefectsPath = dataSource.DefectsPath,
+                DefectsHash = "",
 
                 Dimensions = new float3((float)dataSource.DimensionsX,
                                         (float)dataSource.DimensionsY,
@@ -4287,7 +4293,7 @@ namespace Warp
             };
 
             Image[] FrameData;
-            LoadFrameData(OptionsDataLoad, gainRef, out FrameData);
+            LoadFrameData(OptionsDataLoad, gainRef, defectMap, out FrameData);
 
             float2 AverageMeanStd;
             {
@@ -7303,6 +7309,9 @@ namespace Warp
                     int PlanBackSuper = GPU.CreateIFFTPlan(new int3(SizeFullSuper, SizeFullSuper, 1), (uint)BatchSize);
                     int PlanForw = GPU.CreateFFTPlan(new int3(SizeFull, SizeFull, 1), (uint)BatchSize);
 
+                    if (PlanForwSuper <= 0 || PlanBackSuper <= 0 || PlanForw <= 0)
+                        throw new Exception("No FFT plans created!");
+
                     Particle[][] SubsetParticles = { SpeciesParticles[species].Where(p => p.RandomSubset == 0).ToArray(),
                                                      SpeciesParticles[species].Where(p => p.RandomSubset == 1).ToArray() };
 
@@ -7446,11 +7455,7 @@ namespace Warp
                                          ExtractedCTFCropped.ElementsReal);
 
                                 ExtractedCTFCropped.Multiply(1f / (SizeFull * SizeFull));
-                                GPU.MultiplySlices(ExtractedCTFCropped.GetDevice(Intent.Read),
-                                                    CTFWeights.GetDeviceSlice(f, Intent.Read),
-                                                    ExtractedCTFCropped.GetDevice(Intent.Write),
-                                                    CTFWeights.ElementsSliceReal,
-                                                    (uint)CurBatch);
+                                ExtractedCTFCropped.Multiply(CTFWeights);
 
                                 // Try to correct motion-dampened amplitudes
                                 //GetCTFsForOneFrame(AngPixExtract, Defoci, ImageCoords, CTFCoordsCropped, f, CTFWeights, true, true, true, true);
@@ -7498,8 +7503,8 @@ namespace Warp
                     species.HalfMap2Reconstruction[GPUID].FreeDevice();
                 }
 
-            for (int t = 0; t < NFrames; t++)
-                FrameData[t].Dispose();
+            for (int f = 0; f < NFrames; f++)
+                FrameData[f].Dispose();
 
 
             #endregion
@@ -8130,8 +8135,8 @@ namespace Warp
             }
 
             GPU.CreateCTFComplex(outSimulated.GetDevice(Intent.Write), 
-                                ctfCoords.GetDevice(Intent.Read), 
-                                gammaCorrection.GetDevice(Intent.Read), 
+                                ctfCoords.GetDevice(Intent.Read),
+                                gammaCorrection == null ? IntPtr.Zero : gammaCorrection.GetDevice(Intent.Read), 
                                 (uint)ctfCoords.ElementsSliceComplex, 
                                 Params, 
                                 reverse, 
@@ -8270,8 +8275,10 @@ namespace Warp
 
         static float[][][] RawLayers = new float[GPU.GetDeviceCount()][][];
 
-        public void LoadFrameData(ProcessingOptionsBase options, Image imageGain, out Image[] frameData)
+        public void LoadFrameData(ProcessingOptionsBase options, Image imageGain, DefectModel defectMap, out Image[] frameData)
         {
+            HeaderEER.GroupNFrames = options.EERGroupFrames;
+
             MapHeader Header = MapHeader.ReadFromFile(Path, new int2(1), 0, typeof(float));
 
             string Extension = Helper.PathToExtension(Path).ToLower();
@@ -8351,7 +8358,12 @@ namespace Warp
                         GPU.CopyHostToDevice(RawLayers[CurrentDevice][threadID], GPULayers[GPUThreadID].GetDevice(Intent.Write), RawLayers[CurrentDevice][threadID].Length);
 
                         if (imageGain != null)
-                            GPULayers[GPUThreadID].MultiplySlices(imageGain);
+                        {
+                            if (IsEER)
+                                GPULayers[GPUThreadID].DivideSlices(imageGain);
+                            else
+                                GPULayers[GPUThreadID].MultiplySlices(imageGain);
+                        }
 
                         GPU.Xray(GPULayers[GPUThreadID].GetDevice(Intent.Read),
                                  FrameData[z].GetDevice(Intent.Write),
@@ -8397,7 +8409,12 @@ namespace Warp
                         GPU.CopyHostToDevice(RawLayers[CurrentDevice][threadID], GPULayers[GPUThreadID].GetDevice(Intent.Write), RawLayers[CurrentDevice][threadID].Length);
 
                         if (imageGain != null)
-                            GPULayers[GPUThreadID].MultiplySlices(imageGain);
+                        {
+                            if (IsEER)
+                                GPULayers[GPUThreadID].DivideSlices(imageGain);
+                            else
+                                GPULayers[GPUThreadID].MultiplySlices(imageGain);
+                        }
 
                         GPU.Xray(GPULayers[GPUThreadID].GetDevice(Intent.Read),
                                  GPULayers2[GPUThreadID].GetDevice(Intent.Write),

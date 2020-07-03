@@ -307,12 +307,6 @@
     <Compile Include="Controls\MainUI\MicrographDisplay.xaml.cs">
       <DependentUpon>MicrographDisplay.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Controls\ProgressIndicators\NyanBar.xaml.cs">
-      <DependentUpon>NyanBar.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="Controls\ProgressIndicators\OldschoolBar.xaml.cs">
-      <DependentUpon>OldschoolBar.xaml</DependentUpon>
-    </Compile>
     <Compile Include="Controls\ProgressIndicators\ReconstructionMiniature.xaml.cs">
       <DependentUpon>ReconstructionMiniature.xaml</DependentUpon>
     </Compile>
@@ -417,14 +411,6 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="Controls\ProgressIndicators\NyanBar.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-    <Page Include="Controls\ProgressIndicators\OldschoolBar.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
     <Page Include="Controls\ProgressIndicators\ReconstructionMiniature.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
@@ -497,16 +483,6 @@
       <Project>{4ba9ac95-ad8a-4519-a42d-0789718c8123}</Project>
       <Name>WarpLib</Name>
     </ProjectReference>
-  </ItemGroup>
-  <ItemGroup>
-    <Resource Include="Controls\ProgressIndicators\nyanmouse.gif" />
-  </ItemGroup>
-  <ItemGroup>
-    <Resource Include="Controls\ProgressIndicators\nyanrainbow.gif" />
-  </ItemGroup>
-  <ItemGroup>
-    <Resource Include="Controls\ProgressIndicators\2bitmouse.gif" />
-    <Resource Include="Controls\ProgressIndicators\2bittrail.gif" />
   </ItemGroup>
   <ItemGroup>
     <WCFMetadata Include="Connected Services\" />

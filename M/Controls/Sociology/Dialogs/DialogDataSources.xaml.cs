@@ -534,8 +534,10 @@ namespace M.Controls.Sociology.Dialogs
                             GainFlipX = Options.Import.GainFlipX,
                             GainFlipY = Options.Import.GainFlipY,
                             GainTranspose = Options.Import.GainTranspose,
+                            DefectsPath = Options.Import.CorrectDefects ? Options.Import.DefectsPath : "",
 
                             DosePerAngstromFrame = Options.Import.DosePerAngstromFrame,
+                            EERGroupFrames = Options.Import.EERGroupFrames,
 
                             Name = DialogContent.TextSourceName.Text,
                             Path = Info.DirectoryName + "\\" + Helper.RemoveInvalidChars(DialogContent.TextSourceName.Text) + ".source"

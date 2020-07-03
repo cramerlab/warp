@@ -32,17 +32,17 @@ namespace EstimateWeights
             }
             else
             {
-                Options.PopulationPath = "population/fine_align.population";
+                Options.PopulationPath = "population_combined/70SRibos.population";
                 Options.MinResolution = 15;
-                Options.DoTiltFrames = true;
-                Options.FitAnisotropy = false;
+                Options.DoTiltFrames = false;
+                Options.FitAnisotropy = true;
                 Options.ResolveLocation = false;
                 Options.ResolveFrames = true;
                 Options.ResolveItems = true;
                 Options.GridWidth = 5;
                 Options.GridHeight = 5;
 
-                WorkingDirectory = @"Y:\data\dtegunov\20190731_2Dvs3D\3D\";
+                WorkingDirectory = @"H:\20181109CmMp\";
             }
 
             Options.PopulationPath = Path.Combine(WorkingDirectory, Options.PopulationPath);
@@ -63,6 +63,9 @@ namespace EstimateWeights
             {
                 List<Movie> ItemsWithData = new List<Movie>();
 
+                Console.Write("Discovering items with data...");
+
+                int NItemsDiscovered = 0;
                 foreach (var item in source.Files.Values)
                 {
                     if (Options.DoTiltFrames)
@@ -107,7 +110,13 @@ namespace EstimateWeights
                         else
                             ItemsWithData.Add(new Movie(ItemPath));
                     }
+
+                    NItemsDiscovered++;
+                    ClearCurrentConsoleLine();
+                    Console.Write($"Discovering items with data... {NItemsDiscovered}/{source.Files.Count}");
                 }
+
+                Console.WriteLine("\n");
 
                 if (ItemsWithData.Count == 0)
                     Console.WriteLine($"No items with FSC data found for source {source.Name}!");
@@ -173,7 +182,7 @@ namespace EstimateWeights
                         Image CTFWeights = CorrAB.GetCopyGPU();
                         CTFWeights.Fill(1f);
 
-                        (float[] ResultScales, float3[] ResultBfactors) = FSC.FitBFactors2D(CorrAB, CorrA2, CorrB2, CTFWeights, PixelSize, Options.MinResolution, Options.FitAnisotropy);
+                        (float[] ResultScales, float3[] ResultBfactors) = FSC.FitBFactors2D(CorrAB, CorrA2, CorrB2, CTFWeights, PixelSize, Options.MinResolution, Options.FitAnisotropy, 512, null);
 
                         CorrAB.Dispose();
                         CorrA2.Dispose();
@@ -229,14 +238,28 @@ namespace EstimateWeights
                         FSC.Dispose();
                     }
 
-                    List<float[]> AllAB = new List<float[]>();// (Helper.ArrayOfFunction(i => new float[Dims.ElementsFFT()], MaxFrames));
-                    List<float[]> AllA2 = new List<float[]>();// (Helper.ArrayOfFunction(i => new float[Dims.ElementsFFT()], MaxFrames));
-                    List<float[]> AllB2 = new List<float[]>();// (Helper.ArrayOfFunction(i => new float[Dims.ElementsFFT()], MaxFrames));
+                    List<float[]> AllAB = new List<float[]>();
+                    List<float[]> AllA2 = new List<float[]>();
+                    List<float[]> AllB2 = new List<float[]>();
+                    if (!Options.ResolveItems)
+                    {
+                        AllAB = new List<float[]>(Helper.ArrayOfFunction(i => new float[Dims.ElementsFFT()], MaxFrames));
+                        AllA2 = new List<float[]>(Helper.ArrayOfFunction(i => new float[Dims.ElementsFFT()], MaxFrames));
+                        AllB2 = new List<float[]>(Helper.ArrayOfFunction(i => new float[Dims.ElementsFFT()], MaxFrames));
+                    }
+                    else if (!Options.ResolveFrames)
+                    {
+                        AllAB = new List<float[]>(Helper.ArrayOfFunction(i => new float[Dims.ElementsFFT()], ItemsWithData.Count));
+                        AllA2 = new List<float[]>(Helper.ArrayOfFunction(i => new float[Dims.ElementsFFT()], ItemsWithData.Count));
+                        AllB2 = new List<float[]>(Helper.ArrayOfFunction(i => new float[Dims.ElementsFFT()], ItemsWithData.Count));
+                    }
+
+                    Console.Write("Loading correlation data...");
 
                     int NDone = 0;
                     foreach (var item in ItemsWithData)
                     {
-                        //if (NDone++ >= 30)
+                        //if (NDone >= 30)
                         //    break;
 
                         string FSCPath = Path.Combine(RefinementDirectory, item.RootName + "_fsc.mrc");
@@ -246,19 +269,38 @@ namespace EstimateWeights
 
                         for (int z = 0; z < FSCData.Length / 3; z++)
                         {
-                            AllAB.Add(FSCData[z * 3 + 0]);
-                            AllA2.Add(FSCData[z * 3 + 1]);
-                            AllB2.Add(FSCData[z * 3 + 2]);
-                            //for (int i = 0; i < FSCData[0].Length; i++)
-                            //{
-                            //    AllAB[z][i] += FSCData[z * 3 + 0][i];
-                            //    AllA2[z][i] += FSCData[z * 3 + 1][i];
-                            //    AllB2[z][i] += FSCData[z * 3 + 2][i];
-                            //}
+                            if (Options.ResolveItems && Options.ResolveFrames)
+                            {
+                                AllAB.Add(FSCData[z * 3 + 0]);
+                                AllA2.Add(FSCData[z * 3 + 1]);
+                                AllB2.Add(FSCData[z * 3 + 2]);
+                            }
+                            else
+                            {
+                                int s = 0;
+                                if (!Options.ResolveItems)
+                                    s = z;
+                                else if (!Options.ResolveFrames)
+                                    s = NDone;
+                                else
+                                    throw new Exception("Shouldn't be here");
+
+                                for (int i = 0; i < FSCData[0].Length; i++)
+                                {
+                                    AllAB[s][i] += FSCData[z * 3 + 0][i];
+                                    AllA2[s][i] += FSCData[z * 3 + 1][i];
+                                    AllB2[s][i] += FSCData[z * 3 + 2][i];
+                                }
+                            }
                         }
 
                         FSC.Dispose();
+                        NDone++;
+                        ClearCurrentConsoleLine();
+                        Console.Write($"Loading correlation data... {NDone}/{ItemsWithData.Count}");
                     }
+
+                    Console.WriteLine("\n");
 
                     int NItems = AllAB.Count;
 
@@ -266,22 +308,30 @@ namespace EstimateWeights
                     Image CorrA2 = new Image(AllA2.ToArray(), new int3(Dims.X, Dims.Y, NItems), true);
                     Image CorrB2 = new Image(AllB2.ToArray(), new int3(Dims.X, Dims.Y, NItems), true);
 
-                    Image CTFWeights = CorrAB.GetCopyGPU();
-                    CTFWeights.Fill(1f);
+                    //Image CTFWeights = CorrAB.GetCopyGPU();
+                    //CTFWeights.Fill(1f);
 
-                    (float[] ResultScales, float3[] ResultBfactors) = FSC.FitBFactors2D(CorrAB, CorrA2, CorrB2, CTFWeights, PixelSize, Options.MinResolution, Options.FitAnisotropy);
+                    (float[] ResultScales, float3[] ResultBfactors) = FSC.FitBFactors2D(CorrAB, CorrA2, CorrB2, null, PixelSize, Options.MinResolution, Options.FitAnisotropy, 512, (progress) =>
+                    {
+                        ClearCurrentConsoleLine();
+                        Console.Write($"Fitting... {(progress * 100).ToString("F4")} %");
+                    });
 
-                    float MaxScale = MathHelper.Max(ResultScales);
-                    ResultScales = ResultScales.Select(v => v / MaxScale).ToArray();
+                    Console.WriteLine("\n");
 
-                    List<float> BfacsSorted = new List<float>(ResultBfactors.Select(v => v.X));
+                    List<float> ScalesSorted = ResultScales.Where((v, i) => ResultBfactors[i].X > -30).ToList();
+                    ScalesSorted.Sort();
+                    float MaxScale = Options.ResolveItems ? ScalesSorted[(int)(ScalesSorted.Count * 0.997f)] : ScalesSorted.Last();
+                    ResultScales = ResultScales.Select(v => Math.Min(1, v / MaxScale)).ToArray();
+
+                    List<float> BfacsSorted = Helper.ArrayOfSequence(0, ResultBfactors.Length, 1).Where(i => ResultScales[i] > 0.7).Select(i => ResultBfactors[i].X + Math.Abs(ResultBfactors[i].Y)).ToList();
                     BfacsSorted.Sort();
-                    float MaxBfac = BfacsSorted[(int)(BfacsSorted.Count * 0.99f)];
+                    float MaxBfac = Options.ResolveItems ? BfacsSorted[(int)(BfacsSorted.Count * 0.997f)] : BfacsSorted.Last();
                     //float MaxBfac = MathHelper.Max(ResultBfactors.Select(v => v.X));
                     ResultBfactors = ResultBfactors.Select(v => new float3(Math.Min(0, v.X - MaxBfac), v.Y, v.Z)).ToArray();
 
-                    List<float3> TableRows = new List<float3>();
 
+                    NDone = 0;
                     int NFramesDone = 0;
                     foreach (var item in ItemsWithData)
                     {
@@ -289,28 +339,36 @@ namespace EstimateWeights
                         if (item.GetType() == typeof(TiltSeries))
                             InThisItem = ((TiltSeries)item).NTilts;
 
-                        float[] Weights = ResultScales.Skip(NFramesDone).Take(InThisItem).ToArray();
-                        float[] Bfacs = ResultBfactors.Skip(NFramesDone).Take(InThisItem).Select(v => v.X).ToArray();
-                        float[] BfacsDelta = ResultBfactors.Skip(NFramesDone).Take(InThisItem).Select(v => v.Y).ToArray();
-                        float[] BfacsAngle = ResultBfactors.Skip(NFramesDone).Take(InThisItem).Select(v => v.Z).ToArray();
+                        if (Options.ResolveFrames)
+                        {
+                            float[] Weights = ResultScales.Skip(NFramesDone).Take(InThisItem).ToArray();
+                            float[] Bfacs = ResultBfactors.Skip(NFramesDone).Take(InThisItem).Select(v => v.X).ToArray();
+                            float[] BfacsDelta = ResultBfactors.Skip(NFramesDone).Take(InThisItem).Select(v => v.Y).ToArray();
+                            float[] BfacsAngle = ResultBfactors.Skip(NFramesDone).Take(InThisItem).Select(v => v.Z).ToArray();
 
-                        (int MaxIndex, float MaxB) = MathHelper.MaxElement(Bfacs);
-                        TableRows.Add(new float3((float)item.CTF.Defocus,
-                                                 Weights[MaxIndex],
-                                                 MaxB));
+                            item.GridDoseWeights = new CubicGrid(new int3(1, 1, InThisItem), Weights);
 
-                        item.GridDoseWeights = new CubicGrid(new int3(1, 1, InThisItem), Weights);
+                            item.GridDoseBfacs = new CubicGrid(new int3(1, 1, InThisItem), Bfacs);
+                            item.GridDoseBfacsDelta = new CubicGrid(new int3(1, 1, InThisItem), BfacsDelta);
+                            item.GridDoseBfacsAngle = new CubicGrid(new int3(1, 1, InThisItem), BfacsAngle);
 
-                        item.GridDoseBfacs = new CubicGrid(new int3(1, 1, InThisItem), Bfacs);
-                        item.GridDoseBfacsDelta = new CubicGrid(new int3(1, 1, InThisItem), BfacsDelta);
-                        item.GridDoseBfacsAngle = new CubicGrid(new int3(1, 1, InThisItem), BfacsAngle);
+                            if (Options.ResolveItems)
+                                NFramesDone += InThisItem;
+                        }
+                        else if (Options.ResolveItems)
+                        {
+                            item.GlobalBfactor = ResultBfactors[NFramesDone].X;
+                            item.GlobalWeight = ResultScales[NFramesDone];
+
+                            NFramesDone++;
+                        }
 
                         item.SaveMeta();
 
-                        NFramesDone += InThisItem;
+                        NDone++;
+                        ClearCurrentConsoleLine();
+                        Console.Write($"Saving metadata... {NDone}/{ItemsWithData.Count}");
                     }
-
-                    (new Star(TableRows.ToArray(), "wrpDefocus", "wrpMaxWeight", "wrpMaxB")).Save("d_defocus_vs_bfactor.star");
                 }
                 else if (Options.ResolveLocation)
                 {
@@ -390,6 +448,14 @@ namespace EstimateWeights
                     }
                 }
             }
+        }
+        
+        public static void ClearCurrentConsoleLine()
+        {
+            int currentLineCursor = Console.CursorTop;
+            Console.SetCursorPosition(0, Console.CursorTop);
+            Console.Write(new string(' ', Console.WindowWidth));
+            Console.SetCursorPosition(0, currentLineCursor);
         }
     }
 }

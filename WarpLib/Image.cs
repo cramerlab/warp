@@ -30,6 +30,14 @@ namespace Warp
         private static readonly List<int> LifetimeObjectIDs = new List<int>();
         private static readonly List<Image> LifetimeObjects = new List<Image>();
         private static readonly bool EnableObjectLogging = false;
+
+        private static readonly HashSet<Image> OnDeviceObjects = new HashSet<Image>();
+        public static void FreeDeviceAll()
+        {
+            Image[] Objects = OnDeviceObjects.ToArray();
+            foreach (var item in Objects)
+                item.FreeDevice();
+        }
         
         public int3 Dims;
         public int3 DimsFT => new int3(Dims.X / 2 + 1, Dims.Y, Dims.Z);
@@ -62,6 +70,10 @@ namespace Warp
                 if (_DeviceData == IntPtr.Zero)
                 {
                     _DeviceData = !IsHalf ? GPU.MallocDevice(ElementsReal) : GPU.MallocDeviceHalf(ElementsReal);
+
+                    lock (GlobalSync)
+                        OnDeviceObjects.Add(this);
+
                     GPU.OnMemoryChanged();
                 }
 
@@ -263,6 +275,9 @@ namespace Warp
                 }
 
                 IsDeviceDirty = true;
+
+                lock (GlobalSync)
+                    OnDeviceObjects.Add(this);
             }
             else
             {
@@ -531,13 +546,10 @@ namespace Warp
                     GPU.OnMemoryChanged();
                     _DeviceData = IntPtr.Zero;
                     IsDeviceDirty = false;
+
+                    lock (GlobalSync)
+                        OnDeviceObjects.Remove(this);
                 }
-                //if (_HostPinnedData != IntPtr.Zero)
-                //{
-                //    GPU.FreeHostPinned(HostPinnedData);
-                //    _HostPinnedData = IntPtr.Zero;
-                //    IsHostPinnedDirty = false;
-                //}
 
                 IsHostDirty = true;
             }
@@ -761,6 +773,9 @@ namespace Warp
                     GPU.OnMemoryChanged();
                     _DeviceData = IntPtr.Zero;
                     IsDeviceDirty = false;
+
+                    lock (GlobalSync)
+                        OnDeviceObjects.Remove(this);
                 }
 
                 if (_HostPinnedData != IntPtr.Zero)

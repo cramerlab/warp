@@ -803,6 +803,24 @@ namespace Warp.Tools
             return Result;
         }
 
+        public static void Fill<T>(T[] array, T value)
+        {
+            for (int i = 0; i < array.Length; i++)
+                array[i] = value;
+        }
+
+        public static T[] CopyOf<T>(T[] original, int nElements, T defaultValue)
+        {
+            T[] Copy = new T[nElements];
+            Array.Copy(original, 0, Copy, 0, Math.Min(nElements, original.Length));
+
+            if (nElements > original.Length)
+                for (int i = original.Length; i < nElements; i++)
+                    Copy[i] = defaultValue;
+
+            return Copy;
+        }
+
         public static T[] AsSorted<T>(T[] values)
         {
             List<T> ToSort = new List<T>(values);
@@ -878,9 +896,19 @@ namespace Warp.Tools
 
         public static string NormalizePath(string path)
         {
-            return Path.GetFullPath(new Uri(path).LocalPath)
+            return Path.GetFullPath(new Uri(new Uri(Environment.CurrentDirectory), path).LocalPath)
                        .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
                        .ToUpperInvariant();
+        }
+
+        public static string MakePathRelativeTo(string path, string relativeTo)
+        {
+            if (string.IsNullOrEmpty(path))
+                return path;
+            if (string.IsNullOrEmpty(relativeTo))
+                return path;
+
+            return new Uri(relativeTo).MakeRelativeUri(new Uri(path)).ToString();
         }
 
         private static object TimeSync = new object();

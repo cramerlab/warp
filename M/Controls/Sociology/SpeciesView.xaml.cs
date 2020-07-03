@@ -1,4 +1,6 @@
-﻿using System;
+﻿using M.Controls.Sociology.Dialogs;
+using MahApps.Metro.Controls.Dialogs;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -32,6 +34,62 @@ namespace M.Controls.Sociology
         public SpeciesView()
         {
             InitializeComponent();
+        }
+
+        private void ButtonParticles_Click(object sender, RoutedEventArgs e)
+        {
+            MenuParticles.IsOpen = true;
+        }
+
+        private async void AddParticles_Click(object sender, RoutedEventArgs e)
+        {
+            MainWindow Window = (MainWindow)Application.Current.MainWindow;
+            Species S = Species;
+
+            CustomDialog NewDialog = new CustomDialog();
+            NewDialog.HorizontalContentAlignment = HorizontalAlignment.Center;
+
+            DialogSpeciesParticleSets NewDialogContent = new DialogSpeciesParticleSets(Window.ActivePopulation, S);
+            NewDialogContent.Close += async () => await Window.HideMetroDialogAsync(NewDialog);
+
+            NewDialogContent.Add += async () =>
+            {
+                await Window.HideMetroDialogAsync(NewDialog);
+
+                var NewSpeciesProgress = await Window.ShowProgressAsync("Please wait while particle statistics are updated...",
+                                                                        "");
+                NewSpeciesProgress.SetIndeterminate();
+                
+                await Task.Run(() =>
+                {
+                    S.AddParticles(NewDialogContent.ParticlesFinal);
+
+                    S.CalculateParticleStats();
+
+                    S.Commit();
+                    S.Save();
+                });
+
+                await NewSpeciesProgress.CloseAsync();
+            };
+
+            NewDialog.Content = NewDialogContent;
+            await Window.ShowMetroDialogAsync(NewDialog);
+        }
+
+        private async void ExportSubtomo_Click(object sender, RoutedEventArgs e)
+        {
+            MainWindow Window = (MainWindow)Application.Current.MainWindow;
+            Species S = Species;
+
+            CustomDialog NewDialog = new CustomDialog();
+            NewDialog.HorizontalContentAlignment = HorizontalAlignment.Center;
+
+            DialogTomoParticleExport NewDialogContent = new DialogTomoParticleExport(Window.ActivePopulation, S);
+            NewDialogContent.Close += async () => await Window.HideMetroDialogAsync(NewDialog);
+            
+            NewDialog.Content = NewDialogContent;
+            await Window.ShowMetroDialogAsync(NewDialog);
         }
     }
 }

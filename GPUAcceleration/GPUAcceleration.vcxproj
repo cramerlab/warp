@@ -44,6 +44,7 @@
     <CudaCompile Include="CubeNet.cu" />
     <CudaCompile Include="CubicGPU.cu" />
     <CudaCompile Include="Deconv.cu" />
+    <CudaCompile Include="Defects.cu" />
     <CudaCompile Include="ParticleCTF.cu" />
     <CudaCompile Include="ParticleMultiBody.cu" />
     <CudaCompile Include="ParticleNMA.cu" />

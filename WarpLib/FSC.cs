@@ -1290,12 +1290,17 @@ namespace Warp
 
 
 
-        public static (float[] Scales, float3[] Bfactors) FitBFactors2D(Image corrAB, Image corrA2, Image corrB2, Image ctfWeights, float pixelSize, float lowResLimitAngstrom, bool doAnisotropy)
+        public static (float[] Scales, float3[] Bfactors) FitBFactors2D(Image corrAB, Image corrA2, Image corrB2, Image ctfWeights, float pixelSize, float lowResLimitAngstrom, bool doAnisotropy, int batchSize, Action<float> progressCallback)
         {
             int2 Dims = new int2(corrAB.Dims);
 
             int NItems = corrAB.Dims.Z;
             int FSCLength = corrAB.Dims.X / 2 + 1;
+
+            int BatchSize = Math.Min(NItems, batchSize);
+            int3 DimsBatch = new int3(Dims.X, Dims.Y, BatchSize);
+            int BatchStart = 0;
+            int BatchEnd = BatchSize;
 
             float[] ResultScales = Helper.ArrayOfConstant(1f, NItems);
             float3[] ResultBfactors = new float3[NItems];
@@ -1307,21 +1312,26 @@ namespace Warp
                 Amplitude = 1,
                 Cs = 0
             };
-            CTFStruct[] CTFStructs = new CTFStruct[NItems];
-            Image CTFSim = new Image(IntPtr.Zero, corrAB.Dims, true);
+            CTFStruct[] CTFStructs = new CTFStruct[BatchSize];
+            Image CTFSimBatch = new Image(IntPtr.Zero, DimsBatch, true);
 
             Image CTFCoords = CTF.GetCTFCoords(Dims.X, Dims.X);
 
+            Image CorrABBatch = new Image(IntPtr.Zero, DimsBatch, true);
+            Image CorrA2Batch = new Image(IntPtr.Zero, DimsBatch, true);
+            Image CorrB2Batch = new Image(IntPtr.Zero, DimsBatch, true);
+
+            Image CorrPremultBatch = new Image(IntPtr.Zero, DimsBatch, true);
+
             Image Diff = new Image(IntPtr.Zero, new int3(Dims), true);
-            Image CorrPremult = new Image(IntPtr.Zero, corrAB.Dims, true);
-            //Image CorrABReduced = new Image(IntPtr.Zero, new int3(Dims), true);
+            Image CorrABReduced = new Image(IntPtr.Zero, new int3(Dims), true);
             Image CorrA2Reduced = new Image(IntPtr.Zero, new int3(Dims), true);
             Image CorrB2Reduced = new Image(IntPtr.Zero, new int3(Dims), true);
 
-            Image FSCs = new Image(IntPtr.Zero, corrAB.Dims, true);
+            Image FSCsBatch = new Image(IntPtr.Zero, DimsBatch, true);
             Image FSCOverall = new Image(IntPtr.Zero, new int3(Dims), true);
 
-            float[] DiffPerParticle = new float[NItems];
+            float[] DiffPerParticle = new float[BatchSize];
 
             #region Set up low and high res limits
 
@@ -1347,107 +1357,136 @@ namespace Warp
 
             Action UpdateCTFSim = () =>
             {
-                for (int i = 0; i < NItems; i++)
+                int CurBatch = BatchEnd - BatchStart;
+
+                for (int i = 0; i < CurBatch; i++)
                 {
-                    CTFProto.Scale = (decimal)ResultScales[i];
-                    CTFProto.Bfactor = (decimal)ResultBfactors[i].X;
-                    CTFProto.BfactorDelta = (decimal)ResultBfactors[i].Y;
-                    CTFProto.BfactorAngle = (decimal)ResultBfactors[i].Z;
+                    CTFProto.Scale = (decimal)ResultScales[BatchStart + i];
+                    CTFProto.Bfactor = (decimal)ResultBfactors[BatchStart + i].X;
+                    CTFProto.BfactorDelta = (decimal)ResultBfactors[BatchStart + i].Y;
+                    CTFProto.BfactorAngle = (decimal)ResultBfactors[BatchStart + i].Z;
 
                     CTFStructs[i] = CTFProto.ToStruct();
                 }
 
-                GPU.CreateCTF(CTFSim.GetDevice(Intent.Write),
+                GPU.CreateCTF(CTFSimBatch.GetDevice(Intent.Write),
                               CTFCoords.GetDevice(Intent.Read),
                               IntPtr.Zero,
                               (uint)CTFCoords.ElementsSliceComplex,
                               CTFStructs,
                               false,
-                              (uint)NItems);
+                              (uint)CurBatch);
             };
 
             Action UpdateFSCOverall = () =>
             {
-                GPU.CopyDeviceToDevice(corrAB.GetDevice(Intent.Read), CorrPremult.GetDevice(Intent.Write), corrAB.ElementsReal);
-                CorrPremult.Multiply(CTFSim);
-                CorrPremult.Multiply(ctfWeights);
-                GPU.ReduceAdd(CorrPremult.GetDevice(Intent.Read),
-                              FSCOverall.GetDevice(Intent.Write),
-                              (uint)CorrPremult.ElementsSliceReal,
-                              (uint)NItems,
-                              1);
+                Image CorrA2Overall = new Image(CorrABReduced.Dims, true);
+                Image CorrB2Overall = new Image(CorrABReduced.Dims, true);
+                FSCOverall.Fill(0);
 
-                GPU.CopyDeviceToDevice(corrA2.GetDevice(Intent.Read), CorrPremult.GetDevice(Intent.Write), corrAB.ElementsReal);
-                CorrPremult.Multiply(CTFSim);
-                CorrPremult.Multiply(ctfWeights);
-                GPU.ReduceAdd(CorrPremult.GetDevice(Intent.Read),
-                              CorrA2Reduced.GetDevice(Intent.Write),
-                              (uint)CorrPremult.ElementsSliceReal,
-                              (uint)NItems,
-                              1);
+                for (int b = 0; b < NItems; b += BatchSize)
+                {
+                    int CurBatch = Math.Min(BatchSize, NItems - b);
+                    BatchStart = b;
+                    BatchEnd = b + CurBatch;
 
-                GPU.CopyDeviceToDevice(corrB2.GetDevice(Intent.Read), CorrPremult.GetDevice(Intent.Write), corrAB.ElementsReal);
-                CorrPremult.Multiply(CTFSim);
-                CorrPremult.Multiply(ctfWeights);
-                GPU.ReduceAdd(CorrPremult.GetDevice(Intent.Read),
-                              CorrB2Reduced.GetDevice(Intent.Write),
-                              (uint)CorrPremult.ElementsSliceReal,
-                              (uint)NItems,
-                              1);
+                    UpdateCTFSim();
 
-                CorrA2Reduced.Multiply(CorrB2Reduced);
-                CorrA2Reduced.Sqrt();
-                CorrA2Reduced.Max(1e-20f);
+                    for (int i = 0; i < CurBatch; i++)
+                    {
+                        CorrABBatch.GetHost(Intent.Write)[i] = corrAB.GetHost(Intent.Read)[b + i];
+                        CorrA2Batch.GetHost(Intent.Write)[i] = corrA2.GetHost(Intent.Read)[b + i];
+                        CorrB2Batch.GetHost(Intent.Write)[i] = corrB2.GetHost(Intent.Read)[b + i];
+                    }
 
-                FSCOverall.Divide(CorrA2Reduced);
+                    GPU.CopyDeviceToDevice(CorrABBatch.GetDevice(Intent.Read), CorrPremultBatch.GetDevice(Intent.Write), CorrABBatch.ElementsReal);
+                    CorrPremultBatch.Multiply(CTFSimBatch);
+                    //CorrPremultBatch.Multiply(ctfWeights);
+                    GPU.ReduceAdd(CorrPremultBatch.GetDevice(Intent.Read),
+                                  CorrABReduced.GetDevice(Intent.Write),
+                                  (uint)CorrPremultBatch.ElementsSliceReal,
+                                  (uint)CurBatch,
+                                  1);
+                    FSCOverall.Add(CorrABReduced);
+
+                    GPU.CopyDeviceToDevice(CorrA2Batch.GetDevice(Intent.Read), CorrPremultBatch.GetDevice(Intent.Write), CorrA2Batch.ElementsReal);
+                    CorrPremultBatch.Multiply(CTFSimBatch);
+                    //CorrPremultBatch.Multiply(ctfWeights);
+                    GPU.ReduceAdd(CorrPremultBatch.GetDevice(Intent.Read),
+                                  CorrA2Reduced.GetDevice(Intent.Write),
+                                  (uint)CorrPremultBatch.ElementsSliceReal,
+                                  (uint)CurBatch,
+                                  1);
+                    CorrA2Overall.Add(CorrA2Reduced);
+
+                    GPU.CopyDeviceToDevice(CorrB2Batch.GetDevice(Intent.Read), CorrPremultBatch.GetDevice(Intent.Write), CorrB2Batch.ElementsReal);
+                    CorrPremultBatch.Multiply(CTFSimBatch);
+                    //CorrPremultBatch.Multiply(ctfWeights);
+                    GPU.ReduceAdd(CorrPremultBatch.GetDevice(Intent.Read),
+                                  CorrB2Reduced.GetDevice(Intent.Write),
+                                  (uint)CorrPremultBatch.ElementsSliceReal,
+                                  (uint)CurBatch,
+                                  1);
+                    CorrB2Overall.Add(CorrB2Reduced);
+                }
+
+                CorrA2Overall.Multiply(CorrB2Overall);
+                CorrA2Overall.Sqrt();
+                CorrA2Overall.Max(1e-20f);
+
+                FSCOverall.Divide(CorrA2Overall);
+
+                CorrA2Overall.Dispose();
+                CorrB2Overall.Dispose();
             };
 
             Action UpdateFSCs = () =>
             {
-                GPU.MultiplySlices(corrA2.GetDevice(Intent.Read),
-                                   corrB2.GetDevice(Intent.Read),
-                                   CorrPremult.GetDevice(Intent.Write),
-                                   corrA2.ElementsReal,
+                GPU.MultiplySlices(CorrA2Batch.GetDevice(Intent.Read),
+                                   CorrB2Batch.GetDevice(Intent.Read),
+                                   CorrPremultBatch.GetDevice(Intent.Write),
+                                   CorrA2Batch.ElementsReal,
                                    1);
-                CorrPremult.Sqrt();
-                CorrPremult.Max(1e-20f);
+                CorrPremultBatch.Sqrt();
+                CorrPremultBatch.Max(1e-20f);
 
-                GPU.DivideSlices(corrAB.GetDevice(Intent.Read),
-                                 CorrPremult.GetDevice(Intent.Read),
-                                 FSCs.GetDevice(Intent.Write),
-                                 corrAB.ElementsReal,
+                GPU.DivideSlices(CorrABBatch.GetDevice(Intent.Read),
+                                 CorrPremultBatch.GetDevice(Intent.Read),
+                                 FSCsBatch.GetDevice(Intent.Write),
+                                 CorrABBatch.ElementsReal,
                                  1);
             };
 
             Func<double[], float[]> EvalIndividually = (input) =>
             {
-                for (int i = 0; i < NItems; i++)
+                int CurBatch = BatchEnd - BatchStart;
+
+                for (int i = 0; i < CurBatch; i++)
                 {
-                    ResultScales[i] = (float)Math.Exp(input[i * 4 + 0] * 0.1);
-                    ResultBfactors[i] = new float3((float)input[i * 4 + 1],
-                                                   doAnisotropy ? (float)input[i * 4 + 2] : 0,
-                                                   doAnisotropy ? (float)(input[i * 4 + 3] * 1) : 0);
+                    ResultScales[BatchStart + i] = (float)Math.Exp(input[i * 4 + 0] * 0.1);
+                    ResultBfactors[BatchStart + i] = new float3((float)input[i * 4 + 1],
+                                                                doAnisotropy ? (float)input[i * 4 + 2] : 0,
+                                                                doAnisotropy ? (float)(input[i * 4 + 3] * 1) : 0);
                 }
 
                 UpdateCTFSim();
-                //UpdateFSCOverall();
 
-                CTFSim.MultiplySlices(FSCOverall);
-                CTFSim.Subtract(FSCs);
-                CTFSim.Abs();
-                CTFSim.MultiplySlices(Mask);
+                CTFSimBatch.MultiplySlices(FSCOverall);
+                CTFSimBatch.Subtract(FSCsBatch);
+                CTFSimBatch.Abs();
+                CTFSimBatch.MultiplySlices(Mask);
 
-                GPU.ReduceAdd(CTFSim.GetDevice(Intent.Read),
-                              CorrPremult.GetDevice(Intent.Write),
+                GPU.ReduceAdd(CTFSimBatch.GetDevice(Intent.Read),
+                              CorrPremultBatch.GetDevice(Intent.Write),
                               1,
-                              (uint)CTFSim.ElementsSliceReal,
-                              (uint)NItems);
+                              (uint)CTFSimBatch.ElementsSliceReal,
+                              (uint)CurBatch);
 
-                GPU.CopyDeviceToHost(CorrPremult.GetDevice(Intent.Read),
+                GPU.CopyDeviceToHost(CorrPremultBatch.GetDevice(Intent.Read),
                                      DiffPerParticle,
-                                     NItems);
+                                     CurBatch);
 
-                return DiffPerParticle.ToArray();
+                return DiffPerParticle.Take(CurBatch).ToArray();
             };
 
             Func<double[], double> Eval = (input) =>
@@ -1457,36 +1496,38 @@ namespace Warp
                 foreach (var item in DiffData)
                     Result += item;
 
-                return Result * 10;
+                return Result * 5;
             };
 
             int NIterations = 0;
             Func<double[], double[]> Grad = (input) =>
             {
-                double Delta = 0.05;
+                double Delta = 0.025;
 
                 double[] Result = new double[input.Length];
 
-                float[] Scores0 = EvalIndividually(input);
-                Console.WriteLine($"{NIterations++}: {Scores0.Sum()}");
+                //float[] Scores0 = EvalIndividually(input);
+                //Console.WriteLine($"{NIterations++}: {Scores0.Sum()}");
 
                 double[] InputAltered = input.ToList().ToArray();
 
+                int CurBatch = BatchEnd - BatchStart;
+
                 foreach (int ii in (doAnisotropy ? new[] { 0, 1, 2, 3 } : new[] { 0, 1 }))
                 {
-                    for (int i = 0; i < NItems; i++)
+                    for (int i = 0; i < CurBatch; i++)
                         InputAltered[i * 4 + ii] = input[i * 4 + ii] + Delta;
 
                     float[] ScoresPlus = EvalIndividually(InputAltered);
 
-                    for (int i = 0; i < NItems; i++)
+                    for (int i = 0; i < CurBatch; i++)
                         InputAltered[i * 4 + ii] = input[i * 4 + ii] - Delta;
 
                     float[] ScoresMinus = EvalIndividually(InputAltered);
 
-                    for (int i = 0; i < NItems; i++)
+                    for (int i = 0; i < CurBatch; i++)
                     {
-                        Result[i * 4 + ii] = (ScoresPlus[i] - ScoresMinus[i]) / (Delta * 2) * 10;
+                        Result[i * 4 + ii] = (ScoresPlus[i] - ScoresMinus[i]) / (Delta * 2) * 5;
 
                         InputAltered[i * 4 + ii] = input[i * 4 + ii];
                     }
@@ -1495,30 +1536,54 @@ namespace Warp
                 return Result;
             };
 
-            UpdateFSCs();
             UpdateCTFSim();
             UpdateFSCOverall();
 
             FSCOverall.WriteMRC("d_fscoverall.mrc", true);
-            FSCs.WriteMRC("d_fscs.mrc", true);
 
-            double[] Params = new double[NItems * 4];
-            BroydenFletcherGoldfarbShanno Optimizer = new BroydenFletcherGoldfarbShanno(Params.Length, Eval, Grad);
+            int NEpochs = 3;
+            int NBatchesOverall = (NItems + BatchSize - 1) / BatchSize * NEpochs;
+            int BatchesDone = 0;
 
-            for (int i = 0; i < 5; i++)
+            for (int ioptim = 0; ioptim < NEpochs; ioptim++)
             {
-                Optimizer.Minimize(Params);
+                for (int b = 0; b < NItems; b += BatchSize)
+                {
+                    int CurBatch = Math.Min(BatchSize, NItems - b);
+                    BatchStart = b;
+                    BatchEnd = b + CurBatch;
+
+                    for (int i = 0; i < CurBatch; i++)
+                    {
+                        CorrABBatch.GetHost(Intent.Write)[i] = corrAB.GetHost(Intent.Read)[b + i];
+                        CorrA2Batch.GetHost(Intent.Write)[i] = corrA2.GetHost(Intent.Read)[b + i];
+                        CorrB2Batch.GetHost(Intent.Write)[i] = corrB2.GetHost(Intent.Read)[b + i];
+                    }
+
+                    UpdateFSCs();
+                    FSCsBatch.WriteMRC("d_fscs.mrc", true);
+
+                    double[] Params = new double[CurBatch * 4];
+                    BroydenFletcherGoldfarbShanno Optimizer = new BroydenFletcherGoldfarbShanno(Params.Length, Eval, Grad);
+
+                    Optimizer.Minimize(Params);
+                    NIterations = 0;
+
+                    if (progressCallback != null)
+                        progressCallback((++BatchesDone) / (float)NBatchesOverall);
+                }
+
                 UpdateFSCOverall();
-                NIterations = 0;
+                FSCOverall.WriteMRC($"d_fscoverall_{ioptim + 1}.mrc", true);
             }
 
-            CTFSim.Dispose();
+            CTFSimBatch.Dispose();
             CTFCoords.Dispose();
             Diff.Dispose();
-            CorrPremult.Dispose();
+            CorrPremultBatch.Dispose();
             CorrA2Reduced.Dispose();
             CorrB2Reduced.Dispose();
-            FSCs.Dispose();
+            FSCsBatch.Dispose();
             FSCOverall.Dispose();
             Mask.Dispose();
 
